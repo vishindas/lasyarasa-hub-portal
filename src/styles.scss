@@ -1,0 +1,824 @@
+@use '@angular/material' as mat;
+
+// ─── Base ──────────────────────────────────────────────────────────────────────
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  background: #f8f9fb;
+}
+
+app-root {
+  display: block;
+  height: 100%;
+}
+
+// ─── Material theme ────────────────────────────────────────────────────────────
+$primary-palette: mat.m2-define-palette(mat.$m2-indigo-palette, 700, 400, 900);
+$accent-palette:  mat.m2-define-palette(mat.$m2-amber-palette, A200, A100, A400);
+$warn-palette:    mat.m2-define-palette(mat.$m2-red-palette);
+
+$theme: mat.m2-define-light-theme((
+  color: (
+    primary: $primary-palette,
+    accent:  $accent-palette,
+    warn:    $warn-palette,
+  ),
+  typography: mat.m2-define-typography-config(),
+  density: 0,
+));
+
+@include mat.all-component-themes($theme);
+
+// ─── Layout ────────────────────────────────────────────────────────────────────
+.app-container {
+  height: 100%;
+
+  // Force mat-sidenav to fill height
+  .mat-drawer, .mat-sidenav {
+    background: transparent;
+    border: none;
+  }
+}
+
+.app-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.page-content {
+  flex: 1;
+  padding: 28px 32px;
+  background: #f8f9fb;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+// ─── Sidebar ───────────────────────────────────────────────────────────────────
+$sidebar-bg: #ffffff;
+$sidebar-text: #52596b;
+$sidebar-text-active: #3d4ed8;
+$sidebar-accent: #3d4ed8;
+
+.sidebar {
+  width: 240px;
+  height: 100%;
+  min-height: 100vh;
+  background: $sidebar-bg;
+  border-right: 1px solid #e8eaf0;
+  display: flex;
+  flex-direction: column;
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 20px 18px;
+    border-bottom: 1px solid #f0f1f5;
+
+    .brand-icon { font-size: 1.4rem; }
+    .brand-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1a1f36;
+      letter-spacing: 0.01em;
+    }
+  }
+
+  nav { flex: 1; padding: 8px 0; }
+
+  .nav-section-label {
+    padding: 20px 20px 6px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #adb5bd;
+  }
+
+  .mat-mdc-list-item {
+    color: $sidebar-text !important;
+    border-radius: 8px;
+    margin: 2px 10px;
+    height: 44px !important;
+    font-size: 0.875rem !important;
+    font-weight: 500;
+
+    .mat-icon { color: #9ba3b8 !important; font-size: 20px; }
+
+    &:hover {
+      background: #f4f5f9 !important;
+      color: #1a1f36 !important;
+      .mat-icon { color: #52596b !important; }
+    }
+
+    &.active, &.active-link, &.mdc-list-item--activated {
+      background: #eef0fb !important;
+      color: $sidebar-text-active !important;
+      font-weight: 600;
+      .mat-icon { color: $sidebar-accent !important; }
+    }
+  }
+}
+
+// ─── Topbar ────────────────────────────────────────────────────────────────────
+.topbar {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e9ecef !important;
+  color: #212529 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+  min-height: 56px !important;
+  padding: 0 24px !important;
+
+  .spacer { flex: 1 1 auto; }
+
+  .topbar-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #495057;
+  }
+}
+
+// ─── Page header ───────────────────────────────────────────────────────────────
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+
+  h2 { margin: 0; font-size: 1.4rem; font-weight: 600; color: #1a1f36; }
+  .page-subtitle { margin: 4px 0 0; font-size: 0.85rem; color: #6c757d; }
+}
+
+// ─── Cards & tables ────────────────────────────────────────────────────────────
+mat-card {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07) !important;
+  border: 1px solid #edf0f7 !important;
+}
+
+.full-width { width: 100%; }
+
+.text-truncate {
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.empty-table {
+  text-align: center;
+  padding: 48px 0;
+  color: #adb5bd;
+  font-size: 0.9rem;
+}
+
+// ─── Dashboard stats ───────────────────────────────────────────────────────────
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  mat-card-content {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 24px !important;
+  }
+
+  .stat-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef2ff;
+    flex-shrink: 0;
+
+    mat-icon { color: #4f63d2; font-size: 26px; width: 26px; height: 26px; }
+
+    &.blue   { background: #e8f4fd; mat-icon { color: #1976d2; } }
+    &.amber  { background: #fff8e1; mat-icon { color: #f59e0b; } }
+    &.green  { background: #e8f5e9; mat-icon { color: #2e7d32; } }
+  }
+
+  .stat-info {
+    .stat-label { font-size: 0.8rem; color: #6c757d; margin: 0 0 4px; display: block; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: #1a1f36; margin: 0; line-height: 1; }
+  }
+}
+
+// ─── Status chips ──────────────────────────────────────────────────────────────
+.status-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  &.status-active      { background: #d1fae5; color: #065f46; }
+  &.status-inactive    { background: #f1f5f9; color: #64748b; }
+  &.status-on_hold     { background: #fef3c7; color: #92400e; }
+  &.status-on_break    { background: #fef3c7; color: #92400e; }
+  &.status-pending     { background: #fef3c7; color: #92400e; }
+  &.status-paid        { background: #d1fae5; color: #065f46; }
+  &.status-overdue     { background: #fee2e2; color: #991b1b; }
+  &.status-completed   { background: #e0f2fe; color: #0369a1; }
+  &.status-dropped     { background: #f1f5f9; color: #64748b; }
+}
+
+// ─── Dialog ────────────────────────────────────────────────────────────────────
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  min-width: 400px;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-section-label {
+  margin: 8px 0 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #6c757d;
+}
+
+.form-section-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8rem;
+  color: #adb5bd;
+}
+
+.form-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.form-row-2-with-action {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.guardian-card {
+  border: 1px solid #e8eaf0;
+  border-radius: 10px;
+  padding: 12px 16px 4px;
+  margin-bottom: 12px;
+  background: #fafbfc;
+}
+
+.guardian-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.guardian-primary-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #6c757d;
+}
+
+.guardian-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.star-icon {
+  font-size: 15px !important;
+  width: 15px !important;
+  height: 15px !important;
+  color: #3d4ed8;
+}
+
+.empty-hint {
+  font-size: 0.82rem;
+  color: #adb5bd;
+  margin: 0;
+  padding: 8px 0;
+}
+
+// ─── Column drag & drop ────────────────────────────────────────────────────────
+
+// Hide the real mat-table header row — it exists only to let Angular render
+// column defs; the chip bar above is the visible header.
+.col-measure-row {
+  visibility: hidden !important;
+  height: 0 !important;
+  line-height: 0 !important;
+
+  th { padding-top: 0 !important; padding-bottom: 0 !important; border: none !important; }
+}
+
+// Chip bar: sits above the mat-table inside the same mat-card
+.col-header-bar {
+  display: flex;
+  align-items: stretch;
+  background: #f8f9fb;
+  border-bottom: 1px solid #e8eaf0;
+  user-select: none;
+  min-height: 40px;
+}
+
+.col-header-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6c757d;
+  cursor: grab;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+
+  &:hover {
+    background: #eef0fb;
+    color: #3d4ed8;
+    .col-drag-icon { color: #7986cb; opacity: 1; }
+  }
+
+  &.col-header-actions { cursor: default; }
+
+  .col-drag-icon {
+    font-size: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    flex-shrink: 0;
+    color: #ced4da;
+    opacity: 0.5;
+    transition: opacity 120ms, color 120ms;
+  }
+}
+
+// While dragging: placeholder slot
+.col-header-cell.cdk-drag-placeholder {
+  background: #eef0fb;
+  opacity: 0.4;
+  border: 1px dashed #7986cb;
+}
+
+// Animate siblings during drag
+.cdk-drop-list-dragging .col-header-cell:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+// Preview ghost that follows the cursor
+.col-header-cell.cdk-drag-preview {
+  background: #fff;
+  border: 1px solid #3d4ed8;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(61, 78, 216, 0.2);
+  color: #3d4ed8;
+  opacity: 0.95;
+  cursor: grabbing;
+  .col-drag-icon { color: #3d4ed8; opacity: 1; }
+}
+
+// ── Table filter bar ──────────────────────────────────────────────────────────
+.table-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px 0;
+  flex-wrap: wrap;
+
+  .filter-search {
+    flex: 0 0 280px;
+    .mat-mdc-form-field-subscript-wrapper { display: none; }
+    .mat-mdc-text-field-wrapper { height: 40px; }
+  }
+
+  .status-filter-group {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+  }
+
+  .status-filter-btn {
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    padding: 0 12px !important;
+    height: 32px !important;
+    min-width: 0 !important;
+    border-radius: 16px !important;
+    color: #6c757d !important;
+
+    &.active {
+      background: #eef0fb !important;
+      color: #3d4ed8 !important;
+    }
+
+    &:hover:not(.active) { background: #f4f5f9 !important; }
+  }
+}
+
+// ── Sort trigger inside chip ───────────────────────────────────────────────────
+.col-sort-trigger {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.col-sort-icon {
+  font-size: 13px !important;
+  width: 13px !important;
+  height: 13px !important;
+  flex-shrink: 0;
+  color: #3d4ed8;
+}
+
+.col-header-cell.col-sorted {
+  color: #3d4ed8;
+  background: #eef0fb;
+}
+
+// ── View mode toggle (List / Monthly) ────────────────────────────────────────
+.view-mode-toggle {
+  height: 36px;
+  border-radius: 8px !important;
+  overflow: hidden;
+
+  .mat-button-toggle {
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+
+    mat-icon {
+      font-size: 18px !important;
+      width: 18px !important;
+      height: 18px !important;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+  }
+
+  .mat-button-toggle-checked {
+    background: #eef0fb !important;
+    color: #3d4ed8 !important;
+    font-weight: 600 !important;
+  }
+}
+
+// ── Monthly paused notice ──────────────────────────────────────────────────────
+.monthly-paused-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+  font-size: 0.82rem;
+  color: #78350f;
+
+  mat-icon {
+    font-size: 17px !important;
+    width: 17px !important;
+    height: 17px !important;
+    color: #d97706;
+    flex-shrink: 0;
+  }
+
+  button { margin-left: auto; font-size: 0.8rem; }
+}
+
+// ── Month group header row ─────────────────────────────────────────────────────
+.month-header-row {
+  background: #f4f5fb !important;
+
+  &:hover { background: #eceef9 !important; }
+
+  td { padding: 0 !important; border-bottom: 2px solid #e0e4f7 !important; }
+}
+
+.month-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  user-select: none;
+
+  .month-expand-icon {
+    color: #5c6bc0;
+    font-size: 22px !important;
+    width: 22px !important;
+    height: 22px !important;
+    flex-shrink: 0;
+  }
+
+  .month-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1a1f36;
+    flex-shrink: 0;
+  }
+
+  .month-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #6c757d;
+    flex-wrap: wrap;
+  }
+
+  .month-count    { }
+  .month-separator { color: #ced4da; }
+  .month-total    { font-weight: 600; color: #1a1f36; }
+  .month-paid     { color: #2e7d32; font-weight: 500; }
+
+  .month-overdue-badge {
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 1px 8px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+}
+
+// ── Students table fixed column widths ────────────────────────────────────────
+.student-table {
+  table-layout: fixed;
+  .mat-column-name       { width: 28%; }
+  .mat-column-ageGroup   { width: 16%; }
+  .mat-column-phone      { width: 17%; }
+  .mat-column-joinedDate { width: 17%; }
+  .mat-column-status     { width: 13%; }
+  .mat-column-actions    { width:  9%; }
+}
+
+// ── Fees table fixed column widths ────────────────────────────────────────────
+.fee-table {
+  table-layout: fixed;
+  .mat-column-student  { width: 14%; }
+  .mat-column-feeTier  { width: 19%; }
+  .mat-column-amount   { width:  9%; }
+  .mat-column-dueDate  { width: 12%; }
+  .mat-column-paidAt   { width: 12%; }
+  .mat-column-status   { width: 11%; }
+  .mat-column-paidBy   { width: 10%; }
+  .mat-column-actions  { width: 13%; }
+}
+
+// ── Invoice page ──────────────────────────────────────────────────────────────
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.invoice-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 16px;
+}
+
+.invoice-preview-card {
+  padding: 0 !important;
+  overflow: hidden;
+
+  .preview-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 16px 16px 12px;
+    background: #f4f5fb;
+    border-bottom: 1px solid #e8eaf0;
+  }
+
+  .preview-payer { display: flex; flex-direction: column; gap: 2px; }
+  .preview-payer-name { font-weight: 700; font-size: 0.95rem; color: #1a1f36; }
+  .preview-payer-email { font-size: 0.8rem; color: #6c757d; }
+  .preview-no-email { font-size: 0.78rem; color: #b45309; display: flex; align-items: center; gap: 3px; }
+
+  .preview-total {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #3d4ed8;
+    white-space: nowrap;
+  }
+
+  .preview-students { padding: 12px 16px; }
+
+  .preview-student-block {
+    margin-bottom: 10px;
+    &:last-child { margin-bottom: 0; }
+  }
+
+  .preview-student-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  .preview-fee-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #1a1f36;
+    padding: 2px 0;
+
+    .preview-fee-desc { flex: 1; }
+    .preview-fee-amount { font-weight: 600; white-space: nowrap; }
+  }
+
+  .preview-subtotal {
+    text-align: right;
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid #e8eaf0;
+  }
+
+  .preview-card-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #e8eaf0;
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+.empty-invoice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px !important;
+  color: #adb5bd;
+
+  mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 12px; }
+  p { margin: 0; font-size: 0.95rem; }
+}
+
+// ── Select-to-invoice tab ─────────────────────────────────────────────────────
+.select-invoice-card {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.select-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e8eaf0;
+  background: #f8f9ff;
+  gap: 16px;
+}
+
+.select-action-left { display: flex; align-items: center; }
+
+.select-action-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.select-summary {
+  font-size: 0.85rem;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.select-hint {
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+.select-invoice-table {
+  width: 100%;
+  .mat-column-select     { width: 48px; padding-left: 16px !important; }
+  .mat-column-payerName  { width: 22%; }
+  .mat-column-payerEmail { width: 28%; }
+  .mat-column-students   { width: 35%; }
+  .mat-column-grandTotal { width: 15%; padding-right: 16px !important; }
+}
+
+.select-invoice-row {
+  cursor: pointer;
+  transition: background 0.12s;
+
+  &:hover { background: #f4f5fb !important; }
+  &.selected-row { background: #eef0ff !important; }
+}
+
+// ─── Mobile responsive ─────────────────────────────────────────────────────────
+@media (max-width: 768px) {
+  .page-content {
+    padding: 16px;
+  }
+
+  .page-header {
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .dialog-form {
+    min-width: unset;
+    width: 100%;
+  }
+
+  .form-row-2, .form-row-2-with-action {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .mat-mdc-dialog-container {
+    max-width: 95vw !important;
+    margin: 8px !important;
+  }
+}
+
+// ─── Login page ────────────────────────────────────────────────────────────────
+.login-page {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1f36 0%, #2d3a6e 100%);
+
+  .login-card {
+    width: 400px;
+    padding: 24px;
+    border-radius: 16px !important;
+
+    .login-logo {
+      text-align: center;
+      margin-bottom: 20px;
+      h1 { margin: 0; font-size: 1.5rem; font-weight: 700; color: #1a1f36; }
+      p  { margin: 6px 0 0; font-size: 0.85rem; color: #6c757d; }
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .login-btn {
+        margin-top: 12px;
+        height: 46px;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+<div class="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-icon">🪷</span>
+    <span class="brand-name">LasyaRasa</span>
+  </div>
+
+  <nav>
+    <mat-nav-list>
+      @for (item of commonNav; track item.route) {
+        <a mat-list-item [routerLink]="item.route" routerLinkActive="active">
+          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+          <span matListItemTitle>{{ item.label }}</span>
+        </a>
+      }
+
+      @if (verticalLabel) {
+        <div class="nav-section-label">{{ verticalLabel }}</div>
+        @for (item of verticalNav; track item.route) {
+          <a mat-list-item [routerLink]="item.route" routerLinkActive="active">
+            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+            <span matListItemTitle>{{ item.label }}</span>
+          </a>
+        }
+      }
+
+      <div class="nav-section-label">Settings</div>
+      @for (item of settingsNav; track item.route) {
+        <a mat-list-item [routerLink]="item.route" routerLinkActive="active">
+          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+          <span matListItemTitle>{{ item.label }}</span>
+        </a>
+      }
+    </mat-nav-list>
+  </nav>
+</div>

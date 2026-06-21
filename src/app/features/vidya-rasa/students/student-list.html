@@ -1,0 +1,76 @@
+<div class="page-header">
+  <div>
+    <h2>Students</h2>
+    <p class="page-subtitle">{{ students().length }} student{{ students().length !== 1 ? 's' : '' }} enrolled</p>
+  </div>
+  <button mat-flat-button color="primary" (click)="openForm()">
+    <mat-icon>add</mat-icon> Add Student
+  </button>
+</div>
+
+<mat-card>
+  <!-- Chip bar acts as the column header. Widths match table column CSS widths exactly. -->
+  <div class="col-header-bar"
+       cdkDropList cdkDropListOrientation="horizontal"
+       (cdkDropListDropped)="dropColumn($event)">
+    @for (col of draggableColumns(); track col.key) {
+      <div cdkDrag class="col-header-cell" [style.width]="col.width">
+        <mat-icon class="col-drag-icon">drag_indicator</mat-icon>
+        {{ col.label }}
+      </div>
+    }
+    <div class="col-header-cell col-header-actions" style="width:9%"></div>
+  </div>
+
+  <table mat-table [dataSource]="students()" class="full-width student-table">
+
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let s"><strong>{{ s.firstName }} {{ s.lastName }}</strong></td>
+    </ng-container>
+
+    <ng-container matColumnDef="ageGroup">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let s">{{ s.ageGroupLabel || '—' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="phone">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let s">{{ s.phone || '—' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="joinedDate">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let s">{{ s.joinedDate ? (s.joinedDate | date:'mediumDate') : '—' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let s">
+        <span class="status-chip" [class]="'status-' + s.enrollmentStatus?.toLowerCase()">
+          {{ s.enrollmentStatus | titlecase }}
+        </span>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let s">
+        <button mat-icon-button (click)="$event.stopPropagation(); openForm(s)" title="Edit"><mat-icon>edit</mat-icon></button>
+        <button mat-icon-button color="warn" (click)="$event.stopPropagation(); delete(s.id!)" title="Delete"><mat-icon>delete</mat-icon></button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns()" class="col-measure-row"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns();"
+        style="cursor:pointer" (click)="viewProfile(row.id)"></tr>
+
+    @if (students().length === 0) {
+      <tr class="mat-row">
+        <td [colSpan]="displayedColumns().length" class="empty-table">
+          No students yet. Click "Add Student" to get started.
+        </td>
+      </tr>
+    }
+  </table>
+</mat-card>

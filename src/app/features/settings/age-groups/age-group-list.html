@@ -1,0 +1,63 @@
+<div class="page-header">
+  <div>
+    <h2>Age Groups</h2>
+    <p class="page-subtitle">Define age brackets for fee tier assignments</p>
+  </div>
+  <button mat-flat-button color="primary" (click)="openForm()">
+    <mat-icon>add</mat-icon> Add Age Group
+  </button>
+</div>
+
+<mat-card>
+  <table mat-table [dataSource]="groups()" class="full-width">
+
+    <ng-container matColumnDef="label">
+      <th mat-header-cell *matHeaderCellDef>Group Name</th>
+      <td mat-cell *matCellDef="let g"><strong>{{ g.label }}</strong></td>
+    </ng-container>
+
+    <ng-container matColumnDef="ageRange">
+      <th mat-header-cell *matHeaderCellDef>Age Range</th>
+      <td mat-cell *matCellDef="let g">
+        @if (g.minAge != null || g.maxAge != null) {
+          {{ g.minAge ?? '—' }} – {{ g.maxAge ?? '—' }} yrs
+        } @else {
+          Any age
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="sortOrder">
+      <th mat-header-cell *matHeaderCellDef>Order</th>
+      <td mat-cell *matCellDef="let g">{{ g.sortOrder }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="active">
+      <th mat-header-cell *matHeaderCellDef>Status</th>
+      <td mat-cell *matCellDef="let g">
+        <span class="status-chip" [class]="g.active ? 'status-active' : 'status-inactive'">
+          {{ g.active ? 'Active' : 'Inactive' }}
+        </span>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let g">
+        <button mat-icon-button (click)="openForm(g)" title="Edit"><mat-icon>edit</mat-icon></button>
+        <button mat-icon-button color="warn" (click)="delete(g.id)" title="Deactivate"><mat-icon>block</mat-icon></button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+    @if (groups().length === 0) {
+      <tr class="mat-row">
+        <td [colSpan]="displayedColumns.length" class="empty-table">
+          No age groups yet. Add groups like "Young Kids", "Teens", "Adults".
+        </td>
+      </tr>
+    }
+  </table>
+</mat-card>

@@ -1,0 +1,36 @@
+<div class="page-header">
+  <h2>Welcome back, {{ auth.currentUser()?.email }}</h2>
+  <p class="page-subtitle">Here's what's happening at your school today.</p>
+</div>
+
+<div class="stats-grid">
+  <mat-card class="stat-card">
+    <mat-card-content>
+      <div class="stat-icon purple"><mat-icon>people</mat-icon></div>
+      <div class="stat-info">
+        <span class="stat-value">{{ studentCount() }}</span>
+        <span class="stat-label">Total Students</span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card">
+    <mat-card-content>
+      <div class="stat-icon blue"><mat-icon>class</mat-icon></div>
+      <div class="stat-info">
+        <span class="stat-value">{{ classCount() }}</span>
+        <span class="stat-label">Active Classes</span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card">
+    <mat-card-content>
+      <div class="stat-icon amber"><mat-icon>payments</mat-icon></div>
+      <div class="stat-info">
+        <span class="stat-value">{{ pendingFees() }}</span>
+        <span class="stat-label">Pending Fees</span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

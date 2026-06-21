@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head><title>Mock Login</title></head>
+<body>
+<script>
+  const user = { email: 'admin@lasyarasa.com', role: 'SCHOOL_ADMIN', providerId: 1 };
+  localStorage.setItem('lr_token', 'mock-jwt-token-for-local-preview');
+  localStorage.setItem('lr_user', JSON.stringify(user));
+  window.location.href = 'http://localhost:4201/dashboard';
+</script>
+<p>Injecting mock session and redirecting to dashboard...</p>
+</body>
+</html>

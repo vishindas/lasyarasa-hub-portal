@@ -1,0 +1,192 @@
+<div class="page-header">
+  <div>
+    <h2>Fees</h2>
+    <p class="page-subtitle">
+      @if (filtersActive()) {
+        {{ viewFees().length }} of {{ fees().length }} records
+      } @else {
+        {{ fees().length }} records
+      }
+    </p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <mat-button-toggle-group class="view-mode-toggle" [value]="viewMode()" (change)="viewMode.set($event.value)">
+      <mat-button-toggle value="flat">
+        <mat-icon>view_list</mat-icon> List
+      </mat-button-toggle>
+      <mat-button-toggle value="monthly">
+        <mat-icon>calendar_view_month</mat-icon> Monthly
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+    <button mat-stroked-button color="primary" (click)="openGenerate()">
+      <mat-icon>auto_awesome</mat-icon> Generate Monthly Fees
+    </button>
+    <button mat-flat-button color="primary" (click)="openForm()">
+      <mat-icon>add</mat-icon> Add Fee
+    </button>
+  </div>
+</div>
+
+<mat-card>
+  <!-- Filter bar -->
+  <div class="table-filter-bar">
+    <mat-form-field appearance="outline" class="filter-search">
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput placeholder="Search student, tier, status…"
+             [value]="filterText()"
+             (input)="filterText.set($any($event.target).value)">
+      @if (filterText()) {
+        <button matSuffix mat-icon-button (click)="filterText.set('')" aria-label="Clear">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
+    </mat-form-field>
+
+    <div class="status-filter-group">
+      <button mat-button class="status-filter-btn"
+              [class.active]="statusFilter() === ''"
+              (click)="statusFilter.set('')">All</button>
+      @for (s of statusOptions; track s) {
+        <button mat-button class="status-filter-btn"
+                [class.active]="statusFilter() === s"
+                (click)="statusFilter.set(s)">{{ s | titlecase }}</button>
+      }
+    </div>
+  </div>
+
+  <!-- Notice: monthly view suspended while filters are active -->
+  @if (viewMode() === 'monthly' && filtersActive()) {
+    <div class="monthly-paused-notice">
+      <mat-icon>info_outline</mat-icon>
+      Monthly grouping paused — showing all {{ viewFees().length }} matches across all months.
+      <button mat-button color="primary" (click)="clearFilters()">Clear filters</button>
+    </div>
+  }
+
+  <!-- Chip bar: drag to reorder, click label to sort -->
+  <div class="col-header-bar"
+       cdkDropList cdkDropListOrientation="horizontal"
+       (cdkDropListDropped)="dropColumn($event)">
+    @for (col of draggableColumns(); track col.key) {
+      <div cdkDrag class="col-header-cell" [class.col-sorted]="col.sorted" [style.width]="col.width">
+        <mat-icon cdkDragHandle class="col-drag-icon">drag_indicator</mat-icon>
+        <span class="col-sort-trigger" (click)="toggleSort(col.key)">
+          {{ col.label }}
+          @if (col.sorted) {
+            <mat-icon class="col-sort-icon">{{ col.sorted === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+          }
+        </span>
+      </div>
+    }
+    <div class="col-header-cell col-header-actions" style="width:13%"></div>
+  </div>
+
+  <table mat-table [dataSource]="tableRows()" class="full-width fee-table">
+
+    <!-- Month group header row — spans all columns, shows summary + expand/collapse -->
+    <ng-container matColumnDef="monthHeader">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let row" [attr.colspan]="displayedColumns().length" style="padding:0;border:none">
+        <div class="month-group-header" (click)="toggleMonth(row.key)">
+          <mat-icon class="month-expand-icon">
+            {{ expandedMonths().has(row.key) ? 'keyboard_arrow_down' : 'keyboard_arrow_right' }}
+          </mat-icon>
+          <span class="month-name">{{ row.label }}</span>
+          <div class="month-stats">
+            <span class="month-count">{{ row.count }} fees</span>
+            <span class="month-separator">·</span>
+            <span class="month-total">₹{{ row.total | number:'1.0-0' }} total</span>
+            <span class="month-separator">·</span>
+            <span class="month-paid">₹{{ row.paid | number:'1.0-0' }} paid</span>
+            @if (row.overdue > 0) {
+              <span class="month-overdue-badge">{{ row.overdue }} overdue</span>
+            }
+          </div>
+        </div>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="student">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let f">{{ f.studentName || f.studentId }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="feeTier">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let f">
+        <span>{{ f.feeTierLabel || '—' }}</span>
+        @if (f.feeTiers?.length > 1) {
+          <button mat-button [matMenuTriggerFor]="tierMenu"
+                  style="font-size:0.72rem;min-width:auto;padding:0 6px;line-height:20px;
+                         vertical-align:middle;color:#3d4ed8;font-weight:600">
+            +{{ f.feeTiers.length - 1 }}
+          </button>
+          <mat-menu #tierMenu="matMenu">
+            @for (t of f.feeTiers; track t.tierId) {
+              <div mat-menu-item style="font-size:0.85rem;display:flex;justify-content:space-between;gap:32px">
+                <span>{{ t.tierLabel }}</span>
+                <span style="color:#6c757d">₹{{ t.amount }}</span>
+              </div>
+            }
+          </mat-menu>
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="amount">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let f">₹{{ f.amount | number:'1.0-0' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="dueDate">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let f">{{ f.dueDate | date:'mediumDate' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="paidAt">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let f">{{ f.paidAt ? (f.paidAt | date:'mediumDate') : '—' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let f">
+        <span class="status-chip" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="paidBy">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let f">{{ f.paidBy || '—' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let f">
+        @if (f.status !== 'PAID') {
+          <button mat-icon-button color="primary" (click)="markPaid(f)" title="Mark Paid">
+            <mat-icon>check_circle</mat-icon>
+          </button>
+        }
+        <button mat-icon-button (click)="openForm(f)" title="Edit"><mat-icon>edit</mat-icon></button>
+        <button mat-icon-button color="warn" (click)="delete(f.id)" title="Delete"><mat-icon>delete</mat-icon></button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns()" class="col-measure-row"></tr>
+    <tr mat-row *matRowDef="let row; columns: ['monthHeader']; when: isMonthHeader" class="month-header-row"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns(); when: isFeeRow"></tr>
+
+    @if (viewFees().length === 0) {
+      <tr class="mat-row">
+        <td [colSpan]="displayedColumns().length" class="empty-table">
+          @if (filtersActive()) {
+            No records match your filter.
+          } @else {
+            No fee records yet.
+          }
+        </td>
+      </tr>
+    }
+  </table>
+</mat-card>

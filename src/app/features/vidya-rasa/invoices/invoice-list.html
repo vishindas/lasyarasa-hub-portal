@@ -1,0 +1,263 @@
+<div class="page-header">
+  <div>
+    <h2>Invoices</h2>
+    <p class="page-subtitle">
+      @if (tab() === 'ready') {
+        {{ readyCount() }} payer{{ readyCount() !== 1 ? 's' : '' }} with uninvoiced fees
+      } @else if (tab() === 'select') {
+        {{ selected().size }} of {{ invoiceable().length }} selected
+      } @else {
+        {{ invoices().length }} invoice{{ invoices().length !== 1 ? 's' : '' }} generated
+      }
+    </p>
+  </div>
+  @if (tab() === 'ready' && invoiceable().length > 0) {
+    <button mat-flat-button color="primary" class="generate-all-btn" (click)="generateAll()">
+      <mat-icon>receipt_long</mat-icon>
+      Generate All ({{ invoiceable().length }})
+    </button>
+  }
+  @if (tab() === 'select' && selected().size > 0) {
+    <button mat-flat-button color="primary" (click)="generateSelected()">
+      <mat-icon>receipt_long</mat-icon>
+      Generate Selected ({{ selected().size }})
+    </button>
+  }
+</div>
+
+<mat-button-toggle-group class="view-mode-toggle" style="margin-bottom:20px"
+    [value]="tab()" (change)="tab.set($event.value)">
+  <mat-button-toggle value="ready">
+    <mat-icon>receipt_long</mat-icon> Ready to Invoice
+    @if (readyCount() > 0) {
+      <span class="tab-badge">{{ readyCount() }}</span>
+    }
+  </mat-button-toggle>
+  <mat-button-toggle value="select">
+    <mat-icon>checklist</mat-icon> Select to Invoice
+    @if (invoiceable().length > 0) {
+      <span class="tab-badge" [style.background]="selected().size > 0 ? '#3d4ed8' : '#9ca3af'">
+        {{ selected().size > 0 ? selected().size : invoiceable().length }}
+      </span>
+    }
+  </mat-button-toggle>
+  <mat-button-toggle value="history">
+    <mat-icon>history</mat-icon> Invoice History
+  </mat-button-toggle>
+</mat-button-toggle-group>
+
+<!-- ── Ready to Invoice ─────────────────────────────────────────────────────── -->
+@if (tab() === 'ready') {
+  @if (loading()) {
+    <div style="display:flex;justify-content:center;padding:48px">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+  } @else if (previews().length === 0) {
+    <mat-card class="empty-invoice-card">
+      <mat-icon>check_circle</mat-icon>
+      <p>All fees are invoiced. Nothing pending.</p>
+    </mat-card>
+  } @else {
+    <div class="invoice-preview-grid">
+      @for (preview of previews(); track preview.guardianId ?? preview.payerName) {
+        <mat-card class="invoice-preview-card">
+          <div class="preview-card-header">
+            <div class="preview-payer">
+              <span class="preview-payer-name">{{ preview.payerName }}</span>
+              @if (preview.payerEmail) {
+                <span class="preview-payer-email">{{ preview.payerEmail }}</span>
+              } @else {
+                <span class="preview-no-email">
+                  <mat-icon style="font-size:14px;width:14px;height:14px;vertical-align:middle">warning</mat-icon>
+                  No email — download only
+                </span>
+              }
+            </div>
+            <div class="preview-total">₹{{ preview.grandTotal | number:'1.0-0' }}</div>
+          </div>
+
+          <div class="preview-students">
+            @for (sg of preview.students; track sg.studentId) {
+              <div class="preview-student-block">
+                <div class="preview-student-name">{{ sg.studentName }}</div>
+                @for (fee of sg.fees; track fee.feeId) {
+                  <div class="preview-fee-row">
+                    <span class="preview-fee-desc">{{ fee.description }}</span>
+                    <span class="preview-fee-status status-chip"
+                          [class]="'status-' + fee.status.toLowerCase()">{{ fee.status }}</span>
+                    <span class="preview-fee-amount">₹{{ fee.amount | number:'1.0-0' }}</span>
+                  </div>
+                }
+                @if (preview.students.length > 1) {
+                  <div class="preview-subtotal">Subtotal ₹{{ sg.subtotal | number:'1.0-0' }}</div>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="preview-card-footer">
+            <button mat-flat-button color="primary" (click)="generate(preview)"
+                    [disabled]="!preview.guardianId">
+              <mat-icon>receipt_long</mat-icon>
+              Generate Invoice
+            </button>
+          </div>
+        </mat-card>
+      }
+    </div>
+  }
+}
+
+<!-- ── Select to Invoice ─────────────────────────────────────────────────────── -->
+@if (tab() === 'select') {
+  @if (invoiceable().length === 0) {
+    <mat-card class="empty-invoice-card">
+      <mat-icon>check_circle</mat-icon>
+      <p>All fees are invoiced. Nothing pending.</p>
+    </mat-card>
+  } @else {
+    <mat-card class="select-invoice-card">
+
+      <!-- action bar -->
+      <div class="select-action-bar">
+        <div class="select-action-left">
+          <mat-checkbox
+            [checked]="allSelected()"
+            [indeterminate]="someSelected()"
+            (change)="toggleAll()">
+            {{ allSelected() ? 'Deselect All' : 'Select All' }}
+          </mat-checkbox>
+        </div>
+        <div class="select-action-right">
+          @if (selected().size > 0) {
+            <span class="select-summary">
+              {{ selected().size }} payer{{ selected().size !== 1 ? 's' : '' }} selected
+              &nbsp;·&nbsp;
+              ₹{{ selectedTotal() | number:'1.0-0' }} total
+            </span>
+            <button mat-flat-button color="primary" (click)="generateSelected()">
+              <mat-icon>receipt_long</mat-icon>
+              Generate Selected ({{ selected().size }})
+            </button>
+          } @else {
+            <span class="select-hint">Select rows to generate invoices</span>
+          }
+        </div>
+      </div>
+
+      <table mat-table [dataSource]="invoiceable()" class="select-invoice-table">
+
+        <ng-container matColumnDef="select">
+          <th mat-header-cell *matHeaderCellDef style="width:48px"></th>
+          <td mat-cell *matCellDef="let row" style="width:48px">
+            <mat-checkbox [checked]="isSelected(row)" (change)="toggleRow(row)"
+                          (click)="$event.stopPropagation()"></mat-checkbox>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="payerName">
+          <th mat-header-cell *matHeaderCellDef>Payer</th>
+          <td mat-cell *matCellDef="let row">
+            <strong>{{ row.payerName }}</strong>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="payerEmail">
+          <th mat-header-cell *matHeaderCellDef>Email</th>
+          <td mat-cell *matCellDef="let row">
+            @if (row.payerEmail) {
+              {{ row.payerEmail }}
+            } @else {
+              <span style="color:#b45309;font-size:0.8rem">
+                <mat-icon style="font-size:13px;width:13px;height:13px;vertical-align:middle">warning</mat-icon>
+                No email
+              </span>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="students">
+          <th mat-header-cell *matHeaderCellDef>Students</th>
+          <td mat-cell *matCellDef="let row" style="color:#6c757d;font-size:0.85rem">
+            {{ studentNames(row) }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="grandTotal">
+          <th mat-header-cell *matHeaderCellDef style="text-align:right">Amount</th>
+          <td mat-cell *matCellDef="let row" style="text-align:right;font-weight:700;color:#3d4ed8">
+            ₹{{ row.grandTotal | number:'1.0-0' }}
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="selectColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: selectColumns;"
+            class="select-invoice-row"
+            [class.selected-row]="isSelected(row)"
+            (click)="toggleRow(row)"></tr>
+      </table>
+    </mat-card>
+  }
+}
+
+<!-- ── Invoice History ──────────────────────────────────────────────────────── -->
+@if (tab() === 'history') {
+  @if (invoices().length === 0) {
+    <mat-card class="empty-invoice-card">
+      <mat-icon>receipt_long</mat-icon>
+      <p>No invoices generated yet.</p>
+    </mat-card>
+  } @else {
+    <mat-card>
+      <table mat-table [dataSource]="invoices()" class="full-width">
+
+        <ng-container matColumnDef="invoiceNumber">
+          <th mat-header-cell *matHeaderCellDef>Invoice #</th>
+          <td mat-cell *matCellDef="let inv">
+            <strong style="font-family:monospace">{{ inv.invoiceNumber }}</strong>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="payerName">
+          <th mat-header-cell *matHeaderCellDef>Payer</th>
+          <td mat-cell *matCellDef="let inv">{{ inv.payerName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="sentTo">
+          <th mat-header-cell *matHeaderCellDef>Email</th>
+          <td mat-cell *matCellDef="let inv">{{ inv.sentTo || '—' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="period">
+          <th mat-header-cell *matHeaderCellDef>Period</th>
+          <td mat-cell *matCellDef="let inv">{{ inv.period }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="totalAmount">
+          <th mat-header-cell *matHeaderCellDef>Total</th>
+          <td mat-cell *matCellDef="let inv">₹{{ inv.totalAmount | number:'1.0-0' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="amountPaid">
+          <th mat-header-cell *matHeaderCellDef>Paid</th>
+          <td mat-cell *matCellDef="let inv">₹{{ inv.amountPaid | number:'1.0-0' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let inv">
+            <span class="status-chip" [class]="statusClass(inv.status)">{{ inv.status }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="issueDate">
+          <th mat-header-cell *matHeaderCellDef>Issued</th>
+          <td mat-cell *matCellDef="let inv">{{ inv.issueDate | date:'mediumDate' }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="invoiceColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: invoiceColumns;"></tr>
+      </table>
+    </mat-card>
+  }
+}

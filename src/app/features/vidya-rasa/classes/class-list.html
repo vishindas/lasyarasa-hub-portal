@@ -1,0 +1,45 @@
+<div class="page-header">
+  <div>
+    <h2>Classes</h2>
+    <p class="page-subtitle">{{ classes().length }} batches</p>
+  </div>
+  <button mat-flat-button color="primary" (click)="openForm()">
+    <mat-icon>add</mat-icon> Add Class
+  </button>
+</div>
+
+<mat-card>
+  <table mat-table [dataSource]="classes()" class="full-width">
+    <ng-container matColumnDef="batchName">
+      <th mat-header-cell *matHeaderCellDef>Batch Name</th>
+      <td mat-cell *matCellDef="let c">{{ c.batchName }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="schedule">
+      <th mat-header-cell *matHeaderCellDef>Schedule</th>
+      <td mat-cell *matCellDef="let c">{{ c.schedule }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="description">
+      <th mat-header-cell *matHeaderCellDef>Description</th>
+      <td mat-cell *matCellDef="let c" class="text-truncate">{{ c.description }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let c">
+        <button mat-icon-button (click)="openForm(c)" title="Edit"><mat-icon>edit</mat-icon></button>
+        <button mat-icon-button color="warn" (click)="delete(c.id)" title="Delete"><mat-icon>delete</mat-icon></button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+    @if (classes().length === 0) {
+      <tr class="mat-row">
+        <td [colSpan]="displayedColumns.length" class="empty-table">No classes yet. Add your first batch.</td>
+      </tr>
+    }
+  </table>
+</mat-card>
