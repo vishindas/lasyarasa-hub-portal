@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,6 +19,8 @@ import { environment } from '../../../../environments/environment';
 import { InvoicePreview, Invoice } from '../../../core/models/invoice.model';
 import { ConfirmInvoiceDialog } from './confirm-invoice-dialog';
 import { ConfirmAllDialog } from './confirm-all-dialog';
+import { EditInvoiceDialog } from './edit-invoice-dialog';
+import { VoidInvoiceDialog } from './void-invoice-dialog';
 
 @Component({
   selector: 'app-invoice-list',
@@ -32,6 +35,7 @@ export class InvoiceListComponent implements OnInit {
   private http = inject(HttpClient);
   private snack = inject(MatSnackBar);
   private dialog = inject(MatDialog);
+  private router = inject(Router);
 
   previews = signal<InvoicePreview[]>([]);
   invoices = signal<Invoice[]>([]);
@@ -42,6 +46,7 @@ export class InvoiceListComponent implements OnInit {
   invoiceable = computed(() => this.previews().filter(p => p.guardianId !== null));
   grandTotal = computed(() => this.invoiceable().reduce((sum, p) => sum + p.grandTotal, 0));
   studentCount = computed(() => this.invoiceable().reduce((sum, p) => sum + p.students.length, 0));
+  draftCount = computed(() => this.invoices().filter(i => i.status === 'DRAFT' && !!i.sentTo).length);
 
   // Selection state — keyed by guardianId
   selected = signal<Set<number>>(new Set());
@@ -59,7 +64,7 @@ export class InvoiceListComponent implements OnInit {
   );
 
   invoiceColumns = ['invoiceNumber', 'payerName', 'sentTo', 'period',
-                    'totalAmount', 'amountPaid', 'status', 'issueDate'];
+                    'totalAmount', 'amountPaid', 'status', 'issueDate', 'actions'];
   selectColumns = ['select', 'payerName', 'payerEmail', 'students', 'grandTotal'];
 
   ngOnInit() { this.loadAll(); }
@@ -118,27 +123,31 @@ export class InvoiceListComponent implements OnInit {
 
   generateAll() {
     this.dialog.open(ConfirmAllDialog, {
-      width: '480px',
-      data: {
-        previews: this.invoiceable(),
-        grandTotal: this.grandTotal(),
-        studentCount: this.studentCount()
-      }
+      width: '500px',
+      data: { previews: this.invoiceable(), grandTotal: this.grandTotal(), studentCount: this.studentCount() }
     }).afterClosed().subscribe(confirmed => {
       if (!confirmed) return;
       this.loading.set(true);
-      this.http.post<unknown[]>(`${environment.apiUrl}/school/invoices/generate-all`, {
-        dueDate: confirmed.dueDate,
-        guardianIds: null
+      this.http.post<Invoice[]>(`${environment.apiUrl}/school/invoices/generate-all`, {
+        dueDate: confirmed.dueDate, guardianIds: null
       }).subscribe({
         next: (result) => {
-          this.snack.open(`Generated ${result.length} invoice${result.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
-          this.loadAll();
+          if (confirmed.sendImmediately && result.length > 0) {
+            const ids = result.map(i => i.id);
+            this.http.post<Invoice[]>(`${environment.apiUrl}/school/invoices/send-all`, { invoiceIds: ids })
+              .subscribe({
+                next: (sent) => {
+                  this.snack.open(`Generated ${result.length} · Sent ${sent.length} invoice${sent.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
+                  this.loadAll();
+                },
+                error: () => { this.snack.open(`Generated ${result.length} but email sending failed`, 'OK', { duration: 4000 }); this.loadAll(); }
+              });
+          } else {
+            this.snack.open(`Generated ${result.length} invoice${result.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
+            this.loadAll();
+          }
         },
-        error: () => {
-          this.loading.set(false);
-          this.snack.open('Failed to generate invoices', 'OK', { duration: 3000 });
-        }
+        error: () => { this.loading.set(false); this.snack.open('Failed to generate invoices', 'OK', { duration: 3000 }); }
       });
     });
   }
@@ -148,29 +157,124 @@ export class InvoiceListComponent implements OnInit {
     const total = this.selectedTotal();
     const students = sel.reduce((sum, p) => sum + p.students.length, 0);
     this.dialog.open(ConfirmAllDialog, {
-      width: '480px',
+      width: '500px',
       data: { previews: sel, grandTotal: total, studentCount: students }
     }).afterClosed().subscribe(confirmed => {
       if (!confirmed) return;
       this.loading.set(true);
-      this.http.post<unknown[]>(`${environment.apiUrl}/school/invoices/generate-all`, {
-        dueDate: confirmed.dueDate,
-        guardianIds: sel.map(p => p.guardianId)
+      this.http.post<Invoice[]>(`${environment.apiUrl}/school/invoices/generate-all`, {
+        dueDate: confirmed.dueDate, guardianIds: sel.map(p => p.guardianId)
       }).subscribe({
         next: (result) => {
-          this.snack.open(`Generated ${result.length} invoice${result.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
-          this.loadAll();
+          if (confirmed.sendImmediately && result.length > 0) {
+            const ids = result.map(i => i.id);
+            this.http.post<Invoice[]>(`${environment.apiUrl}/school/invoices/send-all`, { invoiceIds: ids })
+              .subscribe({
+                next: (sent) => {
+                  this.snack.open(`Generated ${result.length} · Sent ${sent.length} invoice${sent.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
+                  this.loadAll();
+                },
+                error: () => { this.snack.open(`Generated ${result.length} but email sending failed`, 'OK', { duration: 4000 }); this.loadAll(); }
+              });
+          } else {
+            this.snack.open(`Generated ${result.length} invoice${result.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
+            this.loadAll();
+          }
         },
-        error: () => {
-          this.loading.set(false);
-          this.snack.open('Failed to generate invoices', 'OK', { duration: 3000 });
-        }
+        error: () => { this.loading.set(false); this.snack.open('Failed to generate invoices', 'OK', { duration: 3000 }); }
       });
     });
   }
 
+  sendAllDrafts() {
+    const count = this.draftCount();
+    if (!confirm(`Send all ${count} draft invoice${count !== 1 ? 's' : ''} now?`)) return;
+    this.http.post<Invoice[]>(`${environment.apiUrl}/school/invoices/send-all`, { invoiceIds: null })
+      .subscribe({
+        next: (sent) => {
+          this.snack.open(`Sent ${sent.length} invoice${sent.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
+          this.loadAll();
+        },
+        error: () => this.snack.open('Failed to send invoices', 'OK', { duration: 3000 })
+      });
+  }
+
   studentNames(preview: InvoicePreview) {
     return preview.students.map(s => s.studentName).join(', ');
+  }
+
+  canDelete(inv: Invoice)  { return inv.status === 'DRAFT'; }
+  canVoid(inv: Invoice)    { return ['SENT', 'OVERDUE', 'PAID', 'PARTIAL'].includes(inv.status); }
+  canSend(inv: Invoice)    { return inv.status === 'DRAFT' && !!inv.sentTo; }
+  canRemind(inv: Invoice)  { return ['SENT', 'OVERDUE', 'PARTIAL'].includes(inv.status) && !!inv.sentTo; }
+
+  sendInvoice(inv: Invoice) {
+    this.http.post<Invoice>(`${environment.apiUrl}/school/invoices/${inv.id}/send`, {})
+      .subscribe({
+        next: () => {
+          this.snack.open(`Invoice sent to ${inv.sentTo}`, 'OK', { duration: 3000 });
+          this.loadAll();
+        },
+        error: () => this.snack.open('Failed to send invoice', 'OK', { duration: 3000 })
+      });
+  }
+
+  sendReminder(inv: Invoice) {
+    this.http.post<Invoice>(`${environment.apiUrl}/school/invoices/${inv.id}/remind`, {})
+      .subscribe({
+        next: () => {
+          this.snack.open(`Reminder sent to ${inv.sentTo}`, 'OK', { duration: 3000 });
+        },
+        error: () => this.snack.open('Failed to send reminder', 'OK', { duration: 3000 })
+      });
+  }
+
+  viewInvoice(inv: Invoice) {
+    this.router.navigate(['/vidya-rasa/invoices', inv.id]);
+  }
+
+  voidInvoice(inv: Invoice) {
+    this.dialog.open(VoidInvoiceDialog, { width: '520px', data: inv })
+      .afterClosed().subscribe(result => {
+        if (!result) return;
+        this.http.post(`${environment.apiUrl}/school/invoices/${inv.id}/void`, { reason: result.reason })
+          .subscribe({
+            next: () => {
+              this.snack.open('Invoice voided', 'OK', { duration: 3000 });
+              this.loadAll();
+            },
+            error: () => this.snack.open('Failed to void invoice', 'OK', { duration: 3000 })
+          });
+      });
+  }
+
+  deleteInvoice(inv: Invoice) {
+    if (!confirm(`Delete invoice ${inv.invoiceNumber}? This cannot be undone.`)) return;
+    this.http.delete(`${environment.apiUrl}/school/invoices/${inv.id}`)
+      .subscribe({
+        next: () => {
+          this.snack.open('Invoice deleted', 'OK', { duration: 3000 });
+          this.loadAll();
+        },
+        error: () => this.snack.open('Failed to delete invoice', 'OK', { duration: 3000 })
+      });
+  }
+
+  editInvoice(inv: Invoice) {
+    this.dialog.open(EditInvoiceDialog, {
+      width: '520px',
+      data: inv
+    }).afterClosed().subscribe(changes => {
+      if (!changes) return;
+      this.http.put<Invoice>(`${environment.apiUrl}/school/invoices/${inv.id}`, changes)
+        .subscribe({
+          next: () => {
+            this.snack.open('Invoice updated', 'OK', { duration: 3000 });
+            this.loadAll();
+          },
+          error: () => this.snack.open('Failed to update invoice', 'OK', { duration: 3000 })
+        });
+    });
   }
 
   statusClass(status: string) {

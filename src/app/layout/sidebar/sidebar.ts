@@ -29,7 +29,8 @@ export class SidebarComponent {
   settingsNav: NavItem[] = [
     { label: 'Dance Styles', icon: 'music_note', route: '/settings/dance-styles' },
     { label: 'Fee Tiers', icon: 'price_change', route: '/settings/fee-tiers' },
-    { label: 'Age Groups', icon: 'group', route: '/settings/age-groups' }
+    { label: 'Age Groups', icon: 'group', route: '/settings/age-groups' },
+    { label: 'Invoice Reminders', icon: 'schedule_send', route: '/settings/invoice-reminders' }
   ];
 
   vastraRasaNav: NavItem[] = [

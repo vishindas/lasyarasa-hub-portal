@@ -21,5 +21,9 @@ export const VIDYA_RASA_ROUTES: Routes = [
     path: 'invoices',
     loadComponent: () => import('./invoices/invoice-list').then(m => m.InvoiceListComponent)
   },
+  {
+    path: 'invoices/:id',
+    loadComponent: () => import('./invoices/invoice-detail').then(m => m.InvoiceDetailComponent)
+  },
   { path: '', redirectTo: 'students', pathMatch: 'full' }
 ];

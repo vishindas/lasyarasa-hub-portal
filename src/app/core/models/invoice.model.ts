@@ -36,6 +36,8 @@ export interface Invoice {
   sentAt?: string;
   lineItems: InvoiceLineItem[];
   createdAt: string;
+  voidReason?: string;
+  voidedAt?: string;
 }
 
 export interface InvoiceLineItem {

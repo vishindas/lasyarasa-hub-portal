@@ -23,6 +23,12 @@
       Generate Selected ({{ selected().size }})
     </button>
   }
+  @if (tab() === 'history' && draftCount() > 0) {
+    <button mat-flat-button color="primary" (click)="sendAllDrafts()">
+      <mat-icon>send</mat-icon>
+      Send All Drafts ({{ draftCount() }})
+    </button>
+  }
 </div>
 
 <mat-button-toggle-group class="view-mode-toggle" style="margin-bottom:20px"
@@ -34,7 +40,7 @@
     }
   </mat-button-toggle>
   <mat-button-toggle value="select">
-    <mat-icon>checklist</mat-icon> Select to Invoice
+    <mat-icon>checklist</mat-icon> Batch Invoice
     @if (invoiceable().length > 0) {
       <span class="tab-badge" [style.background]="selected().size > 0 ? '#3d4ed8' : '#9ca3af'">
         {{ selected().size > 0 ? selected().size : invoiceable().length }}
@@ -42,7 +48,7 @@
     }
   </mat-button-toggle>
   <mat-button-toggle value="history">
-    <mat-icon>history</mat-icon> Invoice History
+    <mat-icon>receipt_long</mat-icon> Invoices
   </mat-button-toggle>
 </mat-button-toggle-group>
 
@@ -108,7 +114,7 @@
   }
 }
 
-<!-- ── Select to Invoice ─────────────────────────────────────────────────────── -->
+<!-- ── Bulk Invoice ─────────────────────────────────────────────────────── -->
 @if (tab() === 'select') {
   @if (invoiceable().length === 0) {
     <mat-card class="empty-invoice-card">
@@ -255,8 +261,42 @@
           <td mat-cell *matCellDef="let inv">{{ inv.issueDate | date:'mediumDate' }}</td>
         </ng-container>
 
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let inv">
+            @if (canSend(inv)) {
+              <button mat-icon-button color="primary" (click)="$event.stopPropagation(); sendInvoice(inv)" title="Send Invoice">
+                <mat-icon>send</mat-icon>
+              </button>
+            }
+            @if (canRemind(inv)) {
+              <button mat-icon-button (click)="$event.stopPropagation(); sendReminder(inv)" title="Send Reminder"
+                      style="color:#f59e0b">
+                <mat-icon>notifications_active</mat-icon>
+              </button>
+            }
+            @if (inv.status !== 'VOID') {
+              <button mat-icon-button (click)="$event.stopPropagation(); editInvoice(inv)" title="Edit">
+                <mat-icon>edit</mat-icon>
+              </button>
+            }
+            @if (canVoid(inv)) {
+              <button mat-icon-button color="warn" (click)="$event.stopPropagation(); voidInvoice(inv)" title="Void">
+                <mat-icon>block</mat-icon>
+              </button>
+            }
+            @if (canDelete(inv)) {
+              <button mat-icon-button color="warn" (click)="$event.stopPropagation(); deleteInvoice(inv)" title="Delete">
+                <mat-icon>delete</mat-icon>
+              </button>
+            }
+          </td>
+        </ng-container>
+
         <tr mat-header-row *matHeaderRowDef="invoiceColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: invoiceColumns;"></tr>
+        <tr mat-row *matRowDef="let row; columns: invoiceColumns;"
+            class="clickable-row" [class.voided-row]="row.status === 'VOID'"
+            (click)="viewInvoice(row)"></tr>
       </table>
     </mat-card>
   }

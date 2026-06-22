@@ -13,5 +13,9 @@ export const SETTINGS_ROUTES: Routes = [
     path: 'age-groups',
     loadComponent: () => import('./age-groups/age-group-list').then(m => m.AgeGroupListComponent)
   },
+  {
+    path: 'invoice-reminders',
+    loadComponent: () => import('./invoice-reminders/invoice-reminders').then(m => m.InvoiceRemindersComponent)
+  },
   { path: '', redirectTo: 'dance-styles', pathMatch: 'full' }
 ];

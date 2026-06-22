@@ -748,6 +748,19 @@ mat-card {
   .mat-column-grandTotal { width: 15%; padding-right: 16px !important; }
 }
 
+.clickable-row {
+  cursor: pointer;
+  transition: background 0.12s;
+  &:hover { background: #f4f5fb !important; }
+}
+
+.voided-row {
+  opacity: 0.5;
+  cursor: default;
+  td { color: #9ca3af !important; }
+  &:hover { background: transparent !important; }
+}
+
 .select-invoice-row {
   cursor: pointer;
   transition: background 0.12s;
