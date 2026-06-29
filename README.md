@@ -1,59 +1,93 @@
-# ProviderPortal
+# LasyaRasa Hub — Provider Portal
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.15.
+Angular 17+ SPA for the Vidya Rasa school admin vertical. Deployed at `app.lasyarasahub.com/school-admin`.
 
-## Development server
+## Tech Stack
 
-To start a local development server, run:
+- Angular 17+ (standalone components, signals, `inject()`)
+- Angular Material (tables, dialogs, tabs, cards)
+- Spring Boot backend at `app.lasyarasahub.com/api`
+
+## Local Development
 
 ```bash
+npm install
 ng serve
+# http://localhost:4200
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+The `environment.ts` points to the production API by default. To develop against a local backend, change `apiUrl` in `src/environments/environment.ts`.
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Production Build & Deploy
 
 ```bash
-ng generate component component-name
+# Build
+npm run build -- --configuration production
+
+# Deploy (SCP the browser/ subdirectory — NOT dist/provider-portal/ directly)
+scp -i ~/.ssh/id_vps -r dist/provider-portal/browser/* \
+  root@147.93.96.131:/root/lasyarasahub/provider-portal/
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+No container restart needed — nginx serves the volume directly.
 
-```bash
-ng generate --help
+## Route Map
+
+| Route | Description |
+|-------|-------------|
+| `/login` | JWT auth |
+| `/dashboard` | Single-API dashboard: stats, active classes, recent registrations, recent students, fee snapshot |
+| `/vidya-rasa/students` | Student list with status tabs (All / Active / On Break / Needs Attention / Dropped), sort, drag-to-reorder columns |
+| `/vidya-rasa/students/:id` | Student profile |
+| `/vidya-rasa/classes` | Class management |
+| `/vidya-rasa/fees` | Fee tracking; accepts `?status=PENDING|OVERDUE` query param for deep-link from dashboard |
+| `/vidya-rasa/invoices` | Invoice list — generate, email, void |
+| `/vidya-rasa/registrations` | Registration review — approve (assigns class, creates student) or reject |
+| `/settings` | Age groups, dance styles, fee tiers, email, currency |
+| `/register/:token` | Public student registration form (no auth) |
+
+## Key Patterns
+
+**Signals for state**
+```typescript
+students = signal<Student[]>([]);
+filtered = computed(() => this.students().filter(...));
 ```
 
-## Building
+**Deep-linking to a filtered view**
+```typescript
+// Navigate with filter
+this.router.navigate(['/vidya-rasa/fees'], { queryParams: { status: 'PENDING' } });
 
-To build the project run:
-
-```bash
-ng build
+// Receive in target component
+this.route.queryParams.subscribe(p => {
+  if (p['status']) this.statusFilter.set(p['status']);
+});
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+**Fixed-layout tables**
+All column widths in `student-list` must be explicit and sum to 100%. Set in both `colDef` (TypeScript) and `.mat-column-*` (SCSS). Without this, `table-layout: fixed` cascades misalignment across all columns to the right of any missing entry.
 
-## Running unit tests
+## Project Structure
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
 ```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
+src/app/
+├── core/
+│   ├── auth/           ← JWT auth service, guards
+│   ├── models/         ← TypeScript interfaces
+│   └── services/       ← Currency service
+├── features/
+│   ├── dashboard/      ← Dashboard component
+│   ├── vidya-rasa/
+│   │   ├── students/
+│   │   ├── classes/
+│   │   ├── fees/
+│   │   ├── invoices/
+│   │   └── registrations/
+│   ├── settings/
+│   ├── register/       ← Public registration form
+│   └── admin/          ← Super-admin (provider management)
+└── layout/
+    ├── shell/
+    └── sidebar/
 ```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
