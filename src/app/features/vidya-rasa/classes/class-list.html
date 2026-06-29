@@ -10,19 +10,48 @@
 
 <mat-card>
   <table mat-table [dataSource]="classes()" class="full-width">
+
+    <ng-container matColumnDef="danceStyle">
+      <th mat-header-cell *matHeaderCellDef>Dance Style</th>
+      <td mat-cell *matCellDef="let c">
+        @if (c.danceStyleName) {
+          <span style="font-weight:500">{{ c.danceStyleName }}</span>
+        } @else {
+          <span style="color:#9ca3af">—</span>
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="ageGroup">
+      <th mat-header-cell *matHeaderCellDef>Age Group</th>
+      <td mat-cell *matCellDef="let c">
+        @if (c.ageGroupLabel) {
+          <span style="font-size:0.8rem;background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:12px">{{ c.ageGroupLabel }}</span>
+        } @else {
+          <span style="color:#9ca3af">—</span>
+        }
+      </td>
+    </ng-container>
+
     <ng-container matColumnDef="batchName">
-      <th mat-header-cell *matHeaderCellDef>Batch Name</th>
+      <th mat-header-cell *matHeaderCellDef>Batch</th>
       <td mat-cell *matCellDef="let c">{{ c.batchName }}</td>
     </ng-container>
 
     <ng-container matColumnDef="schedule">
       <th mat-header-cell *matHeaderCellDef>Schedule</th>
-      <td mat-cell *matCellDef="let c">{{ c.schedule }}</td>
+      <td mat-cell *matCellDef="let c" style="color:#6b7280">{{ c.schedule }}</td>
     </ng-container>
 
-    <ng-container matColumnDef="description">
-      <th mat-header-cell *matHeaderCellDef>Description</th>
-      <td mat-cell *matCellDef="let c" class="text-truncate">{{ c.description }}</td>
+    <ng-container matColumnDef="feeTier">
+      <th mat-header-cell *matHeaderCellDef>Fee Tier</th>
+      <td mat-cell *matCellDef="let c">
+        @if (c.feeTierLabel) {
+          <span style="font-size:0.8rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:12px">{{ c.feeTierLabel }}</span>
+        } @else {
+          <span style="color:#9ca3af">—</span>
+        }
+      </td>
     </ng-container>
 
     <ng-container matColumnDef="actions">

@@ -1,6 +1,8 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
+import { CurrencyPipe, DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
+import { CurrencyService } from '../../../core/services/currency.service';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -31,7 +33,7 @@ interface MonthGroup {
 @Component({
   selector: 'app-fee-list',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, TitleCasePipe, MatTableModule, MatButtonModule, MatIconModule,
+  imports: [CurrencyPipe, DatePipe, DecimalPipe, TitleCasePipe, MatTableModule, MatButtonModule, MatIconModule,
             MatDialogModule, MatMenuModule, MatFormFieldModule, MatInputModule,
             MatButtonToggleModule, MatCardModule, MatSnackBarModule, DragDropModule],
   templateUrl: './fee-list.html'
@@ -39,6 +41,7 @@ interface MonthGroup {
 export class FeeListComponent implements OnInit {
   private http = inject(HttpClient);
   private dialog = inject(MatDialog);
+  cs = inject(CurrencyService);
   private snack = inject(MatSnackBar);
 
   fees = signal<Fee[]>([]);
@@ -191,10 +194,15 @@ export class FeeListComponent implements OnInit {
     this.statusFilter.set('');
   }
 
+  private route = inject(ActivatedRoute);
+
   ngOnInit() {
     this.load();
     this.http.get<FeeTier[]>(`${environment.apiUrl}/school/settings/fee-tiers`)
       .subscribe(d => this.feeTiers.set(d));
+    this.route.queryParams.subscribe(p => {
+      if (p['status']) this.statusFilter.set(p['status']);
+    });
   }
 
   dropColumn(event: CdkDragDrop<string[]>) {

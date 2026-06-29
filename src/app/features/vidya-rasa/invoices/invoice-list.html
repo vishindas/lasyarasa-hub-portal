@@ -79,7 +79,7 @@
                 </span>
               }
             </div>
-            <div class="preview-total">₹{{ preview.grandTotal | number:'1.0-0' }}</div>
+            <div class="preview-total">{{ preview.grandTotal | currency:cs.currency():'symbol':'1.0-0' }}</div>
           </div>
 
           <div class="preview-students">
@@ -91,11 +91,11 @@
                     <span class="preview-fee-desc">{{ fee.description }}</span>
                     <span class="preview-fee-status status-chip"
                           [class]="'status-' + fee.status.toLowerCase()">{{ fee.status }}</span>
-                    <span class="preview-fee-amount">₹{{ fee.amount | number:'1.0-0' }}</span>
+                    <span class="preview-fee-amount">{{ fee.amount | currency:cs.currency():'symbol':'1.0-0' }}</span>
                   </div>
                 }
                 @if (preview.students.length > 1) {
-                  <div class="preview-subtotal">Subtotal ₹{{ sg.subtotal | number:'1.0-0' }}</div>
+                  <div class="preview-subtotal">Subtotal {{ sg.subtotal | currency:cs.currency():'symbol':'1.0-0' }}</div>
                 }
               </div>
             }
@@ -139,7 +139,7 @@
             <span class="select-summary">
               {{ selected().size }} payer{{ selected().size !== 1 ? 's' : '' }} selected
               &nbsp;·&nbsp;
-              ₹{{ selectedTotal() | number:'1.0-0' }} total
+              {{ selectedTotal() | currency:cs.currency():'symbol':'1.0-0' }} total
             </span>
             <button mat-flat-button color="primary" (click)="generateSelected()">
               <mat-icon>receipt_long</mat-icon>
@@ -208,10 +208,21 @@
 
 <!-- ── Invoice History ──────────────────────────────────────────────────────── -->
 @if (tab() === 'history') {
+  <mat-card style="margin-bottom:16px">
+    <div style="padding:12px 16px 0">
+      <mat-form-field appearance="outline" style="width:100%">
+        <mat-icon matPrefix style="color:#9ca3af;margin-right:4px">search</mat-icon>
+        <input matInput placeholder="Search invoice #, payer, email, period, status…"
+               [value]="invoiceSearch()"
+               (input)="invoiceSearch.set($any($event.target).value)" />
+      </mat-form-field>
+    </div>
+  </mat-card>
+
   @if (invoices().length === 0) {
     <mat-card class="empty-invoice-card">
       <mat-icon>receipt_long</mat-icon>
-      <p>No invoices generated yet.</p>
+      <p>{{ invoiceSearch() ? 'No invoices match your search.' : 'No invoices generated yet.' }}</p>
     </mat-card>
   } @else {
     <mat-card>
@@ -241,12 +252,12 @@
 
         <ng-container matColumnDef="totalAmount">
           <th mat-header-cell *matHeaderCellDef>Total</th>
-          <td mat-cell *matCellDef="let inv">₹{{ inv.totalAmount | number:'1.0-0' }}</td>
+          <td mat-cell *matCellDef="let inv">{{ inv.totalAmount | currency:cs.currency():'symbol':'1.0-0' }}</td>
         </ng-container>
 
         <ng-container matColumnDef="amountPaid">
           <th mat-header-cell *matHeaderCellDef>Paid</th>
-          <td mat-cell *matCellDef="let inv">₹{{ inv.amountPaid | number:'1.0-0' }}</td>
+          <td mat-cell *matCellDef="let inv">{{ inv.amountPaid | currency:cs.currency():'symbol':'1.0-0' }}</td>
         </ng-container>
 
         <ng-container matColumnDef="status">
@@ -265,8 +276,15 @@
           <th mat-header-cell *matHeaderCellDef></th>
           <td mat-cell *matCellDef="let inv">
             @if (canSend(inv)) {
-              <button mat-icon-button color="primary" (click)="$event.stopPropagation(); sendInvoice(inv)" title="Send Invoice">
-                <mat-icon>send</mat-icon>
+              <button mat-icon-button color="primary"
+                      [disabled]="sendingIds().has(inv.id)"
+                      (click)="$event.stopPropagation(); sendInvoice(inv)"
+                      title="Send Invoice">
+                @if (sendingIds().has(inv.id)) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                } @else {
+                  <mat-icon>send</mat-icon>
+                }
               </button>
             }
             @if (canRemind(inv)) {

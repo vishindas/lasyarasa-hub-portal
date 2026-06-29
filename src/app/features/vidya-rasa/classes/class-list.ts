@@ -22,7 +22,7 @@ export class ClassListComponent implements OnInit {
   private snack = inject(MatSnackBar);
 
   classes = signal<SchoolClass[]>([]);
-  displayedColumns = ['batchName', 'schedule', 'description', 'actions'];
+  displayedColumns = ['danceStyle', 'ageGroup', 'batchName', 'schedule', 'feeTier', 'actions'];
 
   ngOnInit() { this.load(); }
 

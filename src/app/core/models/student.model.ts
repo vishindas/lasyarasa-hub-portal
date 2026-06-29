@@ -9,6 +9,7 @@ export interface Student {
   joinedDate?: string;
   ageGroupId?: number | null;
   ageGroupLabel?: string;
+  enrolledClasses?: string[];
 }
 
 export interface Guardian {

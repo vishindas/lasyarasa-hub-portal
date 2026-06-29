@@ -1,7 +1,7 @@
 <div class="page-header">
   <div>
     <h2>Students</h2>
-    <p class="page-subtitle">{{ students().length }} student{{ students().length !== 1 ? 's' : '' }} enrolled</p>
+    <p class="page-subtitle">{{ counts().ALL }} total · {{ counts().ACTIVE }} active</p>
   </div>
   <button mat-flat-button color="primary" (click)="openForm()">
     <mat-icon>add</mat-icon> Add Student
@@ -9,14 +9,43 @@
 </div>
 
 <mat-card>
+  <nav mat-tab-nav-bar [tabPanel]="tabPanel" style="padding:0 8px">
+    @for (t of tabs; track t.key) {
+      <a mat-tab-link
+         (click)="activeTab.set(t.key); searchQuery.set('')"
+         [active]="activeTab() === t.key">
+        @if (t.icon) { <span style="margin-right:4px">{{ t.icon }}</span> }
+        {{ t.label }}
+        <span class="tab-badge" style="margin-left:6px">{{ counts()[t.key] }}</span>
+      </a>
+    }
+  </nav>
+  <mat-tab-nav-panel #tabPanel></mat-tab-nav-panel>
+
+  <div style="padding:8px 16px 0">
+    <mat-form-field appearance="outline" style="width:100%">
+      <mat-icon matPrefix style="color:#9ca3af;margin-right:4px">search</mat-icon>
+      <input matInput placeholder="Search name, phone, class…"
+             [value]="searchQuery()"
+             (input)="searchQuery.set($any($event.target).value)" />
+    </mat-form-field>
+  </div>
+
   <!-- Chip bar acts as the column header. Widths match table column CSS widths exactly. -->
   <div class="col-header-bar"
        cdkDropList cdkDropListOrientation="horizontal"
        (cdkDropListDropped)="dropColumn($event)">
     @for (col of draggableColumns(); track col.key) {
-      <div cdkDrag class="col-header-cell" [style.width]="col.width">
-        <mat-icon class="col-drag-icon">drag_indicator</mat-icon>
+      <div cdkDrag class="col-header-cell" [style.width]="col.width"
+           [style.cursor]="col.sortable ? 'pointer' : 'default'"
+           (click)="col.sortable && toggleSort(col.key)">
+        <mat-icon cdkDragHandle class="col-drag-icon">drag_indicator</mat-icon>
         {{ col.label }}
+        @if (col.sortable && sortCol() === col.key) {
+          <mat-icon style="font-size:14px;width:14px;height:14px;vertical-align:middle;margin-left:2px">
+            {{ sortDir() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+          </mat-icon>
+        }
       </div>
     }
     <div class="col-header-cell col-header-actions" style="width:9%"></div>
@@ -27,6 +56,19 @@
     <ng-container matColumnDef="name">
       <th mat-header-cell *matHeaderCellDef></th>
       <td mat-cell *matCellDef="let s"><strong>{{ s.firstName }} {{ s.lastName }}</strong></td>
+    </ng-container>
+
+    <ng-container matColumnDef="classes">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let s">
+        @if (s.enrolledClasses?.length) {
+          @for (c of s.enrolledClasses; track c) {
+            <span class="badge badge-indigo" style="margin:1px 2px;font-size:0.72rem">{{ c }}</span>
+          }
+        } @else {
+          <span style="color:#adb5bd">—</span>
+        }
+      </td>
     </ng-container>
 
     <ng-container matColumnDef="ageGroup">
@@ -68,7 +110,13 @@
     @if (students().length === 0) {
       <tr class="mat-row">
         <td [colSpan]="displayedColumns().length" class="empty-table">
-          No students yet. Click "Add Student" to get started.
+          @switch (activeTab()) {
+            @case ('ACTIVE')           { No active students. }
+            @case ('ON_BREAK')         { No students on break. }
+            @case ('NEEDS_ATTENTION')  { All active students are assigned to a class. }
+            @case ('DROPPED')          { No dropped students. }
+            @default                   { No students yet. Click "Add Student" to get started. }
+          }
         </td>
       </tr>
     }

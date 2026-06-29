@@ -21,6 +21,7 @@ export class SidebarComponent {
 
   vidyaRasaNav: NavItem[] = [
     { label: 'Students', icon: 'people', route: '/vidya-rasa/students' },
+    { label: 'Registrations', icon: 'how_to_reg', route: '/vidya-rasa/registrations' },
     { label: 'Classes', icon: 'class', route: '/vidya-rasa/classes' },
     { label: 'Fees', icon: 'payments', route: '/vidya-rasa/fees' },
     { label: 'Invoices', icon: 'receipt_long', route: '/vidya-rasa/invoices' }
@@ -30,7 +31,13 @@ export class SidebarComponent {
     { label: 'Dance Styles', icon: 'music_note', route: '/settings/dance-styles' },
     { label: 'Fee Tiers', icon: 'price_change', route: '/settings/fee-tiers' },
     { label: 'Age Groups', icon: 'group', route: '/settings/age-groups' },
-    { label: 'Invoice Reminders', icon: 'schedule_send', route: '/settings/invoice-reminders' }
+    { label: 'Invoice Reminders', icon: 'schedule_send', route: '/settings/invoice-reminders' },
+    { label: 'Currency', icon: 'currency_exchange', route: '/settings/currency' },
+    { label: 'Change Password', icon: 'lock_reset', route: '/settings/change-password' }
+  ];
+
+  adminNav: NavItem[] = [
+    { label: 'Providers', icon: 'business', route: '/admin/providers' }
   ];
 
   vastraRasaNav: NavItem[] = [
@@ -53,6 +60,11 @@ export class SidebarComponent {
     if (role === 'SCHOOL_ADMIN') return this.vidyaRasaNav;
     if (role === 'HUB_ADMIN' || role === 'SUPER_ADMIN') return [...this.vidyaRasaNav, ...this.vastraRasaNav, ...this.roopaRasaNav, ...this.chitraRasaNav];
     return [];
+  }
+
+  get isAdmin(): boolean {
+    const role = this.auth.currentUser()?.role;
+    return role === 'HUB_ADMIN' || role === 'SUPER_ADMIN';
   }
 
   get verticalLabel(): string {

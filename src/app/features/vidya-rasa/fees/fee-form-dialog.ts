@@ -1,15 +1,17 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { DecimalPipe } from '@angular/common';
-import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { environment } from '../../../../environments/environment';
 import { Fee } from '../../../core/models/fee.model';
 import { FeeTier } from '../../../core/models/settings.model';
+import { Student } from '../../../core/models/student.model';
 
 export interface FeeDialogData {
   fee?: Fee;
@@ -22,15 +24,27 @@ export interface FeeDialogData {
   selector: 'app-fee-form-dialog',
   standalone: true,
   imports: [DecimalPipe, ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
-            MatInputModule, MatSelectModule, MatButtonModule],
+            MatInputModule, MatSelectModule, MatButtonModule, MatAutocompleteModule],
   template: `
     <h2 mat-dialog-title>{{ data?.fee ? 'Edit Fee' : 'Add Fee' }}</h2>
-    <mat-dialog-content>
-      <form [formGroup]="form" class="dialog-form">
+    <mat-dialog-content style="overflow-x:hidden">
+      <form [formGroup]="form" style="display:flex;flex-direction:column;gap:8px;padding-top:4px">
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Student ID</mat-label>
-          <input matInput type="number" formControlName="studentId" />
+          <mat-label>Student</mat-label>
+          <input matInput [formControl]="studentSearch"
+                 [matAutocomplete]="studentAuto"
+                 placeholder="Type name to search…" />
+          <mat-autocomplete #studentAuto="matAutocomplete"
+                            [displayWith]="displayStudent"
+                            (optionSelected)="onStudentSelected($event.option.value)">
+            @for (s of filteredStudents(); track s.id) {
+              <mat-option [value]="s">{{ s.firstName }} {{ s.lastName }}</mat-option>
+            }
+            @if (filteredStudents().length === 0 && studentSearch.value) {
+              <mat-option disabled>No students found</mat-option>
+            }
+          </mat-autocomplete>
         </mat-form-field>
 
         @if (data?.feeTiers?.length) {
@@ -89,24 +103,66 @@ export interface FeeDialogData {
     </mat-dialog-actions>
   `
 })
-export class FeeFormDialog {
+export class FeeFormDialog implements OnInit {
   private http = inject(HttpClient);
   private ref = inject(MatDialogRef<FeeFormDialog>);
   data = inject<FeeDialogData | null>(MAT_DIALOG_DATA);
   saving = signal(false);
 
   private fee = this.data?.fee;
+  private allStudents: Student[] = [];
+  filteredStudents = signal<Student[]>([]);
+  studentSearch = new FormControl<Student | string>('');
 
   form = inject(FormBuilder).group({
     studentId: [this.fee?.studentId ?? this.data?.studentId ?? null, Validators.required],
     feeTierId: [this.fee?.feeTierId ?? this.data?.feeTierId ?? null],
-    amount: [this.fee?.amount ?? null, Validators.required],
-    dueDate: [this.fee?.dueDate ?? '', Validators.required],
-    status: [this.fee?.status ?? 'PENDING', Validators.required],
-    paidAt: [this.fee?.paidAt ?? ''],
-    paidBy: [this.fee?.paidBy ?? ''],
-    notes: [this.fee?.notes ?? '']
+    amount:    [this.fee?.amount ?? null, Validators.required],
+    dueDate:   [this.fee?.dueDate ?? '', Validators.required],
+    status:    [this.fee?.status ?? 'PENDING', Validators.required],
+    paidAt:    [this.fee?.paidAt ?? ''],
+    paidBy:    [this.fee?.paidBy ?? ''],
+    notes:     [this.fee?.notes ?? '']
   });
+
+  ngOnInit() {
+    this.http.get<Student[]>(`${environment.apiUrl}/school/v2/students`).subscribe(students => {
+      this.allStudents = students;
+      this.filteredStudents.set(students.slice(0, 20));
+
+      const preselectedId = this.fee?.studentId ?? this.data?.studentId;
+      if (preselectedId) {
+        const match = students.find(s => s.id === preselectedId);
+        if (match) {
+          this.studentSearch.setValue(match);
+          this.form.get('studentId')!.setValue(match.id as any);
+        }
+      }
+    });
+
+    this.studentSearch.valueChanges.subscribe(v => {
+      if (typeof v === 'string') {
+        const q = v.toLowerCase();
+        this.filteredStudents.set(
+          q ? this.allStudents
+                .filter(s => (s.firstName + ' ' + s.lastName).toLowerCase().includes(q))
+                .slice(0, 20)
+            : this.allStudents.slice(0, 20)
+        );
+        this.form.get('studentId')!.setValue(null as any);
+      }
+    });
+  }
+
+  displayStudent = (s: Student | string | null): string => {
+    if (!s) return '';
+    if (typeof s === 'string') return s;
+    return s.firstName + ' ' + s.lastName;
+  };
+
+  onStudentSelected(s: Student) {
+    this.form.get('studentId')!.setValue(s.id as any);
+  }
 
   onTierChange(tierId: number | null) {
     if (!tierId) return;
@@ -118,11 +174,7 @@ export class FeeFormDialog {
     if (this.form.invalid) return;
     this.saving.set(true);
     const v = this.form.value;
-    const payload = {
-      ...v,
-      paidAt: v.paidAt || null,
-      paidBy: v.paidBy || null,
-    };
+    const payload = { ...v, paidAt: v.paidAt || null, paidBy: v.paidBy || null };
     const req = this.fee
       ? this.http.put(`${environment.apiUrl}/school/fees/${this.fee.id}`, payload)
       : this.http.post(`${environment.apiUrl}/school/fees`, payload);

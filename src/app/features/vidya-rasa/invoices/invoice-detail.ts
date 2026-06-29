@@ -1,7 +1,8 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
+import { CurrencyService } from '../../../core/services/currency.service';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
@@ -17,7 +18,7 @@ import { VoidInvoiceDialog } from './void-invoice-dialog';
 @Component({
   selector: 'app-invoice-detail',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, MatButtonModule, MatIconModule, MatCardModule,
+  imports: [CurrencyPipe, DatePipe, DecimalPipe, MatButtonModule, MatIconModule, MatCardModule,
             MatDividerModule, MatTableModule, MatDialogModule, MatSnackBarModule],
   styles: [`
     .detail-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; }
@@ -71,8 +72,8 @@ import { VoidInvoiceDialog } from './void-invoice-dialog';
         </div>
         <div style="display:flex;gap:8px">
           @if (canSend(inv)) {
-            <button mat-flat-button color="primary" (click)="sendInvoice(inv)">
-              <mat-icon>send</mat-icon> Send Invoice
+            <button mat-flat-button color="primary" [disabled]="sending()" (click)="sendInvoice(inv)">
+              <mat-icon>send</mat-icon> {{ sending() ? 'Sending…' : 'Send Invoice' }}
             </button>
           }
           @if (canRemind(inv)) {
@@ -137,11 +138,11 @@ import { VoidInvoiceDialog } from './void-invoice-dialog';
                 </div>
                 <div class="info-item">
                   <span class="info-label">Total Amount</span>
-                  <span class="info-value" style="font-weight:700">₹{{ inv.totalAmount | number:'1.0-0' }}</span>
+                  <span class="info-value" style="font-weight:700">{{ inv.totalAmount | currency:cs.currency():'symbol':'1.0-0' }}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Amount Paid</span>
-                  <span class="info-value" style="color:#16a34a;font-weight:600">₹{{ inv.amountPaid | number:'1.0-0' }}</span>
+                  <span class="info-value" style="color:#16a34a;font-weight:600">{{ inv.amountPaid | currency:cs.currency():'symbol':'1.0-0' }}</span>
                 </div>
               </div>
 
@@ -149,7 +150,7 @@ import { VoidInvoiceDialog } from './void-invoice-dialog';
                 <span class="balance-label">Balance Due</span>
                 <span class="balance-amount"
                       [class.balance-paid]="(inv.totalAmount - inv.amountPaid) <= 0">
-                  ₹{{ (inv.totalAmount - inv.amountPaid) | number:'1.0-0' }}
+                  {{ (inv.totalAmount - inv.amountPaid) | currency:cs.currency():'symbol':'1.0-0' }}
                 </span>
               </div>
             </mat-card-content>
@@ -191,7 +192,7 @@ import { VoidInvoiceDialog } from './void-invoice-dialog';
                 <ng-container matColumnDef="amount">
                   <th mat-header-cell *matHeaderCellDef style="font-size:0.72rem;font-weight:700;color:#6c757d;text-align:right">Amount</th>
                   <td mat-cell *matCellDef="let item" style="text-align:right;font-size:0.88rem;font-weight:600;color:#3d4ed8">
-                    ₹{{ item.amount | number:'1.0-0' }}
+                    {{ item.amount | currency:cs.currency():'symbol':'1.0-0' }}
                   </td>
                 </ng-container>
 
@@ -201,7 +202,7 @@ import { VoidInvoiceDialog } from './void-invoice-dialog';
 
               <div class="line-table-total">
                 <span style="color:#6c757d">Total</span>
-                <span>₹{{ inv.totalAmount | number:'1.0-0' }}</span>
+                <span>{{ inv.totalAmount | currency:cs.currency():'symbol':'1.0-0' }}</span>
               </div>
             } @else {
               <p style="font-size:0.82rem;color:#adb5bd;margin:0">No line items on this invoice.</p>
@@ -220,10 +221,12 @@ export class InvoiceDetailComponent implements OnInit {
   private http = inject(HttpClient);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  cs = inject(CurrencyService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
 
   invoice = signal<Invoice | null>(null);
+  sending = signal(false);
   lineColumns = ['description', 'amount'];
 
   ngOnInit() {
@@ -242,13 +245,19 @@ export class InvoiceDetailComponent implements OnInit {
   canRemind(inv: Invoice)  { return ['SENT', 'OVERDUE', 'PARTIAL'].includes(inv.status) && !!inv.sentTo; }
 
   sendInvoice(inv: Invoice) {
+    if (this.sending()) return;
+    this.sending.set(true);
     this.http.post<Invoice>(`${environment.apiUrl}/school/invoices/${inv.id}/send`, {})
       .subscribe({
         next: () => {
+          this.sending.set(false);
           this.snack.open(`Invoice sent to ${inv.sentTo}`, 'OK', { duration: 3000 });
           this.load(String(inv.id));
         },
-        error: () => this.snack.open('Failed to send invoice', 'OK', { duration: 3000 })
+        error: () => {
+          this.sending.set(false);
+          this.snack.open('Failed to send invoice', 'OK', { duration: 3000 });
+        }
       });
   }
 

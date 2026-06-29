@@ -19,8 +19,8 @@ import { FeeTier } from '../../../core/models/settings.model';
       <form [formGroup]="form" class="dialog-form">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Label</mat-label>
-          <input matInput formControlName="label" placeholder="e.g. Kids Kuchipudi - $40" />
-          <mat-hint>Shown in dropdowns when creating enrollments</mat-hint>
+          <input matInput formControlName="label" placeholder="e.g. Monthly, Term Fee, Drop-in" />
+          <mat-hint>A reusable price point — assign to a class, not a style</mat-hint>
         </mat-form-field>
         <div style="display:flex;gap:12px">
           <mat-form-field appearance="outline" style="flex:1">
@@ -37,7 +37,7 @@ import { FeeTier } from '../../../core/models/settings.model';
           <input matInput type="date" formControlName="effectiveFrom" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Effective To (leave blank = current)</mat-label>
+          <mat-label>Effective To (leave blank = ongoing)</mat-label>
           <input matInput type="date" formControlName="effectiveTo" />
         </mat-form-field>
         @if (data) {

@@ -1,36 +1,181 @@
+@if (loading()) {
+  <div style="display:flex;justify-content:center;padding:80px">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+} @else if (dashboard(); as d) {
+
+<!-- ── Welcome Header ───────────────────────────────────── -->
 <div class="page-header">
-  <h2>Welcome back, {{ auth.currentUser()?.email }}</h2>
-  <p class="page-subtitle">Here's what's happening at your school today.</p>
+  <div>
+    <h2>Welcome back, {{ firstName() }}</h2>
+    <p class="page-subtitle">Here's what's happening at your school today.</p>
+  </div>
 </div>
 
-<div class="stats-grid">
-  <mat-card class="stat-card">
+<!-- ── Summary Stats ────────────────────────────────────── -->
+<div class="stats-grid" style="margin-bottom:20px">
+  <mat-card class="stat-card stat-card-link" (click)="go('/vidya-rasa/students')">
     <mat-card-content>
       <div class="stat-icon purple"><mat-icon>people</mat-icon></div>
       <div class="stat-info">
-        <span class="stat-value">{{ studentCount() }}</span>
-        <span class="stat-label">Total Students</span>
+        <span class="stat-value">{{ d.summary.totalStudents }}</span>
+        <span class="stat-label">Active Students</span>
       </div>
     </mat-card-content>
   </mat-card>
 
-  <mat-card class="stat-card">
+  <mat-card class="stat-card stat-card-link" (click)="go('/vidya-rasa/classes')">
     <mat-card-content>
       <div class="stat-icon blue"><mat-icon>class</mat-icon></div>
       <div class="stat-info">
-        <span class="stat-value">{{ classCount() }}</span>
+        <span class="stat-value">{{ d.summary.activeClasses }}</span>
         <span class="stat-label">Active Classes</span>
       </div>
     </mat-card-content>
   </mat-card>
 
-  <mat-card class="stat-card">
+  <mat-card class="stat-card stat-card-link" (click)="go('/vidya-rasa/fees', {status: 'PENDING'})">
     <mat-card-content>
       <div class="stat-icon amber"><mat-icon>payments</mat-icon></div>
       <div class="stat-info">
-        <span class="stat-value">{{ pendingFees() }}</span>
-        <span class="stat-label">Pending Fees</span>
+        <span class="stat-value">{{ d.summary.pendingFeeStudents }}</span>
+        <span class="stat-label">Pending Fee Students</span>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card stat-card-link" (click)="go('/vidya-rasa/fees', {status: 'OVERDUE'})">
+    <mat-card-content>
+      <div class="stat-icon red"><mat-icon>warning</mat-icon></div>
+      <div class="stat-info">
+        <span class="stat-value">{{ d.summary.pendingFees | currency:'USD':'symbol':'1.0-0' }}</span>
+        <span class="stat-label">Outstanding Fees</span>
       </div>
     </mat-card-content>
   </mat-card>
 </div>
+
+<!-- ── Quick Actions ─────────────────────────────────────── -->
+<div class="quick-actions" style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap">
+  <button mat-stroked-button (click)="go('/vidya-rasa/students')">
+    <mat-icon>person_add</mat-icon> Add Student
+  </button>
+  <button mat-stroked-button (click)="go('/vidya-rasa/registrations')">
+    <mat-icon>how_to_reg</mat-icon> Registrations
+  </button>
+  <button mat-stroked-button (click)="go('/vidya-rasa/fees')">
+    <mat-icon>receipt</mat-icon> Record Fee
+  </button>
+  <button mat-stroked-button (click)="go('/vidya-rasa/classes')">
+    <mat-icon>add_circle_outline</mat-icon> Manage Classes
+  </button>
+</div>
+
+<!-- ── 3-Column Widgets ──────────────────────────────────── -->
+<div class="dashboard-cols" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px">
+
+  <!-- Active Classes -->
+  <mat-card>
+    <mat-card-header style="padding-bottom:8px">
+      <mat-card-title style="font-size:0.95rem;font-weight:600">Active Classes</mat-card-title>
+    </mat-card-header>
+    <mat-card-content style="padding-top:0">
+      @if (d.activeClasses.length === 0) {
+        <p style="color:#adb5bd;font-size:0.85rem;padding:8px 0">No classes set up yet.</p>
+      } @else {
+        @for (c of d.activeClasses; track c.id) {
+          <div class="dash-row" (click)="go('/vidya-rasa/classes')" style="cursor:pointer">
+            <div style="flex:1;min-width:0">
+              <div class="dash-row-title">{{ c.name }}</div>
+              <div class="dash-row-sub">{{ c.danceStyle || '—' }} · {{ c.ageGroup || '—' }}</div>
+            </div>
+            <span class="badge badge-indigo" style="white-space:nowrap;flex-shrink:0">
+              {{ c.studentCount }} students
+            </span>
+          </div>
+        }
+      }
+      <div class="dash-card-footer">
+        <a (click)="go('/vidya-rasa/classes')" class="dash-view-all">View all classes →</a>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Recent Registrations -->
+  <mat-card>
+    <mat-card-header style="padding-bottom:8px">
+      <mat-card-title style="font-size:0.95rem;font-weight:600">Recent Registrations</mat-card-title>
+    </mat-card-header>
+    <mat-card-content style="padding-top:0">
+      @if (d.recentRegistrations.length === 0) {
+        <p style="color:#adb5bd;font-size:0.85rem;padding:8px 0">No registrations yet.</p>
+      } @else {
+        @for (r of d.recentRegistrations; track r.id) {
+          <div class="dash-row" (click)="go('/vidya-rasa/registrations')" style="cursor:pointer">
+            <div style="flex:1;min-width:0">
+              <div class="dash-row-title">{{ r.firstName }} {{ r.lastName }}</div>
+              <div class="dash-row-sub">{{ r.createdAt | date:'MMM d, y' }}</div>
+            </div>
+            <span class="status-chip" [class]="regStatusClass(r.status)" style="flex-shrink:0">
+              {{ r.status | titlecase }}
+            </span>
+          </div>
+        }
+      }
+      <div class="dash-card-footer">
+        <a (click)="go('/vidya-rasa/registrations')" class="dash-view-all">View all registrations →</a>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Recently Added Students -->
+  <mat-card>
+    <mat-card-header style="padding-bottom:8px">
+      <mat-card-title style="font-size:0.95rem;font-weight:600">Recently Added Students</mat-card-title>
+    </mat-card-header>
+    <mat-card-content style="padding-top:0">
+      @if (d.recentStudents.length === 0) {
+        <p style="color:#adb5bd;font-size:0.85rem;padding:8px 0">No students yet.</p>
+      } @else {
+        @for (s of d.recentStudents; track s.id) {
+          <div class="dash-row" (click)="go('/vidya-rasa/students/' + s.id)" style="cursor:pointer">
+            <div style="flex:1;min-width:0">
+              <div class="dash-row-title">{{ s.firstName }} {{ s.lastName }}</div>
+              <div class="dash-row-sub">
+                @if (s.enrolledClasses) { {{ s.enrolledClasses }} }
+                @else { <span style="color:#adb5bd">No class assigned</span> }
+              </div>
+            </div>
+            <div style="font-size:0.75rem;color:#adb5bd;white-space:nowrap;flex-shrink:0">
+              {{ s.joinedDate | date:'MMM d' }}
+            </div>
+          </div>
+        }
+      }
+      <div class="dash-card-footer">
+        <a (click)="go('/vidya-rasa/students')" class="dash-view-all">View all students →</a>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+</div>
+
+<!-- ── Fee Snapshot ───────────────────────────────────────── -->
+@if (d.feeSnapshot.pendingStudents > 0) {
+  <mat-card class="fee-snapshot" (click)="go('/vidya-rasa/fees')" style="cursor:pointer">
+    <mat-card-content style="display:flex;align-items:center;gap:12px;padding:12px 16px">
+      <mat-icon style="color:#f59e0b">warning</mat-icon>
+      <span style="font-size:0.9rem;color:#374151">
+        <strong>{{ d.feeSnapshot.pendingAmount | currency:'USD':'symbol':'1.0-0' }}</strong>
+        outstanding from
+        <strong>{{ d.feeSnapshot.pendingStudents }}</strong>
+        {{ d.feeSnapshot.pendingStudents === 1 ? 'student' : 'students' }}
+      </span>
+      <span style="margin-left:auto;font-size:0.8rem;color:#9ca3af">View Fees →</span>
+    </mat-card-content>
+  </mat-card>
+}
+
+} @else {
+  <p style="color:#adb5bd;padding:24px">Could not load dashboard. Please refresh.</p>
+}

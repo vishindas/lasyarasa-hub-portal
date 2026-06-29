@@ -25,5 +25,17 @@ export const VIDYA_RASA_ROUTES: Routes = [
     path: 'invoices/:id',
     loadComponent: () => import('./invoices/invoice-detail').then(m => m.InvoiceDetailComponent)
   },
+  {
+    path: 'registrations',
+    loadComponent: () => import('./registrations/registration-list').then(m => m.RegistrationListComponent)
+  },
+  {
+    path: 'registrations/form-builder',
+    loadComponent: () => import('./registrations/form-builder').then(m => m.FormBuilderComponent)
+  },
+  {
+    path: 'registrations/:id',
+    loadComponent: () => import('./registrations/registration-detail').then(m => m.RegistrationDetailComponent)
+  },
   { path: '', redirectTo: 'students', pathMatch: 'full' }
 ];

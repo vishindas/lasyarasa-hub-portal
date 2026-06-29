@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyService } from '../../../core/services/currency.service';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,6 +23,7 @@ export class FeeTierListComponent implements OnInit {
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
 
+  cs = inject(CurrencyService);
   tiers = signal<FeeTier[]>([]);
   displayedColumns = ['label', 'amount', 'effectiveFrom', 'effectiveTo', 'active', 'actions'];
 

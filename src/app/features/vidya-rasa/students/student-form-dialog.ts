@@ -8,9 +8,10 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { environment } from '../../../../environments/environment';
-import { AgeGroup, DanceStyle, FeeTier } from '../../../core/models/settings.model';
+import { AgeGroup } from '../../../core/models/settings.model';
+import { SchoolClass } from '../../../core/models/class.model';
 
 interface StudentDetail {
   student: {
@@ -19,15 +20,14 @@ interface StudentDetail {
   };
   guardians: { id: number; firstName: string; lastName: string; email: string;
                phone: string; relationship: string; primary: boolean; linkNotes: string; }[];
-  enrollments: { id: number; danceStyleId: number; feeTierId: number; }[];
+  enrollments: { id: number; classId: number | null; }[];
   notes: { id: number; note: string; createdAt: string; }[];
 }
 
 interface DialogData {
   studentDetail: StudentDetail | null;
   ageGroups: AgeGroup[];
-  danceStyles: DanceStyle[];
-  feeTiers: FeeTier[];
+  classes: SchoolClass[];
 }
 
 @Component({
@@ -35,7 +35,7 @@ interface DialogData {
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
             MatInputModule, MatSelectModule, MatButtonModule,
-            MatIconModule, MatDividerModule, CurrencyPipe, DatePipe],
+            MatIconModule, MatDividerModule, DatePipe],
   template: `
     <h2 mat-dialog-title>{{ isEdit ? 'Edit Student' : 'Add Student' }}</h2>
 
@@ -88,38 +88,36 @@ interface DialogData {
           <mat-select formControlName="enrollmentStatus">
             <mat-option value="ACTIVE">Active</mat-option>
             <mat-option value="ON_BREAK">On Break</mat-option>
-            <mat-option value="COMPLETED">Completed</mat-option>
+            <mat-option value="NEEDS_ATTENTION">Needs Attention</mat-option>
             <mat-option value="DROPPED">Dropped</mat-option>
           </mat-select>
         </mat-form-field>
       </form>
 
-      <!-- ── Dance Style Enrollments ────────────────────────── -->
+      <!-- ── Class Enrollments ─────────────────────────────── -->
       <mat-divider style="margin: 8px 0 16px"></mat-divider>
 
       <div class="dialog-form">
         <div class="form-section-row">
-          <p class="form-section-label" style="margin:0">Dance Style Enrollments</p>
+          <p class="form-section-label" style="margin:0">Class Enrollments</p>
           <button mat-button color="primary" type="button" (click)="addEnrollment()">
-            <mat-icon>add</mat-icon> Add Style
+            <mat-icon>add</mat-icon> Add Class
           </button>
         </div>
 
+        @if (classes.length === 0) {
+          <p class="empty-hint" style="color:#f59e0b">No classes set up yet. Go to Classes and create a batch first.</p>
+        }
+
         @for (row of enrollmentRows.controls; track $index) {
-          <div class="form-row-2-with-action" [formGroup]="asGroup(row)">
-            <mat-form-field appearance="outline">
-              <mat-label>Dance Style</mat-label>
-              <mat-select formControlName="danceStyleId">
-                @for (ds of data.danceStyles; track ds.id) {
-                  <mat-option [value]="ds.id">{{ ds.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Fee Tier</mat-label>
-              <mat-select formControlName="feeTierId">
-                @for (ft of data.feeTiers; track ft.id) {
-                  <mat-option [value]="ft.id">{{ ft.label }} — {{ ft.amount | currency }}</mat-option>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px" [formGroup]="asGroup(row)">
+            <mat-form-field appearance="outline" style="flex:1">
+              <mat-label>Class</mat-label>
+              <mat-select formControlName="classId">
+                @for (c of classes; track c.id) {
+                  <mat-option [value]="c.id">
+                    {{ c.danceStyleName ?? '?' }} — {{ c.ageGroupLabel ?? '?' }} — {{ c.batchName }}
+                  </mat-option>
                 }
               </mat-select>
             </mat-form-field>
@@ -141,9 +139,15 @@ interface DialogData {
             Guardians / Payers
             <span class="form-section-hint">(optional — phone used for Zelle matching)</span>
           </p>
-          <button mat-button color="primary" type="button" (click)="addGuardian()">
-            <mat-icon>person_add</mat-icon> Add
-          </button>
+          <div style="display:flex;gap:4px">
+            <button mat-button type="button" style="font-size:0.78rem;color:#6b7280"
+                    title="Adult student paying themselves" (click)="addSelfGuardian()">
+              <mat-icon style="font-size:16px;height:16px;width:16px">person</mat-icon> Self
+            </button>
+            <button mat-button color="primary" type="button" (click)="addGuardian()">
+              <mat-icon>person_add</mat-icon> Add
+            </button>
+          </div>
         </div>
 
         @for (row of guardianRows.controls; track $index) {
@@ -158,13 +162,11 @@ interface DialogData {
               </span>
               <div class="guardian-card-actions">
                 @if ($index !== primaryIndex()) {
-                  <button mat-button type="button" style="font-size:0.78rem"
-                          (click)="setPrimary($index)">
+                  <button mat-button type="button" style="font-size:0.78rem" (click)="setPrimary($index)">
                     Set Primary
                   </button>
                 }
-                <button mat-icon-button color="warn" type="button"
-                        (click)="removeGuardian($index)">
+                <button mat-icon-button color="warn" type="button" (click)="removeGuardian($index)">
                   <mat-icon>delete_outline</mat-icon>
                 </button>
               </div>
@@ -222,8 +224,7 @@ interface DialogData {
                 <div style="font-size:0.88rem;color:#495057">{{ n.note }}</div>
                 <div style="font-size:0.74rem;color:#adb5bd;margin-top:2px">{{ n.createdAt | date:'medium' }}</div>
               </div>
-              <button mat-icon-button color="warn" type="button" style="margin-top:-6px"
-                      (click)="deleteNote(n.id)">
+              <button mat-icon-button color="warn" type="button" style="margin-top:-6px" (click)="deleteNote(n.id)">
                 <mat-icon style="font-size:18px">delete_outline</mat-icon>
               </button>
             </div>
@@ -247,7 +248,7 @@ interface DialogData {
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Cancel</button>
       <button mat-flat-button color="primary" (click)="save()"
-              [disabled]="studentForm.invalid || enrollmentsInvalid() || saving()">
+              [disabled]="studentForm.invalid || saving()">
         {{ saving() ? 'Saving…' : 'Save' }}
       </button>
     </mat-dialog-actions>
@@ -261,6 +262,7 @@ export class StudentFormDialog {
 
   isEdit = !!this.data.studentDetail;
   saving = signal(false);
+  classes: SchoolClass[] = this.data.classes ?? [];
 
   private existingStudent = this.data.studentDetail?.student ?? null;
   private existingGuardians = this.data.studentDetail?.guardians ?? [];
@@ -270,19 +272,11 @@ export class StudentFormDialog {
 
   newNote = new FormControl('');
 
-  deleteNote(noteId: number) {
-    const id = this.existingStudent!.id;
-    this.http.delete(`${environment.apiUrl}/school/v2/students/${id}/notes/${noteId}`)
-      .subscribe(() => this.existingNotes.update(ns => ns.filter(n => n.id !== noteId)));
-  }
-
-  primaryIndex = signal(
-    Math.max(0, this.existingGuardians.findIndex(g => g.primary))
-  );
+  primaryIndex = signal(Math.max(0, this.existingGuardians.findIndex(g => g.primary)));
 
   studentForm = this.fb.group({
     firstName:        [this.existingStudent?.firstName ?? '',        Validators.required],
-    lastName:         [this.existingStudent?.lastName  ?? '',        Validators.required],
+    lastName:         [this.existingStudent?.lastName  ?? ''],
     email:            [this.existingStudent?.email     ?? ''],
     phone:            [this.existingStudent?.phone     ?? ''],
     dateOfBirth:      [this.existingStudent?.dateOfBirth ?? ''],
@@ -291,20 +285,16 @@ export class StudentFormDialog {
   });
 
   enrollmentRows: FormArray = this.fb.array(
-    this.existingEnrollments.length
-      ? this.existingEnrollments.map(e => this.makeEnrollmentRow(e.danceStyleId, e.feeTierId))
-      : this.isEdit ? [] : [this.makeEnrollmentRow()]
+    this.existingEnrollments.map(e => this.makeEnrollmentRow(e.classId))
   );
 
   guardianRows: FormArray = this.fb.array(
     this.existingGuardians.map(g => this.makeGuardianRow(g))
   );
 
-  makeEnrollmentRow(danceStyleId: number | null = null, feeTierId: number | null = null): FormGroup {
-    return this.fb.group({
-      danceStyleId: [danceStyleId, Validators.required],
-      feeTierId:    [feeTierId,    Validators.required]
-    });
+
+  makeEnrollmentRow(classId: number | null = null): FormGroup {
+    return this.fb.group({ classId: [classId] });
   }
 
   makeGuardianRow(g?: any): FormGroup {
@@ -320,8 +310,19 @@ export class StudentFormDialog {
 
   addEnrollment() { this.enrollmentRows.push(this.makeEnrollmentRow()); }
   removeEnrollment(i: number) { this.enrollmentRows.removeAt(i); }
-
   addGuardian() { this.guardianRows.push(this.makeGuardianRow()); }
+
+  addSelfGuardian() {
+    const s = this.studentForm.value;
+    this.guardianRows.push(this.makeGuardianRow({
+      firstName: s.firstName,
+      lastName:  s.lastName,
+      email:     s.email,
+      phone:     s.phone,
+      relationship: 'SELF'
+    }));
+    if (this.guardianRows.length === 1) this.primaryIndex.set(0);
+  }
 
   removeGuardian(i: number) {
     this.guardianRows.removeAt(i);
@@ -331,11 +332,13 @@ export class StudentFormDialog {
   }
 
   setPrimary(i: number) { this.primaryIndex.set(i); }
-
   asGroup(c: any): FormGroup { return c as FormGroup; }
+  enrollmentsInvalid(): boolean { return this.enrollmentRows.controls.some(c => c.invalid); }
 
-  enrollmentsInvalid(): boolean {
-    return this.enrollmentRows.controls.some(c => c.invalid);
+  deleteNote(noteId: number) {
+    const id = this.existingStudent!.id;
+    this.http.delete(`${environment.apiUrl}/school/v2/students/${id}/notes/${noteId}`)
+      .subscribe(() => this.existingNotes.update(ns => ns.filter(n => n.id !== noteId)));
   }
 
   save() {
@@ -344,7 +347,7 @@ export class StudentFormDialog {
 
     const raw = this.studentForm.value;
     const student = { ...raw, dateOfBirth: raw.dateOfBirth || null };
-    const enrollments = this.enrollmentRows.value;
+    const enrollments = this.enrollmentRows.value.filter((e: any) => e.classId != null);
     const guardians = this.guardianRows.value
       .map((g: any, i: number) => ({ ...g, primary: i === this.primaryIndex() }))
       .filter((g: any) => g.firstName?.trim() || g.phone?.trim());

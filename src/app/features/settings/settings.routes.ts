@@ -17,5 +17,13 @@ export const SETTINGS_ROUTES: Routes = [
     path: 'invoice-reminders',
     loadComponent: () => import('./invoice-reminders/invoice-reminders').then(m => m.InvoiceRemindersComponent)
   },
+  {
+    path: 'currency',
+    loadComponent: () => import('./currency/currency-settings').then(m => m.CurrencySettingsComponent)
+  },
+  {
+    path: 'change-password',
+    loadComponent: () => import('./change-password/change-password').then(m => m.ChangePasswordComponent)
+  },
   { path: '', redirectTo: 'dance-styles', pathMatch: 'full' }
 ];

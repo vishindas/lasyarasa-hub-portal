@@ -6,6 +6,7 @@ import { filter } from 'rxjs/operators';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { SidebarComponent } from '../sidebar/sidebar';
 import { TopbarComponent } from '../topbar/topbar';
+import { CurrencyService } from '../../core/services/currency.service';
 
 @Component({
   selector: 'app-shell',
@@ -16,11 +17,13 @@ import { TopbarComponent } from '../topbar/topbar';
 export class ShellComponent implements OnInit {
   private breakpoint = inject(BreakpointObserver);
   private router = inject(Router);
+  private currencyService = inject(CurrencyService);
 
   isMobile = signal(false);
   sidenavOpen = signal(true);
 
   ngOnInit() {
+    this.currencyService.load();
     this.breakpoint.observe(['(max-width: 768px)']).subscribe(r => {
       this.isMobile.set(r.matches);
       this.sidenavOpen.set(!r.matches);

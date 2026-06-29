@@ -1,10 +1,15 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { adminGuard } from './core/auth/admin.guard';
 
 export const routes: Routes = [
   {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login').then(m => m.LoginComponent)
+  },
+  {
+    path: 'register/:token',
+    loadComponent: () => import('./features/register/register-page').then(m => m.RegisterPageComponent)
   },
   {
     path: '',
@@ -22,6 +27,11 @@ export const routes: Routes = [
       {
         path: 'settings',
         loadChildren: () => import('./features/settings/settings.routes').then(m => m.SETTINGS_ROUTES)
+      },
+      {
+        path: 'admin',
+        loadChildren: () => import('./features/admin/admin.routes').then(m => m.ADMIN_ROUTES),
+        canActivate: [adminGuard]
       },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

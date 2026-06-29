@@ -8,17 +8,22 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatTabsModule } from '@angular/material/tabs';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { environment } from '../../../../environments/environment';
 import { Student } from '../../../core/models/student.model';
-import { AgeGroup, DanceStyle, FeeTier } from '../../../core/models/settings.model';
+import { AgeGroup } from '../../../core/models/settings.model';
+import { SchoolClass } from '../../../core/models/class.model';
 import { StudentFormDialog } from './student-form-dialog';
 
 @Component({
   selector: 'app-student-list',
   standalone: true,
   imports: [DatePipe, TitleCasePipe, MatTableModule, MatButtonModule, MatIconModule,
-            MatDialogModule, MatCardModule, MatSnackBarModule, DragDropModule],
+            MatDialogModule, MatCardModule, MatSnackBarModule, DragDropModule,
+            MatInputModule, MatFormFieldModule, MatTabsModule],
   templateUrl: './student-list.html'
 })
 export class StudentListComponent implements OnInit {
@@ -27,35 +32,99 @@ export class StudentListComponent implements OnInit {
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
 
-  students = signal<Student[]>([]);
-  ageGroups = signal<AgeGroup[]>([]);
-  danceStyles = signal<DanceStyle[]>([]);
-  feeTiers = signal<FeeTier[]>([]);
+  readonly tabs: { key: 'ALL'|'ACTIVE'|'ON_BREAK'|'NEEDS_ATTENTION'|'DROPPED'; label: string; icon?: string }[] = [
+    { key: 'ALL',              label: 'All' },
+    { key: 'ACTIVE',           label: 'Active' },
+    { key: 'ON_BREAK',         label: 'On Break' },
+    { key: 'NEEDS_ATTENTION',  label: 'Needs Attention', icon: '🔴' },
+    { key: 'DROPPED',          label: 'Dropped' },
+  ];
 
-  private colDef: Record<string, { label: string; width: string }> = {
-    name:       { label: 'Name',       width: '28%' },
-    ageGroup:   { label: 'Age Group',  width: '16%' },
-    phone:      { label: 'Phone',      width: '17%' },
-    joinedDate: { label: 'Joined',     width: '17%' },
-    status:     { label: 'Status',     width: '13%' },
+  private allStudents = signal<Student[]>([]);
+  searchQuery = signal('');
+  activeTab = signal('ACTIVE');
+
+  counts = computed(() => {
+    const all = this.allStudents();
+    return {
+      ALL:              all.length,
+      ACTIVE:           all.filter(s => s.enrollmentStatus === 'ACTIVE').length,
+      ON_BREAK:         all.filter(s => s.enrollmentStatus === 'ON_BREAK').length,
+      NEEDS_ATTENTION:  all.filter(s => s.enrollmentStatus === 'NEEDS_ATTENTION').length,
+      DROPPED:          all.filter(s => s.enrollmentStatus === 'DROPPED').length,
+    };
+  });
+
+  students = computed(() => {
+    const tab = this.activeTab();
+    const q = this.searchQuery().toLowerCase().trim();
+    const col = this.sortCol();
+    const dir = this.sortDir();
+
+    let list = tab === 'ALL'
+      ? this.allStudents()
+      : this.allStudents().filter(s => s.enrollmentStatus === tab);
+
+    if (q) {
+      list = list.filter(s =>
+        (s.firstName + ' ' + s.lastName).toLowerCase().includes(q) ||
+        s.phone?.toLowerCase().includes(q) ||
+        s.enrolledClasses?.some(c => c.toLowerCase().includes(q))
+      );
+    }
+
+    if (col) {
+      list = [...list].sort((a, b) => {
+        let av = '', bv = '';
+        if (col === 'name')            { av = `${a.firstName} ${a.lastName}`; bv = `${b.firstName} ${b.lastName}`; }
+        else if (col === 'ageGroup')   { av = a.ageGroupLabel ?? '';              bv = b.ageGroupLabel ?? ''; }
+        else if (col === 'joinedDate') { av = a.joinedDate ?? '';                 bv = b.joinedDate ?? ''; }
+        else if (col === 'classes')    { av = a.enrolledClasses?.[0] ?? '';       bv = b.enrolledClasses?.[0] ?? ''; }
+        const cmp = av.localeCompare(bv);
+        return dir === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    return list;
+  });
+  ageGroups = signal<AgeGroup[]>([]);
+  classes = signal<SchoolClass[]>([]);
+
+  private colDef: Record<string, { label: string; width: string; sortable?: boolean }> = {
+    name:       { label: 'Name',       width: '22%', sortable: true },
+    classes:    { label: 'Classes',    width: '20%', sortable: true },
+    ageGroup:   { label: 'Age Group',  width: '13%', sortable: true },
+    phone:      { label: 'Phone',      width: '14%' },
+    joinedDate: { label: 'Joined',     width: '12%', sortable: true },
+    status:     { label: 'Status',     width: '10%' },
   };
 
-  displayedColumns = signal(['name', 'ageGroup', 'phone', 'joinedDate', 'status', 'actions']);
+  displayedColumns = signal(['name', 'classes', 'ageGroup', 'phone', 'joinedDate', 'status', 'actions']);
 
   draggableColumns = computed(() =>
     this.displayedColumns()
       .filter(c => c !== 'actions')
-      .map(c => ({ key: c, label: this.colDef[c]?.label ?? c, width: this.colDef[c]?.width ?? 'auto' }))
+      .map(c => ({ key: c, label: this.colDef[c]?.label ?? c, width: this.colDef[c]?.width ?? 'auto', sortable: this.colDef[c]?.sortable ?? false }))
   );
+
+  sortCol = signal('');
+  sortDir = signal<'asc'|'desc'>('asc');
+
+  toggleSort(col: string) {
+    if (this.sortCol() === col) {
+      this.sortDir.update(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortCol.set(col);
+      this.sortDir.set('asc');
+    }
+  }
 
   ngOnInit() {
     this.load();
     this.http.get<AgeGroup[]>(`${environment.apiUrl}/school/settings/age-groups`)
       .subscribe(data => this.ageGroups.set(data));
-    this.http.get<DanceStyle[]>(`${environment.apiUrl}/school/settings/dance-styles`)
-      .subscribe(data => this.danceStyles.set(data));
-    this.http.get<FeeTier[]>(`${environment.apiUrl}/school/settings/fee-tiers`)
-      .subscribe(data => this.feeTiers.set(data));
+    this.http.get<SchoolClass[]>(`${environment.apiUrl}/school/classes`)
+      .subscribe(data => this.classes.set(data));
   }
 
   dropColumn(event: CdkDragDrop<string[]>) {
@@ -86,8 +155,7 @@ export class StudentListComponent implements OnInit {
       data: {
         studentDetail,
         ageGroups: this.ageGroups(),
-        danceStyles: this.danceStyles(),
-        feeTiers: this.feeTiers()
+        classes: this.classes()
       }
     }).afterClosed().subscribe(saved => {
       if (saved) {
@@ -99,7 +167,7 @@ export class StudentListComponent implements OnInit {
 
   load() {
     this.http.get<Student[]>(`${environment.apiUrl}/school/v2/students`)
-      .subscribe(data => this.students.set(data));
+      .subscribe(data => this.allStudents.set(data));
   }
 
   delete(id: number) {

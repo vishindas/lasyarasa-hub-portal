@@ -1,7 +1,8 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
+import { CurrencyService } from '../../../core/services/currency.service';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -25,7 +26,7 @@ import { VoidInvoiceDialog } from './void-invoice-dialog';
 @Component({
   selector: 'app-invoice-list',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, MatCardModule, MatButtonModule, MatIconModule,
+  imports: [CurrencyPipe, DatePipe, DecimalPipe, MatCardModule, MatButtonModule, MatIconModule,
             MatTableModule, MatCheckboxModule, MatSnackBarModule, MatDialogModule,
             MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule,
             MatButtonToggleModule, MatProgressSpinnerModule],
@@ -36,9 +37,22 @@ export class InvoiceListComponent implements OnInit {
   private snack = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private router = inject(Router);
+  cs = inject(CurrencyService);
 
   previews = signal<InvoicePreview[]>([]);
-  invoices = signal<Invoice[]>([]);
+  private allInvoices = signal<Invoice[]>([]);
+  invoiceSearch = signal('');
+  invoices = computed(() => {
+    const q = this.invoiceSearch().toLowerCase().trim();
+    if (!q) return this.allInvoices();
+    return this.allInvoices().filter(i =>
+      i.invoiceNumber?.toLowerCase().includes(q) ||
+      i.payerName?.toLowerCase().includes(q) ||
+      i.sentTo?.toLowerCase().includes(q) ||
+      i.period?.toLowerCase().includes(q) ||
+      i.status?.toLowerCase().includes(q)
+    );
+  });
   tab = signal<'ready' | 'select' | 'history'>('ready');
   loading = signal(false);
 
@@ -67,6 +81,8 @@ export class InvoiceListComponent implements OnInit {
                     'totalAmount', 'amountPaid', 'status', 'issueDate', 'actions'];
   selectColumns = ['select', 'payerName', 'payerEmail', 'students', 'grandTotal'];
 
+  sendingIds = signal<Set<number>>(new Set());
+
   ngOnInit() { this.loadAll(); }
 
   loadAll() {
@@ -75,7 +91,7 @@ export class InvoiceListComponent implements OnInit {
     this.http.get<InvoicePreview[]>(`${environment.apiUrl}/school/invoices/preview`)
       .subscribe(d => { this.previews.set(d); this.loading.set(false); });
     this.http.get<Invoice[]>(`${environment.apiUrl}/school/invoices`)
-      .subscribe(d => this.invoices.set(d));
+      .subscribe(d => this.allInvoices.set(d));
   }
 
   toggleRow(preview: InvoicePreview) {
@@ -209,13 +225,19 @@ export class InvoiceListComponent implements OnInit {
   canRemind(inv: Invoice)  { return ['SENT', 'OVERDUE', 'PARTIAL'].includes(inv.status) && !!inv.sentTo; }
 
   sendInvoice(inv: Invoice) {
+    if (this.sendingIds().has(inv.id)) return;
+    this.sendingIds.update(s => new Set(s).add(inv.id));
     this.http.post<Invoice>(`${environment.apiUrl}/school/invoices/${inv.id}/send`, {})
       .subscribe({
         next: () => {
+          this.sendingIds.update(s => { const n = new Set(s); n.delete(inv.id); return n; });
           this.snack.open(`Invoice sent to ${inv.sentTo}`, 'OK', { duration: 3000 });
           this.loadAll();
         },
-        error: () => this.snack.open('Failed to send invoice', 'OK', { duration: 3000 })
+        error: () => {
+          this.sendingIds.update(s => { const n = new Set(s); n.delete(inv.id); return n; });
+          this.snack.open('Failed to send invoice', 'OK', { duration: 3000 });
+        }
       });
   }
 

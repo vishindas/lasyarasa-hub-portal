@@ -14,12 +14,12 @@ import { Fee } from '../../../core/models/fee.model';
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
   template: `
     <h2 mat-dialog-title>Generate Monthly Fees</h2>
-    <mat-dialog-content>
+    <mat-dialog-content style="overflow-x:hidden">
       <p style="color:#6c757d;font-size:0.88rem;margin:0 0 16px">
         Creates one fee per active enrollment based on each student's fee tier.
         Skips students who already have a fee for the selected month.
       </p>
-      <form [formGroup]="form" class="dialog-form">
+      <form [formGroup]="form" style="display:flex;flex-direction:column;gap:8px;padding-top:4px">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Month (1–12)</mat-label>
           <input matInput type="number" min="1" max="12" formControlName="month" />

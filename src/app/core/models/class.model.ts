@@ -3,10 +3,10 @@ export interface SchoolClass {
   batchName: string;
   schedule: string;
   description: string;
-}
-
-export interface ClassForm {
-  batchName: string;
-  schedule: string;
-  description: string;
+  danceStyleId: number | null;
+  ageGroupId: number | null;
+  feeTierId: number | null;
+  danceStyleName: string | null;
+  ageGroupLabel: string | null;
+  feeTierLabel: string | null;
 }

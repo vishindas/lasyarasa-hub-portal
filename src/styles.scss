@@ -206,12 +206,63 @@ mat-card {
     &.blue   { background: #e8f4fd; mat-icon { color: #1976d2; } }
     &.amber  { background: #fff8e1; mat-icon { color: #f59e0b; } }
     &.green  { background: #e8f5e9; mat-icon { color: #2e7d32; } }
+    &.red    { background: #fee2e2; mat-icon { color: #dc2626; } }
+  }
+
+  &.stat-card-link {
+    cursor: pointer;
+    transition: box-shadow 0.15s, transform 0.15s;
+    &:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); transform: translateY(-1px); }
   }
 
   .stat-info {
     .stat-label { font-size: 0.8rem; color: #6c757d; margin: 0 0 4px; display: block; }
     .stat-value { font-size: 2rem; font-weight: 700; color: #1a1f36; margin: 0; line-height: 1; }
   }
+}
+
+// ─── Dashboard widget rows ─────────────────────────────────────────────────────
+.dash-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f3f5;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: #f8f9fa; margin: 0 -4px; padding-left: 4px; padding-right: 4px; border-radius: 6px; }
+
+  .dash-row-title {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #1a1f36;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dash-row-sub {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.dash-card-footer {
+  padding: 10px 0 0;
+  border-top: 1px solid #f1f3f5;
+  margin-top: 4px;
+}
+
+.dash-view-all {
+  font-size: 0.8rem;
+  color: #4f63d2;
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
 }
 
 // ─── Status chips ──────────────────────────────────────────────────────────────
@@ -232,7 +283,8 @@ mat-card {
   &.status-paid        { background: #d1fae5; color: #065f46; }
   &.status-overdue     { background: #fee2e2; color: #991b1b; }
   &.status-completed   { background: #e0f2fe; color: #0369a1; }
-  &.status-dropped     { background: #f1f5f9; color: #64748b; }
+  &.status-dropped          { background: #f1f5f9; color: #64748b; }
+  &.status-needs_attention  { background: #fee2e2; color: #991b1b; }
 }
 
 // ─── Dialog ────────────────────────────────────────────────────────────────────
@@ -579,11 +631,12 @@ mat-card {
 // ── Students table fixed column widths ────────────────────────────────────────
 .student-table {
   table-layout: fixed;
-  .mat-column-name       { width: 28%; }
-  .mat-column-ageGroup   { width: 16%; }
-  .mat-column-phone      { width: 17%; }
-  .mat-column-joinedDate { width: 17%; }
-  .mat-column-status     { width: 13%; }
+  .mat-column-name       { width: 22%; }
+  .mat-column-classes    { width: 20%; }
+  .mat-column-ageGroup   { width: 13%; }
+  .mat-column-phone      { width: 14%; }
+  .mat-column-joinedDate { width: 12%; }
+  .mat-column-status     { width: 10%; }
   .mat-column-actions    { width:  9%; }
 }
 

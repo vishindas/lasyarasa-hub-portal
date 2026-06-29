@@ -12,6 +12,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../../environments/environment';
 import { AgeGroup, DanceStyle, FeeTier } from '../../../core/models/settings.model';
+import { CurrencyService } from '../../../core/services/currency.service';
 import { StudentFormDialog } from './student-form-dialog';
 import { FeeFormDialog, FeeDialogData } from '../fees/fee-form-dialog';
 
@@ -33,6 +34,10 @@ interface StudentDetailData {
   student: {
     id: number; firstName: string; lastName: string; email: string; phone: string;
     dateOfBirth: string; enrollmentStatus: string; joinedDate: string; ageGroupLabel: string;
+    address: string; city: string; state: string; zipCode: string;
+    emergencyContactName: string; emergencyContactRelationship: string; emergencyContactPhone: string;
+    previousExperience: string;
+    photoConsent: boolean | null; termsAccepted: boolean | null;
   };
   guardians: GuardianDetail[];
   notes: NoteDetail[];
@@ -135,8 +140,95 @@ interface FeeRecord {
                   </span>
                 </div>
               </div>
+
+              @if (d.student.previousExperience) {
+                <mat-divider style="margin:12px 0"></mat-divider>
+                <p class="section-label" style="margin-bottom:6px">Previous Experience</p>
+                <p style="font-size:0.88rem;color:#1a1f36;margin:0;white-space:pre-wrap">{{ d.student.previousExperience }}</p>
+              }
+
+              @if (d.student.photoConsent !== null || d.student.termsAccepted !== null) {
+                <mat-divider style="margin:12px 0"></mat-divider>
+                <p class="section-label" style="margin-bottom:8px">Consents</p>
+                @if (d.student.photoConsent !== null) {
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <mat-icon style="font-size:18px;width:18px;height:18px;color:{{ d.student.photoConsent ? '#16a34a' : '#dc2626' }}">
+                      {{ d.student.photoConsent ? 'check_circle' : 'cancel' }}
+                    </mat-icon>
+                    <span style="font-size:0.85rem">Photo consent — <strong>{{ d.student.photoConsent ? 'Agreed' : 'Declined' }}</strong></span>
+                  </div>
+                }
+                @if (d.student.termsAccepted !== null) {
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <mat-icon style="font-size:18px;width:18px;height:18px;color:{{ d.student.termsAccepted ? '#16a34a' : '#dc2626' }}">
+                      {{ d.student.termsAccepted ? 'check_circle' : 'cancel' }}
+                    </mat-icon>
+                    <span style="font-size:0.85rem">Terms &amp; conditions — <strong>{{ d.student.termsAccepted ? 'Accepted' : 'Not accepted' }}</strong></span>
+                  </div>
+                }
+              }
             </mat-card-content>
           </mat-card>
+
+          @if (d.student.address || d.student.city) {
+            <mat-card>
+              <mat-card-content style="padding-top:16px">
+                <p class="section-label">Address</p>
+                <div class="info-grid">
+                  @if (d.student.address) {
+                    <div class="info-item" style="grid-column:1/-1">
+                      <span class="info-label">Street</span>
+                      <span class="info-value">{{ d.student.address }}</span>
+                    </div>
+                  }
+                  @if (d.student.city) {
+                    <div class="info-item">
+                      <span class="info-label">City</span>
+                      <span class="info-value">{{ d.student.city }}</span>
+                    </div>
+                  }
+                  @if (d.student.state) {
+                    <div class="info-item">
+                      <span class="info-label">State</span>
+                      <span class="info-value">{{ d.student.state }}</span>
+                    </div>
+                  }
+                  @if (d.student.zipCode) {
+                    <div class="info-item">
+                      <span class="info-label">Zip Code</span>
+                      <span class="info-value">{{ d.student.zipCode }}</span>
+                    </div>
+                  }
+                </div>
+              </mat-card-content>
+            </mat-card>
+          }
+
+          @if (d.student.emergencyContactName) {
+            <mat-card>
+              <mat-card-content style="padding-top:16px">
+                <p class="section-label">Emergency Contact</p>
+                <div class="info-grid">
+                  <div class="info-item">
+                    <span class="info-label">Name</span>
+                    <span class="info-value">{{ d.student.emergencyContactName }}</span>
+                  </div>
+                  @if (d.student.emergencyContactRelationship) {
+                    <div class="info-item">
+                      <span class="info-label">Relationship</span>
+                      <span class="info-value">{{ d.student.emergencyContactRelationship }}</span>
+                    </div>
+                  }
+                  @if (d.student.emergencyContactPhone) {
+                    <div class="info-item">
+                      <span class="info-label">Phone</span>
+                      <span class="info-value">{{ d.student.emergencyContactPhone }}</span>
+                    </div>
+                  }
+                </div>
+              </mat-card-content>
+            </mat-card>
+          }
 
           <mat-card>
             <mat-card-content style="padding-top:16px">
@@ -244,7 +336,7 @@ interface FeeRecord {
 
               <ng-container matColumnDef="amount">
                 <th mat-header-cell *matHeaderCellDef>Amount</th>
-                <td mat-cell *matCellDef="let f">{{ f.amount | currency }}</td>
+                <td mat-cell *matCellDef="let f">{{ f.amount | currency:currencyService.currency() }}</td>
               </ng-container>
 
               <ng-container matColumnDef="dueDate">
@@ -297,6 +389,7 @@ export class StudentProfileComponent implements OnInit {
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
 
+  currencyService = inject(CurrencyService);
   detail = signal<StudentDetailData | null>(null);
   fees = signal<FeeRecord[]>([]);
   ageGroups = signal<AgeGroup[]>([]);
