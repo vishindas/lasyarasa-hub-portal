@@ -6,6 +6,13 @@ export interface DanceStyle {
   sortOrder: number;
 }
 
+export interface FeeTierRate {
+  id?: number;
+  minAge?: number | null;
+  maxAge?: number | null;
+  amount: number;
+}
+
 export interface FeeTier {
   id?: number;
   label: string;
@@ -14,6 +21,7 @@ export interface FeeTier {
   effectiveFrom?: string;
   effectiveTo?: string;
   active: boolean;
+  rates?: FeeTierRate[];
 }
 
 export interface AgeGroup {

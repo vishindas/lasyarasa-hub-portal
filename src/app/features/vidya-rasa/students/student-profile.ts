@@ -15,10 +15,17 @@ import { AgeGroup, DanceStyle, FeeTier } from '../../../core/models/settings.mod
 import { CurrencyService } from '../../../core/services/currency.service';
 import { StudentFormDialog } from './student-form-dialog';
 import { FeeFormDialog, FeeDialogData } from '../fees/fee-form-dialog';
+import { FeeOverrideDialog, FeeOverrideDialogData } from './fee-override-dialog';
 
 interface EnrollmentDetail {
   id: number; danceStyleId: number; danceStyleName: string;
   feeTierId: number; feeTierLabel: string; status: string; startDate: string;
+  resolvedFeeAmount: number | null;
+}
+
+interface FeeOverride {
+  id: number; enrollmentId: number; className: string;
+  amount: number; reason: string; effectiveFrom: string; effectiveTo: string | null;
 }
 
 interface GuardianDetail {
@@ -264,13 +271,57 @@ interface FeeRecord {
                 <div class="enroll-row">
                   <div>
                     <div class="enroll-style">{{ e.danceStyleName || 'Style #' + e.danceStyleId }}</div>
-                    <div class="enroll-tier">{{ e.feeTierLabel || 'Tier #' + e.feeTierId }}</div>
+                    <div class="enroll-tier">
+                      {{ e.feeTierLabel || 'Tier #' + e.feeTierId }}
+                      @if (e.resolvedFeeAmount != null) {
+                        <span style="color:#3d4ed8;font-weight:600;margin-left:6px">
+                          {{ e.resolvedFeeAmount | currency:currencyService.currency() }}/mo
+                        </span>
+                      }
+                    </div>
                   </div>
                   <span class="status-chip status-{{ e.status?.toLowerCase() }}">{{ e.status | titlecase }}</span>
                 </div>
               }
               @if (!d.enrollments.length) {
                 <p class="empty-hint">No enrollments recorded.</p>
+              }
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card>
+            <mat-card-content style="padding-top:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <p class="section-label" style="margin:0">Fee Overrides ({{ overrides().length }})</p>
+                <button mat-stroked-button style="font-size:0.8rem"
+                        (click)="openAddOverride(d.student.id, d.enrollments)">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">add</mat-icon> Add Override
+                </button>
+              </div>
+              @for (o of overrides(); track o.id) {
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0">
+                  <div>
+                    <div style="font-size:0.88rem;font-weight:500">{{ o.className }}</div>
+                    <div style="font-size:0.78rem;color:#6c757d">
+                      {{ o.effectiveFrom | date:'mediumDate' }}
+                      @if (o.effectiveTo) { → {{ o.effectiveTo | date:'mediumDate' }} }
+                      @else { → ongoing }
+                      @if (o.reason) { · {{ o.reason }} }
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-weight:600;color:#3d4ed8">
+                      {{ o.amount | currency:currencyService.currency() }}/mo
+                    </span>
+                    <button mat-icon-button color="warn" style="margin-top:-4px"
+                            (click)="deleteOverride(d.student.id, o.id)">
+                      <mat-icon style="font-size:18px">delete_outline</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              }
+              @if (!overrides().length) {
+                <p class="empty-hint">No custom overrides. Standard tier pricing applies.</p>
               }
             </mat-card-content>
           </mat-card>
@@ -392,6 +443,7 @@ export class StudentProfileComponent implements OnInit {
   currencyService = inject(CurrencyService);
   detail = signal<StudentDetailData | null>(null);
   fees = signal<FeeRecord[]>([]);
+  overrides = signal<FeeOverride[]>([]);
   ageGroups = signal<AgeGroup[]>([]);
   danceStyles = signal<DanceStyle[]>([]);
   feeTiers = signal<FeeTier[]>([]);
@@ -402,6 +454,7 @@ export class StudentProfileComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id')!;
     this.loadDetail(id);
     this.loadFees(id);
+    this.loadOverrides(id);
     this.http.get<AgeGroup[]>(`${environment.apiUrl}/school/settings/age-groups`).subscribe(d => this.ageGroups.set(d));
     this.http.get<DanceStyle[]>(`${environment.apiUrl}/school/settings/dance-styles`).subscribe(d => this.danceStyles.set(d));
     this.http.get<FeeTier[]>(`${environment.apiUrl}/school/settings/fee-tiers`).subscribe(d => this.feeTiers.set(d));
@@ -415,6 +468,36 @@ export class StudentProfileComponent implements OnInit {
   loadFees(id: string) {
     this.http.get<FeeRecord[]>(`${environment.apiUrl}/school/fees?studentId=${id}`)
       .subscribe(d => this.fees.set(d));
+  }
+
+  loadOverrides(id: string) {
+    this.http.get<FeeOverride[]>(`${environment.apiUrl}/school/v2/students/${id}/fee-overrides`)
+      .subscribe(d => this.overrides.set(d));
+  }
+
+  openAddOverride(studentId: number, enrollments: EnrollmentDetail[]) {
+    const data: FeeOverrideDialogData = {
+      studentId,
+      enrollments: enrollments.map(e => ({ id: e.id, className: e.danceStyleName || 'Class', status: e.status }))
+    };
+    this.dialog.open(FeeOverrideDialog, { width: '480px', data })
+      .afterClosed().subscribe(saved => {
+        if (saved) {
+          this.loadOverrides(String(studentId));
+          this.loadDetail(String(studentId));
+          this.snack.open('Fee override saved', 'OK', { duration: 2500 });
+        }
+      });
+  }
+
+  deleteOverride(studentId: number, overrideId: number) {
+    if (!confirm('Remove this fee override?')) return;
+    this.http.delete(`${environment.apiUrl}/school/v2/students/${studentId}/fee-overrides/${overrideId}`)
+      .subscribe(() => {
+        this.loadOverrides(String(studentId));
+        this.loadDetail(String(studentId));
+        this.snack.open('Override removed', 'OK', { duration: 2500 });
+      });
   }
 
   openEdit() {

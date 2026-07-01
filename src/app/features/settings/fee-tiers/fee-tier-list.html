@@ -18,7 +18,14 @@
 
     <ng-container matColumnDef="amount">
       <th mat-header-cell *matHeaderCellDef>Amount</th>
-      <td mat-cell *matCellDef="let t">{{ t.amount | currency:cs.currency() }}</td>
+      <td mat-cell *matCellDef="let t">
+        @if (t.rates?.length > 1 || (t.rates?.length === 1 && (t.rates[0].minAge != null || t.rates[0].maxAge != null))) {
+          <span style="color:#3d4ed8;font-size:0.82rem;font-weight:600">Age-banded</span>
+          <span style="color:#6c757d;font-size:0.78rem;margin-left:4px">({{ t.rates.length }} rates)</span>
+        } @else {
+          {{ t.amount | currency:cs.currency() }}
+        }
+      </td>
     </ng-container>
 
     <ng-container matColumnDef="effectiveFrom">
