@@ -18,7 +18,7 @@ import { FeeFormDialog, FeeDialogData } from '../fees/fee-form-dialog';
 import { FeeOverrideDialog, FeeOverrideDialogData } from './fee-override-dialog';
 
 interface EnrollmentDetail {
-  id: number; danceStyleId: number; danceStyleName: string;
+  id: number; classId: number; className: string; danceStyleId: number; danceStyleName: string;
   feeTierId: number; feeTierLabel: string; status: string; startDate: string;
   resolvedFeeAmount: number | null;
 }
@@ -478,7 +478,7 @@ export class StudentProfileComponent implements OnInit {
   openAddOverride(studentId: number, enrollments: EnrollmentDetail[]) {
     const data: FeeOverrideDialogData = {
       studentId,
-      enrollments: enrollments.map(e => ({ id: e.id, className: e.danceStyleName || 'Class', status: e.status }))
+      enrollments: enrollments.map(e => ({ id: e.id, className: e.className || e.danceStyleName || 'Class', status: e.status }))
     };
     this.dialog.open(FeeOverrideDialog, { width: '480px', data })
       .afterClosed().subscribe(saved => {

@@ -283,6 +283,7 @@ mat-card {
   &.status-paid        { background: #d1fae5; color: #065f46; }
   &.status-overdue     { background: #fee2e2; color: #991b1b; }
   &.status-completed   { background: #e0f2fe; color: #0369a1; }
+  &.status-waived      { background: #f1f5f9; color: #64748b; }
   &.status-dropped          { background: #f1f5f9; color: #64748b; }
   &.status-needs_attention  { background: #fee2e2; color: #991b1b; }
 }

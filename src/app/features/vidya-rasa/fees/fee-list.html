@@ -162,14 +162,21 @@
 
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef></th>
-      <td mat-cell *matCellDef="let f">
-        @if (f.status !== 'PAID') {
-          <button mat-icon-button color="primary" (click)="markPaid(f)" title="Mark Paid">
-            <mat-icon>check_circle</mat-icon>
+      <td mat-cell *matCellDef="let f" style="white-space:nowrap">
+        @if (f.status === 'PENDING' || f.status === 'OVERDUE') {
+          <button mat-icon-button color="primary" (click)="markPaid(f)" title="Mark Paid" style="width:32px;height:32px">
+            <mat-icon style="font-size:18px;width:18px;height:18px">check_circle</mat-icon>
+          </button>
+          <button mat-icon-button (click)="waive(f)" title="Waive fee" style="color:#94a3b8;width:32px;height:32px">
+            <mat-icon style="font-size:18px;width:18px;height:18px">money_off</mat-icon>
           </button>
         }
-        <button mat-icon-button (click)="openForm(f)" title="Edit"><mat-icon>edit</mat-icon></button>
-        <button mat-icon-button color="warn" (click)="delete(f.id)" title="Delete"><mat-icon>delete</mat-icon></button>
+        <button mat-icon-button (click)="openForm(f)" title="Edit" style="width:32px;height:32px">
+          <mat-icon style="font-size:18px;width:18px;height:18px">edit</mat-icon>
+        </button>
+        <button mat-icon-button color="warn" (click)="delete(f.id)" title="Delete" style="width:32px;height:32px">
+          <mat-icon style="font-size:18px;width:18px;height:18px">delete</mat-icon>
+        </button>
       </td>
     </ng-container>
 

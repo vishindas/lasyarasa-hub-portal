@@ -6,12 +6,13 @@ import { filter } from 'rxjs/operators';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { SidebarComponent } from '../sidebar/sidebar';
 import { TopbarComponent } from '../topbar/topbar';
+import { ChatWidgetComponent } from '../chat-widget/chat-widget';
 import { CurrencyService } from '../../core/services/currency.service';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, MatSidenavModule, SidebarComponent, TopbarComponent],
+  imports: [RouterOutlet, MatSidenavModule, SidebarComponent, TopbarComponent, ChatWidgetComponent],
   templateUrl: './shell.html'
 })
 export class ShellComponent implements OnInit {

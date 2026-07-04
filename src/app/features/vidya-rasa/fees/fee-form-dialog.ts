@@ -30,22 +30,29 @@ export interface FeeDialogData {
     <mat-dialog-content style="overflow-x:hidden">
       <form [formGroup]="form" style="display:flex;flex-direction:column;gap:8px;padding-top:4px">
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Student</mat-label>
-          <input matInput [formControl]="studentSearch"
-                 [matAutocomplete]="studentAuto"
-                 placeholder="Type name to search…" />
-          <mat-autocomplete #studentAuto="matAutocomplete"
-                            [displayWith]="displayStudent"
-                            (optionSelected)="onStudentSelected($event.option.value)">
-            @for (s of filteredStudents(); track s.id) {
-              <mat-option [value]="s">{{ s.firstName }} {{ s.lastName }}</mat-option>
-            }
-            @if (filteredStudents().length === 0 && studentSearch.value) {
-              <mat-option disabled>No students found</mat-option>
-            }
-          </mat-autocomplete>
-        </mat-form-field>
+        @if (data?.fee || data?.studentId) {
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Student</mat-label>
+            <input matInput [value]="data?.fee?.studentName || preselectedStudentName()" readonly />
+          </mat-form-field>
+        } @else {
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Student</mat-label>
+            <input matInput [formControl]="studentSearch"
+                   [matAutocomplete]="studentAuto"
+                   placeholder="Type name to search…" />
+            <mat-autocomplete #studentAuto="matAutocomplete"
+                              [displayWith]="displayStudent"
+                              (optionSelected)="onStudentSelected($event.option.value)">
+              @for (s of filteredStudents(); track s.id) {
+                <mat-option [value]="s">{{ s.firstName }} {{ s.lastName }}</mat-option>
+              }
+              @if (filteredStudents().length === 0 && studentSearch.value) {
+                <mat-option disabled>No students found</mat-option>
+              }
+            </mat-autocomplete>
+          </mat-form-field>
+        }
 
         @if (data?.feeTiers?.length) {
           <mat-form-field appearance="outline" class="full-width">
@@ -75,6 +82,7 @@ export interface FeeDialogData {
             <mat-option value="PENDING">Pending</mat-option>
             <mat-option value="PAID">Paid</mat-option>
             <mat-option value="OVERDUE">Overdue</mat-option>
+            <mat-option value="WAIVED">Waived</mat-option>
           </mat-select>
         </mat-form-field>
 
@@ -108,6 +116,7 @@ export class FeeFormDialog implements OnInit {
   private ref = inject(MatDialogRef<FeeFormDialog>);
   data = inject<FeeDialogData | null>(MAT_DIALOG_DATA);
   saving = signal(false);
+  preselectedStudentName = signal<string>('');
 
   private fee = this.data?.fee;
   private allStudents: Student[] = [];
@@ -136,6 +145,7 @@ export class FeeFormDialog implements OnInit {
         if (match) {
           this.studentSearch.setValue(match);
           this.form.get('studentId')!.setValue(match.id as any);
+          this.preselectedStudentName.set(match.firstName + ' ' + match.lastName);
         }
       }
     });

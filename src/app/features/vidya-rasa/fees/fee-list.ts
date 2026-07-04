@@ -60,7 +60,7 @@ export class FeeListComponent implements OnInit {
 
   expandedMonths = signal<Set<string>>(new Set([this.thisMonthKey]));
 
-  readonly statusOptions = ['PENDING', 'PAID', 'OVERDUE', 'COMPLETED'];
+  readonly statusOptions = ['PENDING', 'PAID', 'OVERDUE', 'COMPLETED', 'WAIVED'];
 
   // Monthly grouping only active when no filters are applied
   isMonthlyActive = computed(() =>
@@ -242,6 +242,12 @@ export class FeeListComponent implements OnInit {
       .afterClosed().subscribe(saved => {
         if (saved) { this.load(); this.snack.open('Marked as paid', 'OK', { duration: 2500 }); }
       });
+  }
+
+  waive(fee: Fee) {
+    if (!confirm(`Waive fee for ${fee.studentName}? It will be removed from the invoice queue.`)) return;
+    this.http.put(`${environment.apiUrl}/school/fees/${fee.id}`, { ...fee, status: 'WAIVED' })
+      .subscribe(() => { this.load(); this.snack.open('Fee waived', 'OK', { duration: 2500 }); });
   }
 
   delete(id: number) {

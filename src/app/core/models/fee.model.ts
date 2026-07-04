@@ -1,4 +1,4 @@
-export type FeeStatus = 'PENDING' | 'PAID' | 'OVERDUE';
+export type FeeStatus = 'PENDING' | 'PAID' | 'OVERDUE' | 'WAIVED';
 
 export interface FeeTierItem {
   tierId: number;
