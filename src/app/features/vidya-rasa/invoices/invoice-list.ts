@@ -42,17 +42,38 @@ export class InvoiceListComponent implements OnInit {
   previews = signal<InvoicePreview[]>([]);
   private allInvoices = signal<Invoice[]>([]);
   invoiceSearch = signal('');
+  selectedMonth = signal<string>(this.toMonthKey(new Date()));
+
+  invoicesForMonth = computed(() =>
+    this.allInvoices().filter(i => i.period === this.selectedMonth())
+  );
   invoices = computed(() => {
     const q = this.invoiceSearch().toLowerCase().trim();
-    if (!q) return this.allInvoices();
-    return this.allInvoices().filter(i =>
+    const base = this.invoicesForMonth();
+    if (!q) return base;
+    return base.filter(i =>
       i.invoiceNumber?.toLowerCase().includes(q) ||
       i.payerName?.toLowerCase().includes(q) ||
       i.sentTo?.toLowerCase().includes(q) ||
-      i.period?.toLowerCase().includes(q) ||
       i.status?.toLowerCase().includes(q)
     );
   });
+
+  monthLabel = computed(() => {
+    const [y, m] = this.selectedMonth().split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  });
+  monthTotal    = computed(() => this.invoicesForMonth().reduce((s, i) => s + (i.totalAmount ?? 0), 0));
+  monthPaid     = computed(() => this.invoicesForMonth().reduce((s, i) => s + (i.amountPaid ?? 0), 0));
+  monthOutstanding = computed(() => this.monthTotal() - this.monthPaid());
+  monthSent     = computed(() => this.invoicesForMonth().filter(i => i.status === 'SENT' || i.status === 'OVERDUE').length);
+  monthPaidCount= computed(() => this.invoicesForMonth().filter(i => i.status === 'PAID').length);
+
+  availableMonths = computed(() => {
+    const months = new Set(this.allInvoices().map(i => i.period).filter(Boolean));
+    return [...months].sort().reverse() as string[];
+  });
+
   tab = signal<'ready' | 'select' | 'history'>('ready');
   loading = signal(false);
 
@@ -60,7 +81,23 @@ export class InvoiceListComponent implements OnInit {
   invoiceable = computed(() => this.previews().filter(p => p.guardianId !== null));
   grandTotal = computed(() => this.invoiceable().reduce((sum, p) => sum + p.grandTotal, 0));
   studentCount = computed(() => this.invoiceable().reduce((sum, p) => sum + p.students.length, 0));
-  draftCount = computed(() => this.invoices().filter(i => i.status === 'DRAFT' && !!i.sentTo).length);
+  draftCount = computed(() => this.invoicesForMonth().filter(i => i.status === 'DRAFT' && !!i.sentTo).length);
+
+  private toMonthKey(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  prevMonth() {
+    const [y, m] = this.selectedMonth().split('-').map(Number);
+    const d = new Date(y, m - 2, 1);
+    this.selectedMonth.set(this.toMonthKey(d));
+  }
+  nextMonth() {
+    const [y, m] = this.selectedMonth().split('-').map(Number);
+    const d = new Date(y, m, 1);
+    this.selectedMonth.set(this.toMonthKey(d));
+  }
+  isCurrentMonth = computed(() => this.selectedMonth() === this.toMonthKey(new Date()));
 
   // Selection state — keyed by guardianId
   selected = signal<Set<number>>(new Set());
@@ -148,20 +185,9 @@ export class InvoiceListComponent implements OnInit {
         dueDate: confirmed.dueDate, guardianIds: null
       }).subscribe({
         next: (result) => {
-          if (confirmed.sendImmediately && result.length > 0) {
-            const ids = result.map(i => i.id);
-            this.http.post<Invoice[]>(`${environment.apiUrl}/school/invoices/send-all`, { invoiceIds: ids })
-              .subscribe({
-                next: (sent) => {
-                  this.snack.open(`Generated ${result.length} · Sent ${sent.length} invoice${sent.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
-                  this.loadAll();
-                },
-                error: () => { this.snack.open(`Generated ${result.length} but email sending failed`, 'OK', { duration: 4000 }); this.loadAll(); }
-              });
-          } else {
-            this.snack.open(`Generated ${result.length} invoice${result.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
-            this.loadAll();
-          }
+          const n = result.length;
+          this.snack.open(`Generated & sent ${n} invoice${n !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
+          this.loadAll();
         },
         error: () => { this.loading.set(false); this.snack.open('Failed to generate invoices', 'OK', { duration: 3000 }); }
       });
@@ -182,20 +208,9 @@ export class InvoiceListComponent implements OnInit {
         dueDate: confirmed.dueDate, guardianIds: sel.map(p => p.guardianId)
       }).subscribe({
         next: (result) => {
-          if (confirmed.sendImmediately && result.length > 0) {
-            const ids = result.map(i => i.id);
-            this.http.post<Invoice[]>(`${environment.apiUrl}/school/invoices/send-all`, { invoiceIds: ids })
-              .subscribe({
-                next: (sent) => {
-                  this.snack.open(`Generated ${result.length} · Sent ${sent.length} invoice${sent.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
-                  this.loadAll();
-                },
-                error: () => { this.snack.open(`Generated ${result.length} but email sending failed`, 'OK', { duration: 4000 }); this.loadAll(); }
-              });
-          } else {
-            this.snack.open(`Generated ${result.length} invoice${result.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
-            this.loadAll();
-          }
+          const n = result.length;
+          this.snack.open(`Generated & sent ${n} invoice${n !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
+          this.loadAll();
         },
         error: () => { this.loading.set(false); this.snack.open('Failed to generate invoices', 'OK', { duration: 3000 }); }
       });

@@ -69,7 +69,8 @@ export class StudentListComponent implements OnInit {
       list = list.filter(s =>
         (s.firstName + ' ' + s.lastName).toLowerCase().includes(q) ||
         s.phone?.toLowerCase().includes(q) ||
-        s.enrolledClasses?.some(c => c.toLowerCase().includes(q))
+        s.enrolledClasses?.some(c => c.toLowerCase().includes(q)) ||
+        s.guardianNames?.some(g => g.toLowerCase().includes(q))
       );
     }
 

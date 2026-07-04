@@ -27,7 +27,9 @@ interface MonthGroup {
   count: number;
   total: number;
   paid: number;
+  pending: number;
   overdue: number;
+  waived: number;
 }
 
 @Component({
@@ -60,7 +62,7 @@ export class FeeListComponent implements OnInit {
 
   expandedMonths = signal<Set<string>>(new Set([this.thisMonthKey]));
 
-  readonly statusOptions = ['PENDING', 'PAID', 'OVERDUE', 'COMPLETED', 'WAIVED'];
+  readonly statusOptions = ['PENDING', 'PAID', 'OVERDUE', 'WAIVED'];
 
   // Monthly grouping only active when no filters are applied
   isMonthlyActive = computed(() =>
@@ -105,7 +107,8 @@ export class FeeListComponent implements OnInit {
         (f.studentName ?? '').toLowerCase().includes(q) ||
         (f.feeTierLabel ?? '').toLowerCase().includes(q) ||
         (f.status ?? '').toLowerCase().includes(q) ||
-        (f.paidBy ?? '').toLowerCase().includes(q)
+        (f.paidBy ?? '').toLowerCase().includes(q) ||
+        f.guardianNames?.some(g => g.toLowerCase().includes(q))
       );
     }
 
@@ -134,6 +137,16 @@ export class FeeListComponent implements OnInit {
     return rows;
   });
 
+  listStats = computed(() => {
+    const rows = this.fees();
+    const total   = rows.reduce((s, f) => s + (f.amount ?? 0), 0);
+    const paid    = rows.filter(f => f.status === 'PAID').reduce((s, f) => s + (f.amount ?? 0), 0);
+    const pending = rows.filter(f => f.status === 'PENDING').reduce((s, f) => s + (f.amount ?? 0), 0);
+    const overdue = rows.filter(f => f.status === 'OVERDUE').reduce((s, f) => s + (f.amount ?? 0), 0);
+    const waived  = rows.filter(f => f.status === 'WAIVED').reduce((s, f) => s + (f.amount ?? 0), 0);
+    return { total, paid, pending, overdue, waived };
+  });
+
   // Interleaves month-header sentinel objects with fee rows for the monthly table view
   monthlyTableRows = computed((): Array<Fee | MonthGroup> => {
     const expanded = this.expandedMonths();
@@ -153,11 +166,13 @@ export class FeeListComponent implements OnInit {
       const label = isNaN(m)
         ? key
         : new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      const total = fees.reduce((s, f) => s + (f.amount ?? 0), 0);
-      const paid  = fees.filter(f => f.status === 'PAID').reduce((s, f) => s + (f.amount ?? 0), 0);
-      const overdue = fees.filter(f => f.status === 'OVERDUE').length;
+      const total   = fees.reduce((s, f) => s + (f.amount ?? 0), 0);
+      const paid    = fees.filter(f => f.status === 'PAID').reduce((s, f) => s + (f.amount ?? 0), 0);
+      const pending = fees.filter(f => f.status === 'PENDING').reduce((s, f) => s + (f.amount ?? 0), 0);
+      const overdue = fees.filter(f => f.status === 'OVERDUE').reduce((s, f) => s + (f.amount ?? 0), 0);
+      const waived  = fees.filter(f => f.status === 'WAIVED').reduce((s, f) => s + (f.amount ?? 0), 0);
 
-      rows.push({ _type: 'monthHeader', key, label, count: fees.length, total, paid, overdue });
+      rows.push({ _type: 'monthHeader', key, label, count: fees.length, total, paid, pending, overdue, waived });
       if (expanded.has(key)) rows.push(...fees);
     }
 

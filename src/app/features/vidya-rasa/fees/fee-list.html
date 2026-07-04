@@ -32,7 +32,7 @@
   <div class="table-filter-bar">
     <mat-form-field appearance="outline" class="filter-search">
       <mat-icon matPrefix>search</mat-icon>
-      <input matInput placeholder="Search student, tier, status…"
+      <input matInput placeholder="Search student, parent name, tier, status…"
              [value]="filterText()"
              (input)="filterText.set($any($event.target).value)">
       @if (filterText()) {
@@ -53,6 +53,62 @@
       }
     </div>
   </div>
+
+  <!-- List view status summary bar -->
+  @if (viewMode() === 'flat' || filtersActive()) {
+    <div class="fee-summary-row">
+      @if (!statusFilter()) {
+        <div class="fee-stat">
+          <span class="fee-stat-val">{{ listStats().total | currency:cs.currency():'symbol':'1.0-0' }}</span>
+          <span class="fee-stat-lbl">Total</span>
+        </div>
+        <div class="fee-stat-divider"></div>
+        <div class="fee-stat">
+          <span class="fee-stat-val" style="color:#2e7d32">{{ listStats().paid | currency:cs.currency():'symbol':'1.0-0' }}</span>
+          <span class="fee-stat-lbl">Paid</span>
+        </div>
+        <div class="fee-stat-divider"></div>
+        <div class="fee-stat">
+          <span class="fee-stat-val" style="color:#1565c0">{{ listStats().pending | currency:cs.currency():'symbol':'1.0-0' }}</span>
+          <span class="fee-stat-lbl">Pending</span>
+        </div>
+        <div class="fee-stat-divider"></div>
+        <div class="fee-stat">
+          <span class="fee-stat-val" style="color:#c62828">{{ listStats().overdue | currency:cs.currency():'symbol':'1.0-0' }}</span>
+          <span class="fee-stat-lbl">Overdue</span>
+        </div>
+        <div class="fee-stat-divider"></div>
+        <div class="fee-stat">
+          <span class="fee-stat-val" style="color:#6c757d">{{ listStats().waived | currency:cs.currency():'symbol':'1.0-0' }}</span>
+          <span class="fee-stat-lbl">Waived</span>
+        </div>
+      }
+      @if (statusFilter() === 'PAID') {
+        <div class="fee-stat">
+          <span class="fee-stat-val" style="color:#2e7d32">{{ listStats().paid | currency:cs.currency():'symbol':'1.0-0' }}</span>
+          <span class="fee-stat-lbl">Total Paid</span>
+        </div>
+      }
+      @if (statusFilter() === 'PENDING') {
+        <div class="fee-stat">
+          <span class="fee-stat-val" style="color:#1565c0">{{ listStats().pending | currency:cs.currency():'symbol':'1.0-0' }}</span>
+          <span class="fee-stat-lbl">Total Pending</span>
+        </div>
+      }
+      @if (statusFilter() === 'OVERDUE') {
+        <div class="fee-stat">
+          <span class="fee-stat-val" style="color:#c62828">{{ listStats().overdue | currency:cs.currency():'symbol':'1.0-0' }}</span>
+          <span class="fee-stat-lbl">Total Overdue</span>
+        </div>
+      }
+      @if (statusFilter() === 'WAIVED') {
+        <div class="fee-stat">
+          <span class="fee-stat-val" style="color:#6c757d">{{ listStats().waived | currency:cs.currency():'symbol':'1.0-0' }}</span>
+          <span class="fee-stat-lbl">Total Waived</span>
+        </div>
+      }
+    </div>
+  }
 
   <!-- Notice: monthly view suspended while filters are active -->
   @if (viewMode() === 'monthly' && filtersActive()) {
@@ -98,9 +154,12 @@
             <span class="month-total">{{ row.total | currency:cs.currency():'symbol':'1.0-0' }} total</span>
             <span class="month-separator">·</span>
             <span class="month-paid">{{ row.paid | currency:cs.currency():'symbol':'1.0-0' }} paid</span>
-            @if (row.overdue > 0) {
-              <span class="month-overdue-badge">{{ row.overdue }} overdue</span>
-            }
+            <span class="month-separator">·</span>
+            <span class="month-pending">{{ row.pending | currency:cs.currency():'symbol':'1.0-0' }} pending</span>
+            <span class="month-separator">·</span>
+            <span class="month-overdue">{{ row.overdue | currency:cs.currency():'symbol':'1.0-0' }} overdue</span>
+            <span class="month-separator">·</span>
+            <span class="month-waived">{{ row.waived | currency:cs.currency():'symbol':'1.0-0' }} waived</span>
           </div>
         </div>
       </td>

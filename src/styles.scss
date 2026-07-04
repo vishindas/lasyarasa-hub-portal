@@ -617,6 +617,9 @@ mat-card {
   .month-separator { color: #ced4da; }
   .month-total    { font-weight: 600; color: #1a1f36; }
   .month-paid     { color: #2e7d32; font-weight: 500; }
+  .month-pending  { color: #1565c0; font-weight: 500; }
+  .month-overdue  { color: #c62828; font-weight: 500; }
+  .month-waived   { color: #6c757d; font-weight: 500; }
 
   .month-overdue-badge {
     background: #fee2e2;
@@ -627,6 +630,39 @@ mat-card {
     font-weight: 700;
     letter-spacing: 0.03em;
   }
+}
+
+.fee-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: #f4f5fb;
+  border-radius: 12px;
+  padding: 18px 24px;
+  margin-bottom: 16px;
+}
+.fee-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.fee-stat-val {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #3d4ed8;
+  line-height: 1;
+}
+.fee-stat-lbl {
+  font-size: 0.72rem;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.fee-stat-divider {
+  width: 1px;
+  height: 36px;
+  background: #e8eaf0;
 }
 
 // ── Students table fixed column widths ────────────────────────────────────────
@@ -821,6 +857,37 @@ mat-card {
 
   &:hover { background: #f4f5fb !important; }
   &.selected-row { background: #eef0ff !important; }
+}
+
+// ─── Monthly invoice view ──────────────────────────────────────────────────────
+.month-nav {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+}
+.month-label {
+  font-size: 1.15rem; font-weight: 700; color: #1a1f36; min-width: 160px; text-align: center;
+}
+.month-jump {
+  margin-left: 8px; padding: 4px 8px; border: 1px solid #d1d5db;
+  border-radius: 6px; font-size: 0.85rem; color: #374151; background: #fff;
+  cursor: pointer;
+  &:focus { outline: 2px solid #3d4ed8; outline-offset: 1px; }
+}
+.month-summary-row {
+  display: flex; align-items: center; justify-content: space-around;
+  background: #f4f5fb; border-radius: 12px; padding: 18px 24px;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 12px;
+}
+.month-stat {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.month-stat-val {
+  font-size: 1.4rem; font-weight: 800; color: #3d4ed8; line-height: 1;
+}
+.month-stat-lbl {
+  font-size: 0.72rem; color: #6c757d; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.month-stat-divider {
+  width: 1px; height: 36px; background: #e8eaf0; align-self: center;
 }
 
 // ─── Mobile responsive ─────────────────────────────────────────────────────────

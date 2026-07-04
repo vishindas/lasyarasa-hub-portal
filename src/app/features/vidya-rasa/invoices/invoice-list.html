@@ -208,11 +208,64 @@
 
 <!-- ── Invoice History ──────────────────────────────────────────────────────── -->
 @if (tab() === 'history') {
+
+  <!-- Month navigator -->
+  <div class="month-nav">
+    <button mat-icon-button (click)="prevMonth()" title="Previous month">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <span class="month-label">{{ monthLabel() }}</span>
+    <button mat-icon-button (click)="nextMonth()" [disabled]="isCurrentMonth()" title="Next month">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+    @if (availableMonths().length > 1) {
+      <select class="month-jump" [value]="selectedMonth()"
+              (change)="selectedMonth.set($any($event.target).value)">
+        @for (m of availableMonths(); track m) {
+          <option [value]="m">{{ m }}</option>
+        }
+      </select>
+    }
+  </div>
+
+  <!-- Monthly summary -->
+  @if (invoicesForMonth().length > 0) {
+    <div class="month-summary-row">
+      <div class="month-stat">
+        <span class="month-stat-val">{{ invoicesForMonth().length }}</span>
+        <span class="month-stat-lbl">Invoices</span>
+      </div>
+      <div class="month-stat-divider"></div>
+      <div class="month-stat">
+        <span class="month-stat-val">{{ monthTotal() | currency:cs.currency():'symbol':'1.0-0' }}</span>
+        <span class="month-stat-lbl">Total Invoiced</span>
+      </div>
+      <div class="month-stat-divider"></div>
+      <div class="month-stat">
+        <span class="month-stat-val" style="color:#16a34a">{{ monthPaid() | currency:cs.currency():'symbol':'1.0-0' }}</span>
+        <span class="month-stat-lbl">Collected</span>
+      </div>
+      <div class="month-stat-divider"></div>
+      <div class="month-stat">
+        <span class="month-stat-val" [style.color]="monthOutstanding() > 0 ? '#dc2626' : '#6b7280'">
+          {{ monthOutstanding() | currency:cs.currency():'symbol':'1.0-0' }}
+        </span>
+        <span class="month-stat-lbl">Outstanding</span>
+      </div>
+      <div class="month-stat-divider"></div>
+      <div class="month-stat">
+        <span class="month-stat-val">{{ monthPaidCount() }} / {{ invoicesForMonth().length }}</span>
+        <span class="month-stat-lbl">Paid</span>
+      </div>
+    </div>
+  }
+
+  <!-- Search -->
   <mat-card style="margin-bottom:16px">
     <div style="padding:12px 16px 0">
       <mat-form-field appearance="outline" style="width:100%">
         <mat-icon matPrefix style="color:#9ca3af;margin-right:4px">search</mat-icon>
-        <input matInput placeholder="Search invoice #, payer, email, period, status…"
+        <input matInput placeholder="Search invoice #, payer, email, status…"
                [value]="invoiceSearch()"
                (input)="invoiceSearch.set($any($event.target).value)" />
       </mat-form-field>
@@ -222,7 +275,7 @@
   @if (invoices().length === 0) {
     <mat-card class="empty-invoice-card">
       <mat-icon>receipt_long</mat-icon>
-      <p>{{ invoiceSearch() ? 'No invoices match your search.' : 'No invoices generated yet.' }}</p>
+      <p>{{ invoiceSearch() ? 'No invoices match your search.' : 'No invoices for ' + monthLabel() + '.' }}</p>
     </mat-card>
   } @else {
     <mat-card>

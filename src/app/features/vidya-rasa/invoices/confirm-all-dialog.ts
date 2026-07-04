@@ -7,16 +7,15 @@ import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { FormControl, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { InvoicePreview } from '../../../core/models/invoice.model';
 
 @Component({
   selector: 'app-confirm-all-dialog',
   standalone: true,
-  imports: [DecimalPipe, FormsModule, ReactiveFormsModule, MatDialogModule, MatButtonModule,
+  imports: [DecimalPipe, ReactiveFormsModule, MatDialogModule, MatButtonModule,
             MatFormFieldModule, MatInputModule, MatDatepickerModule,
-            MatNativeDateModule, MatIconModule, MatSlideToggleModule],
+            MatNativeDateModule, MatIconModule],
   template: `
     <h2 mat-dialog-title>Generate All Invoices</h2>
 
@@ -41,6 +40,7 @@ import { InvoicePreview } from '../../../core/models/invoice.model';
       <p class="gen-all-note">
         <mat-icon style="font-size:16px;width:16px;height:16px;vertical-align:middle;color:#3d4ed8">info</mat-icon>
         Each family will receive one invoice. Students sharing the same guardian email are grouped together.
+        Emails are sent automatically to guardians with an email on file.
       </p>
 
       <mat-form-field appearance="outline" style="width:100%;margin-top:8px">
@@ -49,28 +49,13 @@ import { InvoicePreview } from '../../../core/models/invoice.model';
         <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
         <mat-datepicker #picker></mat-datepicker>
       </mat-form-field>
-
-      <!-- Send immediately toggle -->
-      <div class="send-toggle-box">
-        <div>
-          <div class="send-toggle-label">
-            <mat-icon style="font-size:18px;width:18px;height:18px;vertical-align:middle;color:#3d4ed8">email</mat-icon>
-            Send emails immediately
-          </div>
-          <div class="send-toggle-hint">
-            Invoices with a payer email will be sent right away and marked as Sent.
-            Invoices without an email will remain as Draft.
-          </div>
-        </div>
-        <mat-slide-toggle [(ngModel)]="sendImmediately"></mat-slide-toggle>
-      </div>
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Cancel</button>
       <button mat-flat-button color="primary" [disabled]="!dueDateCtrl.valid" (click)="confirm()">
-        <mat-icon>{{ sendImmediately ? 'send' : 'receipt_long' }}</mat-icon>
-        {{ sendImmediately ? 'Generate & Send' : 'Generate' }} {{ data.previews.length }} Invoice{{ data.previews.length !== 1 ? 's' : '' }}
+        <mat-icon>send</mat-icon>
+        Generate &amp; Send {{ data.previews.length }} Invoice{{ data.previews.length !== 1 ? 's' : '' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -87,16 +72,6 @@ import { InvoicePreview } from '../../../core/models/invoice.model';
       display: flex; align-items: flex-start; gap: 6px;
       font-size: 0.82rem; color: #4b5563; margin: 0 0 8px; line-height: 1.5;
     }
-    .send-toggle-box {
-      display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
-      background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;
-      padding: 12px 16px; margin-top: 12px;
-    }
-    .send-toggle-label {
-      font-weight: 600; font-size: 0.88rem; color: #1a1f36;
-      display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
-    }
-    .send-toggle-hint { font-size: 0.78rem; color: #6c757d; line-height: 1.4; }
   `]
 })
 export class ConfirmAllDialog {
@@ -107,12 +82,10 @@ export class ConfirmAllDialog {
     new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
     Validators.required
   );
-  sendImmediately = false;
-
   confirm() {
     if (!this.dueDateCtrl.valid) return;
     const d = this.dueDateCtrl.value as Date;
     const dueDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    this.ref.close({ dueDate, sendImmediately: this.sendImmediately });
+    this.ref.close({ dueDate });
   }
 }

@@ -25,7 +25,7 @@
   <div style="padding:8px 16px 0">
     <mat-form-field appearance="outline" style="width:100%">
       <mat-icon matPrefix style="color:#9ca3af;margin-right:4px">search</mat-icon>
-      <input matInput placeholder="Search name, phone, class…"
+      <input matInput placeholder="Search name, phone, class, parent name…"
              [value]="searchQuery()"
              (input)="searchQuery.set($any($event.target).value)" />
     </mat-form-field>

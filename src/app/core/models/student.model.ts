@@ -10,6 +10,7 @@ export interface Student {
   ageGroupId?: number | null;
   ageGroupLabel?: string;
   enrolledClasses?: string[];
+  guardianNames?: string[];
 }
 
 export interface Guardian {
