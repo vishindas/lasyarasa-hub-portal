@@ -102,10 +102,13 @@
           </div>
 
           <div class="preview-card-footer">
+            @if (allFeesPaid(preview)) {
+              <span style="font-size:11px;color:#64748b;margin-right:8px">Already paid — no email will be sent</span>
+            }
             <button mat-flat-button color="primary" (click)="generate(preview)"
                     [disabled]="!preview.guardianId">
-              <mat-icon>receipt_long</mat-icon>
-              Generate Invoice
+              <mat-icon>{{ allFeesPaid(preview) ? 'receipt' : 'receipt_long' }}</mat-icon>
+              {{ allFeesPaid(preview) ? 'Generate Receipt' : 'Generate Invoice' }}
             </button>
           </div>
         </mat-card>
