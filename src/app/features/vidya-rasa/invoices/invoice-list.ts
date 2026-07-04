@@ -219,10 +219,6 @@ export class InvoiceListComponent implements OnInit {
     return preview.students.map(s => s.studentName).join(', ');
   }
 
-  allFeesPaid(preview: InvoicePreview): boolean {
-    return preview.students.every(sg => sg.fees.every(f => f.status === 'PAID'));
-  }
-
   canDelete(inv: Invoice)  { return inv.status === 'DRAFT'; }
   canVoid(inv: Invoice)    { return ['SENT', 'OVERDUE', 'PAID', 'PARTIAL'].includes(inv.status); }
   canSend(inv: Invoice)    { return inv.status === 'DRAFT' && !!inv.sentTo; }
