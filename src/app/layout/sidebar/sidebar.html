@@ -23,16 +23,6 @@
         }
       }
 
-      @if (isAdmin) {
-        <div class="nav-section-label">Admin</div>
-        @for (item of adminNav; track item.route) {
-          <a mat-list-item [routerLink]="item.route" routerLinkActive="active">
-            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-            <span matListItemTitle>{{ item.label }}</span>
-          </a>
-        }
-      }
-
       <div class="nav-section-label">Settings</div>
       @for (item of settingsNav; track item.route) {
         <a mat-list-item [routerLink]="item.route" routerLinkActive="active">

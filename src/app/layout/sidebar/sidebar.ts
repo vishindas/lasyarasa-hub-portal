@@ -36,10 +36,6 @@ export class SidebarComponent {
     { label: 'Change Password', icon: 'lock_reset', route: '/settings/change-password' }
   ];
 
-  adminNav: NavItem[] = [
-    { label: 'Providers', icon: 'business', route: '/admin/providers' }
-  ];
-
   vastraRasaNav: NavItem[] = [
     { label: 'Products', icon: 'inventory_2', route: '/vastra-rasa/products' },
     { label: 'Orders', icon: 'shopping_bag', route: '/vastra-rasa/orders' }
@@ -60,11 +56,6 @@ export class SidebarComponent {
     if (role === 'SCHOOL_ADMIN') return this.vidyaRasaNav;
     if (role === 'HUB_ADMIN' || role === 'SUPER_ADMIN') return [...this.vidyaRasaNav, ...this.vastraRasaNav, ...this.roopaRasaNav, ...this.chitraRasaNav];
     return [];
-  }
-
-  get isAdmin(): boolean {
-    const role = this.auth.currentUser()?.role;
-    return role === 'HUB_ADMIN' || role === 'SUPER_ADMIN';
   }
 
   get verticalLabel(): string {
