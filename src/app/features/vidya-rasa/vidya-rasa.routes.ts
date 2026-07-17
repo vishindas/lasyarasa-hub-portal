@@ -18,6 +18,10 @@ export const VIDYA_RASA_ROUTES: Routes = [
     loadComponent: () => import('./fees/fee-list').then(m => m.FeeListComponent)
   },
   {
+    path: 'fees/:id',
+    loadComponent: () => import('./fees/fee-detail').then(m => m.FeeDetailComponent)
+  },
+  {
     path: 'invoices',
     loadComponent: () => import('./invoices/invoice-list').then(m => m.InvoiceListComponent)
   },

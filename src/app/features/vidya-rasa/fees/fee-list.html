@@ -32,7 +32,7 @@
   <div class="table-filter-bar">
     <mat-form-field appearance="outline" class="filter-search">
       <mat-icon matPrefix>search</mat-icon>
-      <input matInput placeholder="Search student, parent name, tier, status…"
+      <input matInput placeholder="Search student, parent name, tier…"
              [value]="filterText()"
              (input)="filterText.set($any($event.target).value)">
       @if (filterText()) {
@@ -41,90 +41,46 @@
         </button>
       }
     </mat-form-field>
-
-    <div class="status-filter-group">
-      <button mat-button class="status-filter-btn"
-              [class.active]="statusFilter() === ''"
-              (click)="statusFilter.set('')">All</button>
-      @for (s of statusOptions; track s) {
-        <button mat-button class="status-filter-btn"
-                [class.active]="statusFilter() === s"
-                (click)="statusFilter.set(s)">{{ s | titlecase }}</button>
-      }
-    </div>
   </div>
 
-  <!-- List view status summary bar -->
+  <!-- Summary bar -->
   @if (viewMode() === 'flat' || filtersActive()) {
     <div class="fee-summary-row">
-      @if (!statusFilter()) {
-        <div class="fee-stat">
-          <span class="fee-stat-val">{{ listStats().total | currency:cs.currency():'symbol':'1.0-0' }}</span>
-          <span class="fee-stat-lbl">Total</span>
-        </div>
-        <div class="fee-stat-divider"></div>
-        <div class="fee-stat">
-          <span class="fee-stat-val" style="color:#2e7d32">{{ listStats().paid | currency:cs.currency():'symbol':'1.0-0' }}</span>
-          <span class="fee-stat-lbl">Paid</span>
-        </div>
-        <div class="fee-stat-divider"></div>
-        <div class="fee-stat">
-          <span class="fee-stat-val" style="color:#1565c0">{{ listStats().pending | currency:cs.currency():'symbol':'1.0-0' }}</span>
-          <span class="fee-stat-lbl">Pending</span>
-        </div>
-        <div class="fee-stat-divider"></div>
-        <div class="fee-stat">
-          <span class="fee-stat-val" style="color:#c62828">{{ listStats().overdue | currency:cs.currency():'symbol':'1.0-0' }}</span>
-          <span class="fee-stat-lbl">Overdue</span>
-        </div>
-        <div class="fee-stat-divider"></div>
-        <div class="fee-stat">
-          <span class="fee-stat-val" style="color:#6c757d">{{ listStats().waived | currency:cs.currency():'symbol':'1.0-0' }}</span>
-          <span class="fee-stat-lbl">Waived</span>
-        </div>
-      }
-      @if (statusFilter() === 'PAID') {
-        <div class="fee-stat">
-          <span class="fee-stat-val" style="color:#2e7d32">{{ listStats().paid | currency:cs.currency():'symbol':'1.0-0' }}</span>
-          <span class="fee-stat-lbl">Total Paid</span>
-        </div>
-      }
-      @if (statusFilter() === 'PENDING') {
-        <div class="fee-stat">
-          <span class="fee-stat-val" style="color:#1565c0">{{ listStats().pending | currency:cs.currency():'symbol':'1.0-0' }}</span>
-          <span class="fee-stat-lbl">Total Pending</span>
-        </div>
-      }
-      @if (statusFilter() === 'OVERDUE') {
-        <div class="fee-stat">
-          <span class="fee-stat-val" style="color:#c62828">{{ listStats().overdue | currency:cs.currency():'symbol':'1.0-0' }}</span>
-          <span class="fee-stat-lbl">Total Overdue</span>
-        </div>
-      }
-      @if (statusFilter() === 'WAIVED') {
-        <div class="fee-stat">
-          <span class="fee-stat-val" style="color:#6c757d">{{ listStats().waived | currency:cs.currency():'symbol':'1.0-0' }}</span>
-          <span class="fee-stat-lbl">Total Waived</span>
-        </div>
-      }
+      <div class="fee-stat">
+        <span class="fee-stat-val">{{ listStats().total | currency:cs.currency():'symbol':'1.0-0' }}</span>
+        <span class="fee-stat-lbl">Total</span>
+      </div>
+      <div class="fee-stat-divider"></div>
+      <div class="fee-stat">
+        <span class="fee-stat-val" style="color:#2e7d32">{{ listStats().paid | currency:cs.currency():'symbol':'1.0-0' }}</span>
+        <span class="fee-stat-lbl">Paid</span>
+      </div>
+      <div class="fee-stat-divider"></div>
+      <div class="fee-stat">
+        <span class="fee-stat-val" style="color:#1565c0">{{ listStats().pending | currency:cs.currency():'symbol':'1.0-0' }}</span>
+        <span class="fee-stat-lbl">Pending</span>
+      </div>
+      <div class="fee-stat-divider"></div>
+      <div class="fee-stat">
+        <span class="fee-stat-val" style="color:#c62828">{{ listStats().overdue | currency:cs.currency():'symbol':'1.0-0' }}</span>
+        <span class="fee-stat-lbl">Overdue</span>
+      </div>
+      <div class="fee-stat-divider"></div>
+      <div class="fee-stat">
+        <span class="fee-stat-val" style="color:#6c757d">{{ listStats().waived | currency:cs.currency():'symbol':'1.0-0' }}</span>
+        <span class="fee-stat-lbl">Waived</span>
+      </div>
     </div>
   }
 
-  <!-- Notice: monthly view suspended while filters are active -->
-  @if (viewMode() === 'monthly' && filtersActive()) {
-    <div class="monthly-paused-notice">
-      <mat-icon>info_outline</mat-icon>
-      Monthly grouping paused — showing all {{ viewFees().length }} matches across all months.
-      <button mat-button color="primary" (click)="clearFilters()">Clear filters</button>
-    </div>
-  }
 
-  <!-- Chip bar: drag to reorder, click label to sort -->
+<!-- Chip bar: drag to reorder, click label to sort -->
   <div class="col-header-bar"
        cdkDropList cdkDropListOrientation="horizontal"
        (cdkDropListDropped)="dropColumn($event)">
     @for (col of draggableColumns(); track col.key) {
-      <div cdkDrag class="col-header-cell" [class.col-sorted]="col.sorted" [style.width]="col.width">
+      <div cdkDrag class="col-header-cell" [class.col-sorted]="col.sorted" [style.width]="col.width"
+           [style.color]="col.key === 'status' && statusFilter().length ? '#1976d2' : ''">
         <mat-icon cdkDragHandle class="col-drag-icon">drag_indicator</mat-icon>
         <span class="col-sort-trigger" (click)="toggleSort(col.key)">
           {{ col.label }}
@@ -132,10 +88,39 @@
             <mat-icon class="col-sort-icon">{{ col.sorted === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
           }
         </span>
+        @if (col.key === 'status') {
+          <button mat-icon-button style="width:20px;height:20px;line-height:20px;margin-left:4px"
+                  [matMenuTriggerFor]="statusMenu"
+                  (click)="$event.stopPropagation()">
+            <mat-icon style="font-size:14px;width:14px;height:14px"
+                      [style.color]="statusFilter().length ? '#1976d2' : '#9ca3af'">filter_list</mat-icon>
+          </button>
+        }
       </div>
     }
     <div class="col-header-cell col-header-actions" style="width:13%"></div>
   </div>
+
+  <!-- Status filter menu -->
+  <mat-menu #statusMenu="matMenu" class="filter-menu">
+    <div style="padding:4px 8px 2px;font-size:0.72rem;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Filter by Status</div>
+    @for (s of statusOptions; track s) {
+      <div mat-menu-item (click)="$event.stopPropagation(); toggleStatusFilter(s)"
+           style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px">
+        <mat-checkbox [checked]="statusFilter().includes(s)"
+                      (click)="$event.stopPropagation()"
+                      (change)="toggleStatusFilter(s)">
+          {{ s | titlecase }}
+        </mat-checkbox>
+      </div>
+    }
+    @if (statusFilter().length) {
+      <div style="border-top:1px solid #e5e7eb;padding:4px 8px">
+        <button mat-button color="primary" style="font-size:0.8rem;width:100%"
+                (click)="statusFilter.set([])">Clear</button>
+      </div>
+    }
+  </mat-menu>
 
   <table mat-table [dataSource]="tableRows()" class="full-width fee-table">
 
@@ -175,7 +160,7 @@
       <td mat-cell *matCellDef="let f">
         <span>{{ f.feeTierLabel || '—' }}</span>
         @if (f.feeTiers?.length > 1) {
-          <button mat-button [matMenuTriggerFor]="tierMenu"
+          <button mat-button [matMenuTriggerFor]="tierMenu" (click)="$event.stopPropagation()"
                   style="font-size:0.72rem;min-width:auto;padding:0 6px;line-height:20px;
                          vertical-align:middle;color:#3d4ed8;font-weight:600">
             +{{ f.feeTiers.length - 1 }}
@@ -221,7 +206,7 @@
 
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef></th>
-      <td mat-cell *matCellDef="let f" style="white-space:nowrap">
+      <td mat-cell *matCellDef="let f" style="white-space:nowrap" (click)="$event.stopPropagation()">
         @if (f.status === 'PENDING' || f.status === 'OVERDUE') {
           <button mat-icon-button color="primary" (click)="markPaid(f)" title="Mark Paid" style="width:32px;height:32px">
             <mat-icon style="font-size:18px;width:18px;height:18px">check_circle</mat-icon>
@@ -241,7 +226,8 @@
 
     <tr mat-header-row *matHeaderRowDef="displayedColumns()" class="col-measure-row"></tr>
     <tr mat-row *matRowDef="let row; columns: ['monthHeader']; when: isMonthHeader" class="month-header-row"></tr>
-    <tr mat-row *matRowDef="let row; columns: displayedColumns(); when: isFeeRow"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns(); when: isFeeRow"
+        style="cursor:pointer" (click)="openDetail(row)"></tr>
 
     @if (viewFees().length === 0) {
       <tr class="mat-row">
