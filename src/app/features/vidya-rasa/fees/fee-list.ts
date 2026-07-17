@@ -1,6 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CurrencyPipe, DatePipe, DecimalPipe, TitleCasePipe } from '@angular/common';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { MatTableModule } from '@angular/material/table';
@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -37,11 +38,12 @@ interface MonthGroup {
   standalone: true,
   imports: [CurrencyPipe, DatePipe, DecimalPipe, TitleCasePipe, MatTableModule, MatButtonModule, MatIconModule,
             MatDialogModule, MatMenuModule, MatFormFieldModule, MatInputModule,
-            MatButtonToggleModule, MatCardModule, MatSnackBarModule, DragDropModule],
+            MatButtonToggleModule, MatCardModule, MatSnackBarModule, DragDropModule, MatCheckboxModule],
   templateUrl: './fee-list.html'
 })
 export class FeeListComponent implements OnInit {
   private http = inject(HttpClient);
+  private router = inject(Router);
   private dialog = inject(MatDialog);
   cs = inject(CurrencyService);
   private snack = inject(MatSnackBar);
@@ -50,8 +52,8 @@ export class FeeListComponent implements OnInit {
   feeTiers = signal<FeeTier[]>([]);
 
   filterText = signal('');
-  statusFilter = signal('');
-  sortCol = signal<string | null>(null);
+  statusFilter = signal<string[]>([]);
+  sortCol = signal<string | null>('dueDate');
   sortDir = signal<'asc' | 'desc'>('asc');
   viewMode = signal<'flat' | 'monthly'>('flat');
 
@@ -64,12 +66,9 @@ export class FeeListComponent implements OnInit {
 
   readonly statusOptions = ['PENDING', 'PAID', 'OVERDUE', 'WAIVED'];
 
-  // Monthly grouping only active when no filters are applied
-  isMonthlyActive = computed(() =>
-    this.viewMode() === 'monthly' && !this.filterText() && !this.statusFilter()
-  );
+  isMonthlyActive = computed(() => this.viewMode() === 'monthly');
 
-  filtersActive = computed(() => !!this.filterText() || !!this.statusFilter());
+  filtersActive = computed(() => !!this.filterText() || !!this.statusFilter().length);
 
   private colDef: Record<string, { label: string; width: string }> = {
     student: { label: 'Student',  width: '14%' },
@@ -112,8 +111,8 @@ export class FeeListComponent implements OnInit {
       );
     }
 
-    if (st) {
-      rows = rows.filter(f => f.status === st);
+    if (st.length) {
+      rows = rows.filter(f => st.includes(f.status));
     }
 
     if (col) {
@@ -204,9 +203,15 @@ export class FeeListComponent implements OnInit {
     }
   }
 
+  toggleStatusFilter(status: string) {
+    this.statusFilter.update(list =>
+      list.includes(status) ? list.filter(s => s !== status) : [...list, status]
+    );
+  }
+
   clearFilters() {
     this.filterText.set('');
-    this.statusFilter.set('');
+    this.statusFilter.set([]);
   }
 
   private route = inject(ActivatedRoute);
@@ -216,7 +221,7 @@ export class FeeListComponent implements OnInit {
     this.http.get<FeeTier[]>(`${environment.apiUrl}/school/settings/fee-tiers`)
       .subscribe(d => this.feeTiers.set(d));
     this.route.queryParams.subscribe(p => {
-      if (p['status']) this.statusFilter.set(p['status']);
+      if (p['status']) this.statusFilter.set([p['status']]);
     });
   }
 
@@ -231,6 +236,10 @@ export class FeeListComponent implements OnInit {
   load() {
     this.http.get<Fee[]>(`${environment.apiUrl}/school/fees`)
       .subscribe(data => this.fees.set(data));
+  }
+
+  openDetail(fee: Fee) {
+    this.router.navigate(['/vidya-rasa/fees', fee.id]);
   }
 
   openForm(fee?: Fee) {

@@ -11,6 +11,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { environment } from '../../../../environments/environment';
 import { Student } from '../../../core/models/student.model';
@@ -23,7 +25,7 @@ import { StudentFormDialog } from './student-form-dialog';
   standalone: true,
   imports: [DatePipe, TitleCasePipe, MatTableModule, MatButtonModule, MatIconModule,
             MatDialogModule, MatCardModule, MatSnackBarModule, DragDropModule,
-            MatInputModule, MatFormFieldModule, MatTabsModule],
+            MatInputModule, MatFormFieldModule, MatTabsModule, MatMenuModule, MatCheckboxModule],
   templateUrl: './student-list.html'
 })
 export class StudentListComponent implements OnInit {
@@ -33,7 +35,6 @@ export class StudentListComponent implements OnInit {
   private snack = inject(MatSnackBar);
 
   readonly tabs: { key: 'ALL'|'ACTIVE'|'ON_BREAK'|'NEEDS_ATTENTION'|'DROPPED'; label: string; icon?: string }[] = [
-    { key: 'ALL',              label: 'All' },
     { key: 'ACTIVE',           label: 'Active' },
     { key: 'ON_BREAK',         label: 'On Break' },
     { key: 'NEEDS_ATTENTION',  label: 'Needs Attention', icon: '🔴' },
@@ -43,6 +44,14 @@ export class StudentListComponent implements OnInit {
   private allStudents = signal<Student[]>([]);
   searchQuery = signal('');
   activeTab = signal('ACTIVE');
+  filterClasses = signal<string[]>([]);
+  filterAgeGroups = signal<string[]>([]);
+
+  uniqueClasses = computed(() => {
+    const all = new Set<string>();
+    this.allStudents().forEach(s => s.enrolledClasses?.forEach(c => all.add(c)));
+    return [...all].sort();
+  });
 
   counts = computed(() => {
     const all = this.allStudents();
@@ -73,6 +82,12 @@ export class StudentListComponent implements OnInit {
         s.guardianNames?.some(g => g.toLowerCase().includes(q))
       );
     }
+
+    const fc = this.filterClasses();
+    if (fc.length) list = list.filter(s => s.enrolledClasses?.some(c => fc.includes(c)));
+
+    const fa = this.filterAgeGroups();
+    if (fa.length) list = list.filter(s => s.ageGroupLabel != null && fa.includes(s.ageGroupLabel));
 
     if (col) {
       list = [...list].sort((a, b) => {
@@ -108,8 +123,26 @@ export class StudentListComponent implements OnInit {
       .map(c => ({ key: c, label: this.colDef[c]?.label ?? c, width: this.colDef[c]?.width ?? 'auto', sortable: this.colDef[c]?.sortable ?? false }))
   );
 
-  sortCol = signal('');
+  sortCol = signal('name');
   sortDir = signal<'asc'|'desc'>('asc');
+
+  toggleClassFilter(cls: string) {
+    this.filterClasses.update(list =>
+      list.includes(cls) ? list.filter(c => c !== cls) : [...list, cls]
+    );
+  }
+
+  toggleAgeGroupFilter(label: string) {
+    this.filterAgeGroups.update(list =>
+      list.includes(label) ? list.filter(l => l !== label) : [...list, label]
+    );
+  }
+
+  clearFilters() {
+    this.filterClasses.set([]);
+    this.filterAgeGroups.set([]);
+    this.searchQuery.set('');
+  }
 
   toggleSort(col: string) {
     if (this.sortCol() === col) {

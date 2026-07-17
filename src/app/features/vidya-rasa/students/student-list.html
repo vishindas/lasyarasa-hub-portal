@@ -12,7 +12,7 @@
   <nav mat-tab-nav-bar [tabPanel]="tabPanel" style="padding:0 8px">
     @for (t of tabs; track t.key) {
       <a mat-tab-link
-         (click)="activeTab.set(t.key); searchQuery.set('')"
+         (click)="activeTab.set(t.key); clearFilters()"
          [active]="activeTab() === t.key">
         @if (t.icon) { <span style="margin-right:4px">{{ t.icon }}</span> }
         {{ t.label }}
@@ -31,6 +31,16 @@
     </mat-form-field>
   </div>
 
+  @if (filterClasses().length || filterAgeGroups().length) {
+    <div style="padding:0 16px 8px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:0.82rem;color:#6b7280">{{ students().length }} result(s)</span>
+      <button mat-button color="primary" style="font-size:0.8rem" (click)="clearFilters()">
+        <mat-icon style="font-size:16px;width:16px;height:16px;vertical-align:middle">close</mat-icon>
+        Clear filters
+      </button>
+    </div>
+  }
+
   <!-- Chip bar acts as the column header. Widths match table column CSS widths exactly. -->
   <div class="col-header-bar"
        cdkDropList cdkDropListOrientation="horizontal"
@@ -38,6 +48,7 @@
     @for (col of draggableColumns(); track col.key) {
       <div cdkDrag class="col-header-cell" [style.width]="col.width"
            [style.cursor]="col.sortable ? 'pointer' : 'default'"
+           [style.color]="(col.key === 'classes' && filterClasses().length) || (col.key === 'ageGroup' && filterAgeGroups().length) ? '#1976d2' : ''"
            (click)="col.sortable && toggleSort(col.key)">
         <mat-icon cdkDragHandle class="col-drag-icon">drag_indicator</mat-icon>
         {{ col.label }}
@@ -46,10 +57,68 @@
             {{ sortDir() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
           </mat-icon>
         }
+        @if (col.key === 'classes') {
+          <button mat-icon-button style="width:20px;height:20px;line-height:20px;margin-left:4px"
+                  [matMenuTriggerFor]="classMenu"
+                  (click)="$event.stopPropagation()">
+            <mat-icon style="font-size:14px;width:14px;height:14px"
+                      [style.color]="filterClasses().length ? '#1976d2' : '#9ca3af'">filter_list</mat-icon>
+          </button>
+        }
+        @if (col.key === 'ageGroup') {
+          <button mat-icon-button style="width:20px;height:20px;line-height:20px;margin-left:4px"
+                  [matMenuTriggerFor]="ageMenu"
+                  (click)="$event.stopPropagation()">
+            <mat-icon style="font-size:14px;width:14px;height:14px"
+                      [style.color]="filterAgeGroups().length ? '#1976d2' : '#9ca3af'">filter_list</mat-icon>
+          </button>
+        }
       </div>
     }
     <div class="col-header-cell col-header-actions" style="width:9%"></div>
   </div>
+
+  <!-- Class filter menu -->
+  <mat-menu #classMenu="matMenu" class="filter-menu">
+    <div style="padding:4px 8px 2px;font-size:0.72rem;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Filter by Class</div>
+    @for (cls of uniqueClasses(); track cls) {
+      <div mat-menu-item (click)="$event.stopPropagation(); toggleClassFilter(cls)"
+           style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px">
+        <mat-checkbox [checked]="filterClasses().includes(cls)"
+                      (click)="$event.stopPropagation()"
+                      (change)="toggleClassFilter(cls)">
+          {{ cls }}
+        </mat-checkbox>
+      </div>
+    }
+    @if (filterClasses().length) {
+      <div style="border-top:1px solid #e5e7eb;padding:4px 8px">
+        <button mat-button color="primary" style="font-size:0.8rem;width:100%"
+                (click)="filterClasses.set([])">Clear</button>
+      </div>
+    }
+  </mat-menu>
+
+  <!-- Age Group filter menu -->
+  <mat-menu #ageMenu="matMenu" class="filter-menu">
+    <div style="padding:4px 8px 2px;font-size:0.72rem;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Filter by Age Group</div>
+    @for (ag of ageGroups(); track ag.id) {
+      <div mat-menu-item (click)="$event.stopPropagation(); toggleAgeGroupFilter(ag.label)"
+           style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px">
+        <mat-checkbox [checked]="filterAgeGroups().includes(ag.label)"
+                      (click)="$event.stopPropagation()"
+                      (change)="toggleAgeGroupFilter(ag.label)">
+          {{ ag.label }}
+        </mat-checkbox>
+      </div>
+    }
+    @if (filterAgeGroups().length) {
+      <div style="border-top:1px solid #e5e7eb;padding:4px 8px">
+        <button mat-button color="primary" style="font-size:0.8rem;width:100%"
+                (click)="filterAgeGroups.set([])">Clear</button>
+      </div>
+    }
+  </mat-menu>
 
   <table mat-table [dataSource]="students()" class="full-width student-table">
 
