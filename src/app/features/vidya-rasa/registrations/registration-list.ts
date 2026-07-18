@@ -37,13 +37,13 @@ import { RejectDialog } from './reject-dialog';
 
     <mat-button-toggle-group [value]="filter()" (change)="filter.set($event.value)"
                              style="margin-bottom:20px">
+      <mat-button-toggle value="ALL">All</mat-button-toggle>
       <mat-button-toggle value="PENDING">
         Pending
         @if (pendingCount() > 0) {
           <span class="tab-badge">{{ pendingCount() }}</span>
         }
       </mat-button-toggle>
-      <mat-button-toggle value="ALL">All</mat-button-toggle>
     </mat-button-toggle-group>
 
     @if (filtered().length === 0) {
