@@ -129,7 +129,7 @@ export class RegistrationListComponent implements OnInit {
   private dialog = inject(MatDialog);
 
   allRegistrations = signal<any[]>([]);
-  filter = signal<'PENDING' | 'ALL'>('PENDING');
+  filter = signal<'PENDING' | 'ALL'>('ALL');
   registrationToken = signal('');
 
   pendingCount = computed(() => this.allRegistrations().filter(r => r.status === 'PENDING').length);
