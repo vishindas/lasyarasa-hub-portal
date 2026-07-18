@@ -1,10 +1,12 @@
-import { Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../core/auth/auth.service';
 
-interface NavItem { label: string; icon: string; route: string; }
+interface NavItem  { label: string; icon: string; route: string; }
+interface NavGroup { label: string; icon: string; items: NavItem[]; }
 
 @Component({
   selector: 'app-sidebar',
@@ -12,56 +14,77 @@ interface NavItem { label: string; icon: string; route: string; }
   imports: [RouterLink, RouterLinkActive, MatListModule, MatIconModule],
   templateUrl: './sidebar.html'
 })
-export class SidebarComponent {
-  auth = inject(AuthService);
+export class SidebarComponent implements OnInit {
+  auth   = inject(AuthService);
+  private router = inject(Router);
 
-  commonNav: NavItem[] = [
-    { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' }
-  ];
+  expandedGroups = signal<Set<string>>(new Set());
 
-  vidyaRasaNav: NavItem[] = [
-    { label: 'Students', icon: 'people', route: '/vidya-rasa/students' },
-    { label: 'Registrations', icon: 'how_to_reg', route: '/vidya-rasa/registrations' },
-    { label: 'Classes', icon: 'class', route: '/vidya-rasa/classes' },
-    { label: 'Fees', icon: 'payments', route: '/vidya-rasa/fees' },
-    { label: 'Invoices', icon: 'receipt_long', route: '/vidya-rasa/invoices' }
-  ];
+  private readonly studentsGroup: NavGroup = {
+    label: 'Students', icon: 'people',
+    items: [
+      { label: 'Students',      icon: 'people',      route: '/vidya-rasa/students' },
+      { label: 'Registrations', icon: 'how_to_reg',  route: '/vidya-rasa/registrations' },
+    ]
+  };
 
-  settingsNav: NavItem[] = [
-    { label: 'Dance Styles', icon: 'music_note', route: '/settings/dance-styles' },
-    { label: 'Fee Tiers', icon: 'price_change', route: '/settings/fee-tiers' },
-    { label: 'Age Groups', icon: 'group', route: '/settings/age-groups' },
-    { label: 'Invoice Reminders', icon: 'schedule_send', route: '/settings/invoice-reminders' },
-    { label: 'Currency', icon: 'currency_exchange', route: '/settings/currency' },
-    { label: 'Change Password', icon: 'lock_reset', route: '/settings/change-password' }
-  ];
+  private readonly classesGroup: NavGroup = {
+    label: 'Classes', icon: 'school',
+    items: [
+      { label: 'Classes', icon: 'class', route: '/vidya-rasa/classes' },
+    ]
+  };
 
-  vastraRasaNav: NavItem[] = [
-    { label: 'Products', icon: 'inventory_2', route: '/vastra-rasa/products' },
-    { label: 'Orders', icon: 'shopping_bag', route: '/vastra-rasa/orders' }
-  ];
+  private readonly financeGroup: NavGroup = {
+    label: 'Finance', icon: 'payments',
+    items: [
+      { label: 'Fees',     icon: 'payments',     route: '/vidya-rasa/fees' },
+      { label: 'Invoices', icon: 'receipt_long', route: '/vidya-rasa/invoices' },
+    ]
+  };
 
-  roopaRasaNav: NavItem[] = [
-    { label: 'Bookings', icon: 'event', route: '/roopa-rasa/bookings' },
-    { label: 'Portfolio', icon: 'photo_library', route: '/roopa-rasa/portfolio' }
-  ];
+  private readonly settingsGroup: NavGroup = {
+    label: 'Settings', icon: 'settings',
+    items: [
+      { label: 'Dance Styles',       icon: 'music_note',    route: '/settings/dance-styles' },
+      { label: 'Fee Tiers',          icon: 'price_change',  route: '/settings/fee-tiers' },
+      { label: 'Age Groups',         icon: 'group',         route: '/settings/age-groups' },
+      { label: 'Invoice Reminders',  icon: 'schedule_send', route: '/settings/invoice-reminders' },
+      { label: 'Currency',           icon: 'currency_exchange', route: '/settings/currency' },
+      { label: 'Change Password',    icon: 'lock_reset',    route: '/settings/change-password' },
+    ]
+  };
 
-  chitraRasaNav: NavItem[] = [
-    { label: 'Bookings', icon: 'event', route: '/chitra-rasa/bookings' },
-    { label: 'Clients', icon: 'people', route: '/chitra-rasa/clients' }
-  ];
-
-  get verticalNav(): NavItem[] {
+  allGroups = computed((): NavGroup[] => {
     const role = this.auth.currentUser()?.role;
-    if (role === 'SCHOOL_ADMIN') return this.vidyaRasaNav;
-    if (role === 'HUB_ADMIN' || role === 'SUPER_ADMIN') return [...this.vidyaRasaNav, ...this.vastraRasaNav, ...this.roopaRasaNav, ...this.chitraRasaNav];
-    return [];
+    const main = role === 'SCHOOL_ADMIN' || role === 'HUB_ADMIN' || role === 'SUPER_ADMIN'
+      ? [this.studentsGroup, this.classesGroup, this.financeGroup]
+      : [];
+    return [...main, this.settingsGroup];
+  });
+
+  ngOnInit() {
+    this.autoExpand(this.router.url);
+    this.router.events
+      .pipe(filter(e => e instanceof NavigationEnd))
+      .subscribe(e => this.autoExpand((e as NavigationEnd).urlAfterRedirects));
   }
 
-  get verticalLabel(): string {
-    const role = this.auth.currentUser()?.role;
-    if (role === 'SCHOOL_ADMIN') return 'Vidya Rasa';
-    if (role === 'HUB_ADMIN' || role === 'SUPER_ADMIN') return 'All Verticals';
-    return '';
+  private autoExpand(url: string) {
+    for (const group of this.allGroups()) {
+      if (group.items.some(i => url.startsWith(i.route))) {
+        this.expandedGroups.update(s => new Set([...s, group.label]));
+      }
+    }
   }
+
+  toggleGroup(label: string) {
+    this.expandedGroups.update(s => {
+      const next = new Set(s);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
+  }
+
+  isExpanded(label: string) { return this.expandedGroups().has(label); }
 }

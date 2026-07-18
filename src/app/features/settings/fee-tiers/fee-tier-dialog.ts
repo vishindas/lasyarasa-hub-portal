@@ -17,9 +17,14 @@ import { FeeTier } from '../../../core/models/settings.model';
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
             MatSlideToggleModule, MatButtonModule, MatIconModule, MatDividerModule],
   styles: [`
-    .rate-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+    .rate-row { display: flex; gap: 8px; align-items: center; margin-bottom: 2px; }
     .rate-row mat-form-field { flex: 1; }
     .age-hint { font-size: 0.75rem; color: #6c757d; margin: -8px 0 8px; }
+    .coverage-label { font-size: 0.75rem; color: #2e7d32; margin: -4px 0 10px 2px; display:flex; align-items:center; gap:4px; }
+    .coverage-label mat-icon { font-size:14px; width:14px; height:14px; }
+    .band-warning { font-size: 0.78rem; color: #b45309; background:#fffbeb; border:1px solid #fcd34d;
+                    border-radius:6px; padding:6px 10px; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+    .band-warning mat-icon { font-size:16px; width:16px; height:16px; flex-shrink:0; }
   `],
   template: `
     <h2 mat-dialog-title>{{ data ? 'Edit Fee Tier' : 'Add Fee Tier' }}</h2>
@@ -47,10 +52,15 @@ import { FeeTier } from '../../../core/models/settings.model';
 
         <mat-divider style="margin: 12px 0 16px"></mat-divider>
         <p style="font-size:0.85rem;font-weight:600;margin:0 0 4px">Pricing Rates</p>
-        <p class="age-hint">Leave Min/Max Age blank for a flat rate that applies to all ages. Use age ranges for banded pricing (e.g. 4–5 = $40, 5–6 = $60).</p>
+        <p class="age-hint">Max Age is exclusive — "Min 4, Max 6" covers ages 4 and 5 only (not 6). Connect bands end-to-end so there are no gaps. Leave Min/Max blank for a flat rate.</p>
 
         <div formArrayName="rates">
           @for (rateCtrl of rates.controls; track $index; let i = $index) {
+            @if (bandCoverage(i); as label) {
+              <div class="coverage-label">
+                <mat-icon>check_circle</mat-icon>{{ label }}
+              </div>
+            }
             <div class="rate-row" [formGroupName]="i">
               <mat-form-field appearance="outline" style="width:90px">
                 <mat-label>Min Age</mat-label>
@@ -71,6 +81,12 @@ import { FeeTier } from '../../../core/models/settings.model';
             </div>
           }
         </div>
+
+        @for (warn of bandGaps; track warn) {
+          <div class="band-warning">
+            <mat-icon>warning</mat-icon>{{ warn }}
+          </div>
+        }
 
         <button mat-stroked-button type="button" (click)="addRate()" style="margin-bottom:12px">
           <mat-icon>add</mat-icon> Add Rate Row
@@ -121,6 +137,41 @@ export class FeeTierDialog {
       maxAge: [null],
       amount: [this.data?.amount ?? null, [Validators.required, Validators.min(0)]]
     })];
+  }
+
+  bandCoverage(i: number): string {
+    const r = this.rates.at(i).value;
+    const min = r.minAge, max = r.maxAge;
+    if (min == null || min === '' || max == null || max === '') return '';
+    const minN = Number(min), maxN = Number(max);
+    if (isNaN(minN) || isNaN(maxN) || maxN <= minN) return '';
+    const top = maxN - 1;
+    return minN === top ? `Covers age ${minN} only` : `Covers ages ${minN}–${top}`;
+  }
+
+  get bandGaps(): string[] {
+    const bands = this.rates.controls
+      .map(c => c.value)
+      .filter(r => r.minAge != null && r.minAge !== '' && r.maxAge != null && r.maxAge !== '')
+      .map(r => ({ min: Number(r.minAge), max: Number(r.maxAge) }))
+      .filter(r => !isNaN(r.min) && !isNaN(r.max) && r.max > r.min)
+      .sort((a, b) => a.min - b.min);
+
+    if (bands.length < 2) return [];
+
+    const warnings: string[] = [];
+    for (let i = 0; i < bands.length - 1; i++) {
+      const curr = bands[i], next = bands[i + 1];
+      if (curr.max < next.min) {
+        const gapEnd = next.min - 1;
+        warnings.push(curr.max === gapEnd
+          ? `Age ${curr.max} is not covered by any band`
+          : `Ages ${curr.max}–${gapEnd} are not covered by any band`);
+      } else if (curr.max > next.min) {
+        warnings.push(`Bands overlap between ages ${next.min}–${curr.max - 1}`);
+      }
+    }
+    return warnings;
   }
 
   addRate() {
