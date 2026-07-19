@@ -137,7 +137,7 @@ export class FeeFormDialog implements OnInit {
   ngOnInit() {
     this.http.get<Student[]>(`${environment.apiUrl}/school/v2/students`).subscribe(students => {
       this.allStudents = students;
-      this.filteredStudents.set(students.slice(0, 20));
+      this.filteredStudents.set([]);
 
       const preselectedId = this.fee?.studentId ?? this.data?.studentId;
       if (preselectedId) {
@@ -157,7 +157,7 @@ export class FeeFormDialog implements OnInit {
           q ? this.allStudents
                 .filter(s => (s.firstName + ' ' + s.lastName).toLowerCase().includes(q))
                 .slice(0, 20)
-            : this.allStudents.slice(0, 20)
+            : []
         );
         this.form.get('studentId')!.setValue(null as any);
       }
