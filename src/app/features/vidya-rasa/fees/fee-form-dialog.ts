@@ -135,7 +135,7 @@ export class FeeFormDialog implements OnInit {
   });
 
   ngOnInit() {
-    this.http.get<Student[]>(`${environment.apiUrl}/school/v2/students`).subscribe(students => {
+    this.http.get<Student[]>(`${environment.apiUrl}/school/v2/students?status=ACTIVE`).subscribe(students => {
       this.allStudents = students;
       this.filteredStudents.set([]);
 
