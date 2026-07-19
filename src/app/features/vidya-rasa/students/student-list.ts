@@ -70,7 +70,8 @@ export class StudentListComponent implements OnInit {
     const col = this.sortCol();
     const dir = this.sortDir();
 
-    let list = tab === 'ALL'
+    // When searching, ignore the active tab and search all students
+    let list = (q || tab === 'ALL')
       ? this.allStudents()
       : this.allStudents().filter(s => s.enrollmentStatus === tab);
 
