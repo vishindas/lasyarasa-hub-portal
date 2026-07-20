@@ -16,6 +16,7 @@ import { CurrencyService } from '../../../core/services/currency.service';
 import { StudentFormDialog } from './student-form-dialog';
 import { FeeFormDialog, FeeDialogData } from '../fees/fee-form-dialog';
 import { FeeOverrideDialog, FeeOverrideDialogData } from './fee-override-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 
 interface EnrollmentDetail {
   id: number; classId: number; className: string; danceStyleId: number; danceStyleName: string;
@@ -491,12 +492,15 @@ export class StudentProfileComponent implements OnInit {
   }
 
   deleteOverride(studentId: number, overrideId: number) {
-    if (!confirm('Remove this fee override?')) return;
-    this.http.delete(`${environment.apiUrl}/school/v2/students/${studentId}/fee-overrides/${overrideId}`)
-      .subscribe(() => {
-        this.loadOverrides(String(studentId));
-        this.loadDetail(String(studentId));
-        this.snack.open('Override removed', 'OK', { duration: 2500 });
+    this.dialog.open(ConfirmDialog, { width: '360px', data: { title: 'Remove Fee Override', message: 'Remove this fee override?' } })
+      .afterClosed().subscribe(confirmed => {
+        if (!confirmed) return;
+        this.http.delete(`${environment.apiUrl}/school/v2/students/${studentId}/fee-overrides/${overrideId}`)
+          .subscribe(() => {
+            this.loadOverrides(String(studentId));
+            this.loadDetail(String(studentId));
+            this.snack.open('Override removed', 'OK', { duration: 2500 });
+          });
       });
   }
 

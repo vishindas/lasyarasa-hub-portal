@@ -13,6 +13,7 @@ import { environment } from '../../../../environments/environment';
 import { Fee } from '../../../core/models/fee.model';
 import { FeeFormDialog, FeeDialogData } from './fee-form-dialog';
 import { MarkPaidDialog, MarkPaidDialogData } from './mark-paid-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 import { FeeTier } from '../../../core/models/settings.model';
 
 @Component({
@@ -211,11 +212,17 @@ export class FeeDetailComponent implements OnInit {
   }
 
   waive(fee: Fee) {
-    if (!confirm(`Waive fee for ${fee.studentName}?`)) return;
-    this.http.put(`${environment.apiUrl}/school/fees/${fee.id}`, { ...fee, status: 'WAIVED' })
-      .subscribe(() => {
-        this.load(String(fee.id));
-        this.snack.open('Fee waived', 'OK', { duration: 2500 });
-      });
+    this.dialog.open(ConfirmDialog, { width: '380px', data: {
+      title: 'Waive Fee',
+      message: `Waive fee for ${fee.studentName}? It will be removed from the invoice queue.`,
+      confirmLabel: 'Waive', confirmColor: 'primary'
+    }}).afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      this.http.put(`${environment.apiUrl}/school/fees/${fee.id}`, { ...fee, status: 'WAIVED' })
+        .subscribe(() => {
+          this.load(String(fee.id));
+          this.snack.open('Fee waived', 'OK', { duration: 2500 });
+        });
+    });
   }
 }

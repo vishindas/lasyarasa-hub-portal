@@ -10,6 +10,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../../environments/environment';
 import { DanceStyle } from '../../../core/models/settings.model';
 import { DanceStyleDialog } from './dance-style-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 
 @Component({
   selector: 'app-dance-style-list',
@@ -40,8 +41,11 @@ export class DanceStyleListComponent implements OnInit {
   }
 
   delete(id: number) {
-    if (!confirm('Remove this dance style?')) return;
-    this.http.delete(`${environment.apiUrl}/school/settings/dance-styles/${id}`)
-      .subscribe(() => { this.load(); this.snack.open('Dance style removed', 'OK', { duration: 2500 }); });
+    this.dialog.open(ConfirmDialog, { width: '360px', data: { title: 'Remove Dance Style', message: 'Remove this dance style? This cannot be undone.' } })
+      .afterClosed().subscribe(confirmed => {
+        if (!confirmed) return;
+        this.http.delete(`${environment.apiUrl}/school/settings/dance-styles/${id}`)
+          .subscribe(() => { this.load(); this.snack.open('Dance style removed', 'OK', { duration: 2500 }); });
+      });
   }
 }

@@ -9,6 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../../environments/environment';
 import { AgeGroup } from '../../../core/models/settings.model';
 import { AgeGroupDialog } from './age-group-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 
 @Component({
   selector: 'app-age-group-list',
@@ -39,8 +40,11 @@ export class AgeGroupListComponent implements OnInit {
   }
 
   delete(id: number) {
-    if (!confirm('Deactivate this age group?')) return;
-    this.http.delete(`${environment.apiUrl}/school/settings/age-groups/${id}`)
-      .subscribe(() => { this.load(); this.snack.open('Age group deactivated', 'OK', { duration: 2500 }); });
+    this.dialog.open(ConfirmDialog, { width: '360px', data: { title: 'Deactivate Age Group', message: 'Deactivate this age group?' } })
+      .afterClosed().subscribe(confirmed => {
+        if (!confirmed) return;
+        this.http.delete(`${environment.apiUrl}/school/settings/age-groups/${id}`)
+          .subscribe(() => { this.load(); this.snack.open('Age group deactivated', 'OK', { duration: 2500 }); });
+      });
   }
 }

@@ -14,6 +14,7 @@ import { environment } from '../../../../environments/environment';
 import { Invoice } from '../../../core/models/invoice.model';
 import { EditInvoiceDialog } from './edit-invoice-dialog';
 import { VoidInvoiceDialog } from './void-invoice-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 
 @Component({
   selector: 'app-invoice-detail',
@@ -285,15 +286,20 @@ export class InvoiceDetailComponent implements OnInit {
   }
 
   deleteDraft(inv: Invoice) {
-    if (!confirm(`Delete draft invoice ${inv.invoiceNumber}?`)) return;
-    this.http.delete(`${environment.apiUrl}/school/invoices/${inv.id}`)
-      .subscribe({
-        next: () => {
-          this.snack.open('Invoice deleted', 'OK', { duration: 3000 });
-          this.router.navigate(['/vidya-rasa/invoices']);
-        },
-        error: () => this.snack.open('Failed to delete invoice', 'OK', { duration: 3000 })
-      });
+    this.dialog.open(ConfirmDialog, { width: '380px', data: {
+      title: 'Delete Invoice',
+      message: `Delete draft invoice ${inv.invoiceNumber}? This cannot be undone.`
+    }}).afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      this.http.delete(`${environment.apiUrl}/school/invoices/${inv.id}`)
+        .subscribe({
+          next: () => {
+            this.snack.open('Invoice deleted', 'OK', { duration: 3000 });
+            this.router.navigate(['/vidya-rasa/invoices']);
+          },
+          error: () => this.snack.open('Failed to delete invoice', 'OK', { duration: 3000 })
+        });
+    });
   }
 
   openEdit(inv: Invoice) {

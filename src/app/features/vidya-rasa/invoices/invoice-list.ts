@@ -22,6 +22,7 @@ import { ConfirmInvoiceDialog } from './confirm-invoice-dialog';
 import { ConfirmAllDialog } from './confirm-all-dialog';
 import { EditInvoiceDialog } from './edit-invoice-dialog';
 import { VoidInvoiceDialog } from './void-invoice-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 
 @Component({
   selector: 'app-invoice-list',
@@ -219,15 +220,21 @@ export class InvoiceListComponent implements OnInit {
 
   sendAllDrafts() {
     const count = this.draftCount();
-    if (!confirm(`Send all ${count} draft invoice${count !== 1 ? 's' : ''} now?`)) return;
-    this.http.post<Invoice[]>(`${environment.apiUrl}/school/invoices/send-all`, { invoiceIds: null })
-      .subscribe({
-        next: (sent) => {
-          this.snack.open(`Sent ${sent.length} invoice${sent.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
-          this.loadAll();
-        },
-        error: () => this.snack.open('Failed to send invoices', 'OK', { duration: 3000 })
-      });
+    this.dialog.open(ConfirmDialog, { width: '380px', data: {
+      title: 'Send All Drafts',
+      message: `Send all ${count} draft invoice${count !== 1 ? 's' : ''} now?`,
+      confirmLabel: 'Send All', confirmColor: 'primary'
+    }}).afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      this.http.post<Invoice[]>(`${environment.apiUrl}/school/invoices/send-all`, { invoiceIds: null })
+        .subscribe({
+          next: (sent) => {
+            this.snack.open(`Sent ${sent.length} invoice${sent.length !== 1 ? 's' : ''}`, 'OK', { duration: 4000 });
+            this.loadAll();
+          },
+          error: () => this.snack.open('Failed to send invoices', 'OK', { duration: 3000 })
+        });
+    });
   }
 
   studentNames(preview: InvoicePreview) {
@@ -286,15 +293,20 @@ export class InvoiceListComponent implements OnInit {
   }
 
   deleteInvoice(inv: Invoice) {
-    if (!confirm(`Delete invoice ${inv.invoiceNumber}? This cannot be undone.`)) return;
-    this.http.delete(`${environment.apiUrl}/school/invoices/${inv.id}`)
-      .subscribe({
-        next: () => {
-          this.snack.open('Invoice deleted', 'OK', { duration: 3000 });
-          this.loadAll();
-        },
-        error: () => this.snack.open('Failed to delete invoice', 'OK', { duration: 3000 })
-      });
+    this.dialog.open(ConfirmDialog, { width: '380px', data: {
+      title: 'Delete Invoice',
+      message: `Delete invoice ${inv.invoiceNumber}? This cannot be undone.`
+    }}).afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      this.http.delete(`${environment.apiUrl}/school/invoices/${inv.id}`)
+        .subscribe({
+          next: () => {
+            this.snack.open('Invoice deleted', 'OK', { duration: 3000 });
+            this.loadAll();
+          },
+          error: () => this.snack.open('Failed to delete invoice', 'OK', { duration: 3000 })
+        });
+    });
   }
 
   editInvoice(inv: Invoice) {

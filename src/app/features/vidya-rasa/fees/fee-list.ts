@@ -20,6 +20,7 @@ import { Fee } from '../../../core/models/fee.model';
 import { FeeTier } from '../../../core/models/settings.model';
 import { FeeFormDialog, FeeDialogData } from './fee-form-dialog';
 import { MarkPaidDialog, MarkPaidDialogData } from './mark-paid-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 import { GenerateFeesDialog } from './generate-fees-dialog';
 
 interface MonthGroup {
@@ -267,14 +268,25 @@ export class FeeListComponent implements OnInit {
   }
 
   waive(fee: Fee) {
-    if (!confirm(`Waive fee for ${fee.studentName}? It will be removed from the invoice queue.`)) return;
-    this.http.put(`${environment.apiUrl}/school/fees/${fee.id}`, { ...fee, status: 'WAIVED' })
-      .subscribe(() => { this.load(); this.snack.open('Fee waived', 'OK', { duration: 2500 }); });
+    this.dialog.open(ConfirmDialog, { width: '380px', data: {
+      title: 'Waive Fee',
+      message: `Waive fee for ${fee.studentName}? It will be removed from the invoice queue.`,
+      confirmLabel: 'Waive', confirmColor: 'primary'
+    }}).afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      this.http.put(`${environment.apiUrl}/school/fees/${fee.id}`, { ...fee, status: 'WAIVED' })
+        .subscribe(() => { this.load(); this.snack.open('Fee waived', 'OK', { duration: 2500 }); });
+    });
   }
 
   delete(id: number) {
-    if (!confirm('Remove this fee record?')) return;
-    this.http.delete(`${environment.apiUrl}/school/fees/${id}`)
-      .subscribe(() => { this.load(); this.snack.open('Fee removed', 'OK', { duration: 2500 }); });
+    this.dialog.open(ConfirmDialog, { width: '360px', data: {
+      title: 'Remove Fee',
+      message: 'Remove this fee record? This cannot be undone.'
+    }}).afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      this.http.delete(`${environment.apiUrl}/school/fees/${id}`)
+        .subscribe(() => { this.load(); this.snack.open('Fee removed', 'OK', { duration: 2500 }); });
+    });
   }
 }

@@ -11,6 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../../environments/environment';
 import { FeeTier } from '../../../core/models/settings.model';
 import { FeeTierDialog } from './fee-tier-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 
 @Component({
   selector: 'app-fee-tier-list',
@@ -42,8 +43,11 @@ export class FeeTierListComponent implements OnInit {
   }
 
   delete(id: number) {
-    if (!confirm('Deactivate this fee tier?')) return;
-    this.http.delete(`${environment.apiUrl}/school/settings/fee-tiers/${id}`)
-      .subscribe(() => { this.load(); this.snack.open('Fee tier deactivated', 'OK', { duration: 2500 }); });
+    this.dialog.open(ConfirmDialog, { width: '360px', data: { title: 'Deactivate Fee Tier', message: 'Deactivate this fee tier?' } })
+      .afterClosed().subscribe(confirmed => {
+        if (!confirmed) return;
+        this.http.delete(`${environment.apiUrl}/school/settings/fee-tiers/${id}`)
+          .subscribe(() => { this.load(); this.snack.open('Fee tier deactivated', 'OK', { duration: 2500 }); });
+      });
   }
 }

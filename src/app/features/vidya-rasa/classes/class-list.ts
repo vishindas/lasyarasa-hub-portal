@@ -9,6 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../../environments/environment';
 import { SchoolClass } from '../../../core/models/class.model';
 import { ClassFormDialog } from './class-form-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 
 @Component({
   selector: 'app-class-list',
@@ -37,8 +38,11 @@ export class ClassListComponent implements OnInit {
   }
 
   delete(id: number) {
-    if (!confirm('Remove this class?')) return;
-    this.http.delete(`${environment.apiUrl}/school/classes/${id}`)
-      .subscribe(() => { this.load(); this.snack.open('Class removed', 'OK', { duration: 2500 }); });
+    this.dialog.open(ConfirmDialog, { width: '360px', data: { title: 'Remove Class', message: 'Remove this class? This cannot be undone.' } })
+      .afterClosed().subscribe(confirmed => {
+        if (!confirmed) return;
+        this.http.delete(`${environment.apiUrl}/school/classes/${id}`)
+          .subscribe(() => { this.load(); this.snack.open('Class removed', 'OK', { duration: 2500 }); });
+      });
   }
 }
