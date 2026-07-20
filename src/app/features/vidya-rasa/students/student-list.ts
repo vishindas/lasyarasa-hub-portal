@@ -19,6 +19,7 @@ import { Student } from '../../../core/models/student.model';
 import { AgeGroup } from '../../../core/models/settings.model';
 import { SchoolClass } from '../../../core/models/class.model';
 import { StudentFormDialog } from './student-form-dialog';
+import { DeleteStudentDialog, DeleteStudentDialogData } from './delete-student-dialog';
 
 @Component({
   selector: 'app-student-list',
@@ -205,12 +206,16 @@ export class StudentListComponent implements OnInit {
       .subscribe(data => this.allStudents.set(data));
   }
 
-  delete(id: number) {
-    if (!confirm('Remove this student?')) return;
-    this.http.delete(`${environment.apiUrl}/school/v2/students/${id}`)
-      .subscribe(() => {
-        this.load();
-        this.snack.open('Student removed', 'OK', { duration: 2500 });
+  delete(student: Student) {
+    const data: DeleteStudentDialogData = { student };
+    this.dialog.open(DeleteStudentDialog, { width: '380px', data })
+      .afterClosed().subscribe(confirmed => {
+        if (!confirmed) return;
+        this.http.delete(`${environment.apiUrl}/school/v2/students/${student.id}`)
+          .subscribe(() => {
+            this.load();
+            this.snack.open('Student removed', 'OK', { duration: 2500 });
+          });
       });
   }
 }
