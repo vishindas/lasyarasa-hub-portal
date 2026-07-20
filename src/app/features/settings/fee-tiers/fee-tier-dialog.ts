@@ -8,6 +8,8 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { environment } from '../../../../environments/environment';
 import { FeeTier } from '../../../core/models/settings.model';
 
@@ -15,7 +17,8 @@ import { FeeTier } from '../../../core/models/settings.model';
   selector: 'app-fee-tier-dialog',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-            MatSlideToggleModule, MatButtonModule, MatIconModule, MatDividerModule],
+            MatSlideToggleModule, MatButtonModule, MatIconModule, MatDividerModule,
+            MatDatepickerModule, MatNativeDateModule],
   styles: [`
     .rate-row { display: flex; gap: 8px; align-items: center; margin-bottom: 2px; }
     .rate-row mat-form-field { flex: 1; }
@@ -42,11 +45,15 @@ import { FeeTier } from '../../../core/models/settings.model';
           </mat-form-field>
           <mat-form-field appearance="outline" style="flex:1">
             <mat-label>Effective From</mat-label>
-            <input matInput type="date" formControlName="effectiveFrom" />
+            <input matInput [matDatepicker]="fromPicker" formControlName="effectiveFrom" />
+            <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
+            <mat-datepicker #fromPicker></mat-datepicker>
           </mat-form-field>
           <mat-form-field appearance="outline" style="flex:1">
             <mat-label>Effective To (blank = ongoing)</mat-label>
-            <input matInput type="date" formControlName="effectiveTo" />
+            <input matInput [matDatepicker]="toPicker" formControlName="effectiveTo" />
+            <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
+            <mat-datepicker #toPicker></mat-datepicker>
           </mat-form-field>
         </div>
 
@@ -114,8 +121,8 @@ export class FeeTierDialog {
   form = this.fb.group({
     label: [this.data?.label ?? '', Validators.required],
     currency: [this.data?.currency ?? 'USD', Validators.required],
-    effectiveFrom: [this.data?.effectiveFrom ?? new Date().toISOString().slice(0, 10)],
-    effectiveTo: [this.data?.effectiveTo ?? ''],
+    effectiveFrom: [this.data?.effectiveFrom ? new Date(this.data.effectiveFrom + 'T12:00:00') : new Date()],
+    effectiveTo:   [this.data?.effectiveTo   ? new Date(this.data.effectiveTo   + 'T12:00:00') : null],
     active: [this.data?.active ?? true],
     rates: this.fb.array(this.initialRates())
   });
@@ -186,14 +193,19 @@ export class FeeTierDialog {
     this.rates.removeAt(i);
   }
 
+  private toDateStr(d: Date | null | undefined): string | null {
+    if (!d) return null;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
   save() {
     if (this.form.invalid) return;
     const v = this.form.value;
     const body = {
       label: v.label,
       currency: v.currency,
-      effectiveFrom: v.effectiveFrom,
-      effectiveTo: v.effectiveTo || null,
+      effectiveFrom: this.toDateStr(v.effectiveFrom as any),
+      effectiveTo:   this.toDateStr(v.effectiveTo as any) || null,
       active: v.active,
       rates: (v.rates ?? []).map((r: any) => ({
         minAge: r.minAge != null && r.minAge !== '' ? Number(r.minAge) : null,

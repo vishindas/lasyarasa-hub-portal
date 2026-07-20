@@ -8,6 +8,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { environment } from '../../../../environments/environment';
 import { Fee } from '../../../core/models/fee.model';
 import { FeeTier } from '../../../core/models/settings.model';
@@ -24,7 +26,8 @@ export interface FeeDialogData {
   selector: 'app-fee-form-dialog',
   standalone: true,
   imports: [DecimalPipe, ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
-            MatInputModule, MatSelectModule, MatButtonModule, MatAutocompleteModule],
+            MatInputModule, MatSelectModule, MatButtonModule, MatAutocompleteModule,
+            MatDatepickerModule, MatNativeDateModule],
   template: `
     <h2 mat-dialog-title>{{ data?.fee ? 'Edit Fee' : 'Add Fee' }}</h2>
     <mat-dialog-content style="overflow-x:hidden">
@@ -73,7 +76,9 @@ export interface FeeDialogData {
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Due Date</mat-label>
-          <input matInput type="date" formControlName="dueDate" />
+          <input matInput [matDatepicker]="duePicker" formControlName="dueDate" />
+          <mat-datepicker-toggle matIconSuffix [for]="duePicker"></mat-datepicker-toggle>
+          <mat-datepicker #duePicker></mat-datepicker>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
@@ -88,7 +93,9 @@ export interface FeeDialogData {
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Paid On</mat-label>
-          <input matInput type="date" formControlName="paidAt" />
+          <input matInput [matDatepicker]="paidPicker" formControlName="paidAt" />
+          <mat-datepicker-toggle matIconSuffix [for]="paidPicker"></mat-datepicker-toggle>
+          <mat-datepicker #paidPicker></mat-datepicker>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
@@ -127,9 +134,9 @@ export class FeeFormDialog implements OnInit {
     studentId: [this.fee?.studentId ?? this.data?.studentId ?? null, Validators.required],
     feeTierId: [this.fee?.feeTierId ?? this.data?.feeTierId ?? null],
     amount:    [this.fee?.amount ?? null, Validators.required],
-    dueDate:   [this.fee?.dueDate ?? '', Validators.required],
+    dueDate:   [this.fee?.dueDate ? new Date(this.fee.dueDate + 'T12:00:00') : null, Validators.required],
     status:    [this.fee?.status ?? 'PENDING', Validators.required],
-    paidAt:    [this.fee?.paidAt ?? ''],
+    paidAt:    [this.fee?.paidAt ? new Date(this.fee.paidAt + 'T12:00:00') : null],
     paidBy:    [this.fee?.paidBy ?? ''],
     notes:     [this.fee?.notes ?? '']
   });
@@ -180,11 +187,21 @@ export class FeeFormDialog implements OnInit {
     if (tier) this.form.get('amount')!.setValue(tier.amount as any);
   }
 
+  private toDateStr(d: Date | null | undefined): string | null {
+    if (!d) return null;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
   save() {
     if (this.form.invalid) return;
     this.saving.set(true);
     const v = this.form.value;
-    const payload = { ...v, paidAt: v.paidAt || null, paidBy: v.paidBy || null };
+    const payload = {
+      ...v,
+      dueDate: this.toDateStr(v.dueDate as any),
+      paidAt:  this.toDateStr(v.paidAt as any) || null,
+      paidBy:  v.paidBy || null
+    };
     const req = this.fee
       ? this.http.put(`${environment.apiUrl}/school/fees/${this.fee.id}`, payload)
       : this.http.post(`${environment.apiUrl}/school/fees`, payload);
