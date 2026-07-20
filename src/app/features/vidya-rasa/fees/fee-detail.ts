@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../../environments/environment';
 import { Fee } from '../../../core/models/fee.model';
 import { FeeFormDialog, FeeDialogData } from './fee-form-dialog';
+import { MarkPaidDialog, MarkPaidDialogData } from './mark-paid-dialog';
 import { FeeTier } from '../../../core/models/settings.model';
 
 @Component({
@@ -199,11 +200,8 @@ export class FeeDetailComponent implements OnInit {
   }
 
   markPaid(fee: Fee) {
-    const data: FeeDialogData = {
-      fee: { ...fee, status: 'PAID', paidAt: new Date().toISOString().slice(0, 10) },
-      feeTiers: this.feeTiers()
-    };
-    this.dialog.open(FeeFormDialog, { width: '480px', data })
+    const data: MarkPaidDialogData = { fee };
+    this.dialog.open(MarkPaidDialog, { width: '380px', data })
       .afterClosed().subscribe(saved => {
         if (saved) {
           this.load(String(fee.id));
