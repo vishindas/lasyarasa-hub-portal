@@ -7,6 +7,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { environment } from '../../../../environments/environment';
 
 export interface FeeOverrideDialogData {
@@ -18,7 +20,7 @@ export interface FeeOverrideDialogData {
   selector: 'app-fee-override-dialog',
   standalone: true,
   imports: [TitleCasePipe, ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
-            MatInputModule, MatSelectModule, MatButtonModule],
+            MatInputModule, MatSelectModule, MatButtonModule, MatDatepickerModule, MatNativeDateModule],
   template: `
     <h2 mat-dialog-title>Add Fee Override</h2>
     <mat-dialog-content>
@@ -43,11 +45,15 @@ export interface FeeOverrideDialogData {
         <div style="display:flex;gap:12px">
           <mat-form-field appearance="outline" style="flex:1">
             <mat-label>Effective From</mat-label>
-            <input matInput type="date" formControlName="effectiveFrom" />
+            <input matInput [matDatepicker]="fromPicker" formControlName="effectiveFrom" />
+            <mat-datepicker-toggle matIconSuffix [for]="fromPicker"></mat-datepicker-toggle>
+            <mat-datepicker #fromPicker></mat-datepicker>
           </mat-form-field>
           <mat-form-field appearance="outline" style="flex:1">
             <mat-label>Effective To (blank = ongoing)</mat-label>
-            <input matInput type="date" formControlName="effectiveTo" />
+            <input matInput [matDatepicker]="toPicker" formControlName="effectiveTo" />
+            <mat-datepicker-toggle matIconSuffix [for]="toPicker"></mat-datepicker-toggle>
+            <mat-datepicker #toPicker></mat-datepicker>
           </mat-form-field>
         </div>
       </form>
@@ -67,9 +73,14 @@ export class FeeOverrideDialog {
     enrollmentId: [null, Validators.required],
     amount: [null, [Validators.required, Validators.min(0)]],
     reason: [''],
-    effectiveFrom: [new Date().toISOString().slice(0, 10), Validators.required],
-    effectiveTo: ['']
+    effectiveFrom: [new Date(), Validators.required],
+    effectiveTo:   [null]
   });
+
+  private toDateStr(d: Date | null | undefined): string | null {
+    if (!d) return null;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
 
   save() {
     if (this.form.invalid) return;
@@ -78,8 +89,8 @@ export class FeeOverrideDialog {
       enrollmentId: v.enrollmentId,
       amount: v.amount,
       reason: v.reason || null,
-      effectiveFrom: v.effectiveFrom,
-      effectiveTo: v.effectiveTo || null
+      effectiveFrom: this.toDateStr(v.effectiveFrom as any),
+      effectiveTo:   this.toDateStr(v.effectiveTo as any) || null
     };
     this.http.post(`${environment.apiUrl}/school/v2/students/${this.data.studentId}/fee-overrides`, body)
       .subscribe(() => this.ref.close(true));

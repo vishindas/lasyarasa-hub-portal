@@ -10,6 +10,8 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { environment } from '../../../environments/environment';
 
 interface FormConfig {
@@ -25,7 +27,8 @@ interface FormConfig {
   selector: 'app-register-page',
   standalone: true,
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-            MatButtonModule, MatRadioModule, MatDividerModule, MatIconModule, MatCheckboxModule],
+            MatButtonModule, MatRadioModule, MatDividerModule, MatIconModule, MatCheckboxModule,
+            MatDatepickerModule, MatNativeDateModule],
   styles: [`
     .section-title { font-size:0.82rem; font-weight:700; text-transform:uppercase;
                      letter-spacing:.06em; color:#6b7280; margin:0 }
@@ -96,7 +99,9 @@ interface FormConfig {
 
               <mat-form-field appearance="outline">
                 <mat-label>Date of Birth</mat-label>
-                <input matInput type="date" formControlName="dateOfBirth" />
+                <input matInput [matDatepicker]="dobPicker" formControlName="dateOfBirth" />
+                <mat-datepicker-toggle matIconSuffix [for]="dobPicker"></mat-datepicker-toggle>
+                <mat-datepicker #dobPicker startView="multi-year"></mat-datepicker>
               </mat-form-field>
 
               @if (!isParent()) {
@@ -277,7 +282,7 @@ export class RegisterPageComponent implements OnInit {
     registrantType:               ['PARENT', Validators.required],
     firstName:                    ['', Validators.required],
     lastName:                     ['', Validators.required],
-    dateOfBirth:                  [''],
+    dateOfBirth:                  [null as Date | null],
     phone:                        [''],
     email:                        [''],
     // Address
@@ -331,9 +336,13 @@ export class RegisterPageComponent implements OnInit {
     this.submitting.set(true);
     const token = this.route.snapshot.paramMap.get('token')!;
     const v = this.form.value;
+    const dob = v.dateOfBirth as any;
+    const dobStr = dob instanceof Date
+      ? `${dob.getFullYear()}-${String(dob.getMonth()+1).padStart(2,'0')}-${String(dob.getDate()).padStart(2,'0')}`
+      : null;
     const payload = {
       ...v,
-      dateOfBirth: v.dateOfBirth || null,
+      dateOfBirth: dobStr,
       guardianFirstName:    this.isParent() ? v.guardianFirstName : null,
       guardianLastName:     this.isParent() ? v.guardianLastName  : null,
       guardianPhone:        this.isParent() ? v.guardianPhone     : null,

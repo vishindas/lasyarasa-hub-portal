@@ -8,6 +8,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { DatePipe } from '@angular/common';
 import { environment } from '../../../../environments/environment';
 import { AgeGroup } from '../../../core/models/settings.model';
@@ -35,7 +37,8 @@ interface DialogData {
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
             MatInputModule, MatSelectModule, MatButtonModule,
-            MatIconModule, MatDividerModule, DatePipe],
+            MatIconModule, MatDividerModule, DatePipe,
+            MatDatepickerModule, MatNativeDateModule],
   template: `
     <h2 mat-dialog-title>{{ isEdit ? 'Edit Student' : 'Add Student' }}</h2>
 
@@ -70,7 +73,9 @@ interface DialogData {
         <div class="form-row-2">
           <mat-form-field appearance="outline">
             <mat-label>Date of Birth</mat-label>
-            <input matInput formControlName="dateOfBirth" type="date" />
+            <input matInput [matDatepicker]="dobPicker" formControlName="dateOfBirth" />
+            <mat-datepicker-toggle matIconSuffix [for]="dobPicker"></mat-datepicker-toggle>
+            <mat-datepicker #dobPicker startView="multi-year"></mat-datepicker>
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Age Group</mat-label>
@@ -279,7 +284,7 @@ export class StudentFormDialog {
     lastName:         [this.existingStudent?.lastName  ?? ''],
     email:            [this.existingStudent?.email     ?? ''],
     phone:            [this.existingStudent?.phone     ?? ''],
-    dateOfBirth:      [this.existingStudent?.dateOfBirth ?? ''],
+    dateOfBirth:      [this.existingStudent?.dateOfBirth ? new Date(this.existingStudent.dateOfBirth + 'T12:00:00') : null],
     ageGroupId:       [this.existingStudent?.ageGroupId ?? null],
     enrollmentStatus: [this.existingStudent?.enrollmentStatus ?? 'ACTIVE', Validators.required]
   });
@@ -346,7 +351,11 @@ export class StudentFormDialog {
     this.saving.set(true);
 
     const raw = this.studentForm.value;
-    const student = { ...raw, dateOfBirth: raw.dateOfBirth || null };
+    const dob = raw.dateOfBirth as any;
+    const dobStr = dob instanceof Date
+      ? `${dob.getFullYear()}-${String(dob.getMonth()+1).padStart(2,'0')}-${String(dob.getDate()).padStart(2,'0')}`
+      : null;
+    const student = { ...raw, dateOfBirth: dobStr };
     const enrollments = this.enrollmentRows.value.filter((e: any) => e.classId != null);
     const guardians = this.guardianRows.value
       .map((g: any, i: number) => ({ ...g, primary: i === this.primaryIndex() }))
