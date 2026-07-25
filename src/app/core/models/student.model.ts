@@ -11,6 +11,7 @@ export interface Student {
   ageGroupLabel?: string;
   enrolledClasses?: string[];
   guardianNames?: string[];
+  feeGenerationPaused?: boolean;
 }
 
 export interface Guardian {

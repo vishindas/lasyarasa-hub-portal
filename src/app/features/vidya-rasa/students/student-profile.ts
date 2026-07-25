@@ -12,6 +12,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../../environments/environment';
 import { AgeGroup, DanceStyle, FeeTier } from '../../../core/models/settings.model';
+import { SchoolClass } from '../../../core/models/class.model';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { StudentFormDialog } from './student-form-dialog';
 import { FeeFormDialog, FeeDialogData } from '../fees/fee-form-dialog';
@@ -42,6 +43,7 @@ interface StudentDetailData {
   student: {
     id: number; firstName: string; lastName: string; email: string; phone: string;
     dateOfBirth: string; enrollmentStatus: string; joinedDate: string; ageGroupLabel: string;
+    feeGenerationPaused?: boolean;
     address: string; city: string; state: string; zipCode: string;
     emergencyContactName: string; emergencyContactRelationship: string; emergencyContactPhone: string;
     previousExperience: string;
@@ -448,6 +450,7 @@ export class StudentProfileComponent implements OnInit {
   ageGroups = signal<AgeGroup[]>([]);
   danceStyles = signal<DanceStyle[]>([]);
   feeTiers = signal<FeeTier[]>([]);
+  classes = signal<SchoolClass[]>([]);
 
   feeColumns = ['feeTier', 'amount', 'dueDate', 'paidAt', 'status', 'paidBy', 'notes'];
 
@@ -459,6 +462,7 @@ export class StudentProfileComponent implements OnInit {
     this.http.get<AgeGroup[]>(`${environment.apiUrl}/school/settings/age-groups`).subscribe(d => this.ageGroups.set(d));
     this.http.get<DanceStyle[]>(`${environment.apiUrl}/school/settings/dance-styles`).subscribe(d => this.danceStyles.set(d));
     this.http.get<FeeTier[]>(`${environment.apiUrl}/school/settings/fee-tiers`).subscribe(d => this.feeTiers.set(d));
+    this.http.get<SchoolClass[]>(`${environment.apiUrl}/school/classes`).subscribe(d => this.classes.set(d));
   }
 
   loadDetail(id: string) {
@@ -510,7 +514,7 @@ export class StudentProfileComponent implements OnInit {
     this.dialog.open(StudentFormDialog, {
       width: '620px',
       maxHeight: '90vh',
-      data: { studentDetail: d, ageGroups: this.ageGroups(), danceStyles: this.danceStyles(), feeTiers: this.feeTiers() }
+      data: { studentDetail: d, ageGroups: this.ageGroups(), danceStyles: this.danceStyles(), feeTiers: this.feeTiers(), classes: this.classes() }
     }).afterClosed().subscribe(saved => {
       if (saved) {
         this.loadDetail(String(d.student.id));

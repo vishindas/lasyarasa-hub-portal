@@ -10,6 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DatePipe } from '@angular/common';
 import { environment } from '../../../../environments/environment';
 import { AgeGroup } from '../../../core/models/settings.model';
@@ -19,6 +21,7 @@ interface StudentDetail {
   student: {
     id: number; firstName: string; lastName: string; email: string; phone: string;
     dateOfBirth: string; enrollmentStatus: string; ageGroupId: number | null;
+    feeGenerationPaused?: boolean;
   };
   guardians: { id: number; firstName: string; lastName: string; email: string;
                phone: string; relationship: string; primary: boolean; linkNotes: string; }[];
@@ -38,7 +41,7 @@ interface DialogData {
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
             MatInputModule, MatSelectModule, MatButtonModule,
             MatIconModule, MatDividerModule, DatePipe,
-            MatDatepickerModule, MatNativeDateModule],
+            MatDatepickerModule, MatNativeDateModule, MatSnackBarModule, MatCheckboxModule],
   template: `
     <h2 mat-dialog-title>{{ isEdit ? 'Edit Student' : 'Add Student' }}</h2>
 
@@ -97,6 +100,13 @@ interface DialogData {
             <mat-option value="DROPPED">Dropped</mat-option>
           </mat-select>
         </mat-form-field>
+
+        @if (studentForm.get('enrollmentStatus')?.value === 'NEEDS_ATTENTION') {
+          <mat-checkbox formControlName="feeGenerationPaused" style="margin: -4px 0 8px; display:block">
+            Pause fee generation
+            <span class="form-section-hint">(use if this attention item is billing-related — skip monthly fee generation until resolved)</span>
+          </mat-checkbox>
+        }
       </form>
 
       <!-- ── Class Enrollments ─────────────────────────────── -->
@@ -264,6 +274,7 @@ export class StudentFormDialog {
   private ref = inject(MatDialogRef<StudentFormDialog>);
   data: DialogData = inject(MAT_DIALOG_DATA);
   private fb = inject(FormBuilder);
+  private snack = inject(MatSnackBar);
 
   isEdit = !!this.data.studentDetail;
   saving = signal(false);
@@ -286,7 +297,8 @@ export class StudentFormDialog {
     phone:            [this.existingStudent?.phone     ?? ''],
     dateOfBirth:      [this.existingStudent?.dateOfBirth ? new Date(this.existingStudent.dateOfBirth + 'T12:00:00') : null],
     ageGroupId:       [this.existingStudent?.ageGroupId ?? null],
-    enrollmentStatus: [this.existingStudent?.enrollmentStatus ?? 'ACTIVE', Validators.required]
+    enrollmentStatus: [this.existingStudent?.enrollmentStatus ?? 'ACTIVE', Validators.required],
+    feeGenerationPaused: [this.existingStudent?.feeGenerationPaused ?? false]
   });
 
   enrollmentRows: FormArray = this.fb.array(
@@ -363,19 +375,25 @@ export class StudentFormDialog {
     const payload = { student, guardians, enrollments };
     const note = this.newNote.value?.trim();
 
+    const onError = (err: any) => {
+      this.saving.set(false);
+      const msg = err?.error?.message || 'Failed to save student. Please try again.';
+      this.snack.open(msg, 'OK', { duration: 5000 });
+    };
+
     const postNote = (id: number) => {
       if (!note) { this.ref.close(true); return; }
       this.http.post(`${environment.apiUrl}/school/v2/students/${id}/notes`, { note })
-        .subscribe({ next: () => this.ref.close(true), error: () => this.saving.set(false) });
+        .subscribe({ next: () => this.ref.close(true), error: onError });
     };
 
     if (this.isEdit) {
       const id = this.existingStudent!.id;
       this.http.put<any>(`${environment.apiUrl}/school/v2/students/${id}`, payload)
-        .subscribe({ next: () => postNote(id), error: () => this.saving.set(false) });
+        .subscribe({ next: () => postNote(id), error: onError });
     } else {
       this.http.post<any>(`${environment.apiUrl}/school/v2/students`, payload)
-        .subscribe({ next: (res) => postNote(res.student.id), error: () => this.saving.set(false) });
+        .subscribe({ next: (res) => postNote(res.student.id), error: onError });
     }
   }
 }

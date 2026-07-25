@@ -21,6 +21,18 @@ import { SchoolClass } from '../../../core/models/class.model';
 import { StudentFormDialog } from './student-form-dialog';
 import { DeleteStudentDialog, DeleteStudentDialogData } from './delete-student-dialog';
 
+const VIEW_STATE_KEY = 'studentListViewState';
+
+interface StudentListViewState {
+  tab: string;
+  search: string;
+  filterClasses: string[];
+  filterAgeGroups: string[];
+  sortCol: string;
+  sortDir: 'asc' | 'desc';
+  scrollTop: number;
+}
+
 @Component({
   selector: 'app-student-list',
   standalone: true,
@@ -156,6 +168,7 @@ export class StudentListComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.restoreViewState();
     this.load();
     this.http.get<AgeGroup[]>(`${environment.apiUrl}/school/settings/age-groups`)
       .subscribe(data => this.ageGroups.set(data));
@@ -172,6 +185,17 @@ export class StudentListComponent implements OnInit {
   }
 
   viewProfile(id: number) {
+    const el = document.querySelector('.app-content');
+    const state: StudentListViewState = {
+      tab: this.activeTab(),
+      search: this.searchQuery(),
+      filterClasses: this.filterClasses(),
+      filterAgeGroups: this.filterAgeGroups(),
+      sortCol: this.sortCol(),
+      sortDir: this.sortDir(),
+      scrollTop: el ? el.scrollTop : 0
+    };
+    sessionStorage.setItem(VIEW_STATE_KEY, JSON.stringify(state));
     this.router.navigate(['/vidya-rasa/students', id]);
   }
 
@@ -203,7 +227,35 @@ export class StudentListComponent implements OnInit {
 
   load() {
     this.http.get<Student[]>(`${environment.apiUrl}/school/v2/students`)
-      .subscribe(data => this.allStudents.set(data));
+      .subscribe(data => {
+        this.allStudents.set(data);
+        this.restoreScrollPosition();
+      });
+  }
+
+  private restoreViewState() {
+    const raw = sessionStorage.getItem(VIEW_STATE_KEY);
+    if (raw == null) return;
+    let state: StudentListViewState;
+    try { state = JSON.parse(raw); } catch { sessionStorage.removeItem(VIEW_STATE_KEY); return; }
+    this.activeTab.set(state.tab);
+    this.searchQuery.set(state.search);
+    this.filterClasses.set(state.filterClasses);
+    this.filterAgeGroups.set(state.filterAgeGroups);
+    this.sortCol.set(state.sortCol);
+    this.sortDir.set(state.sortDir);
+  }
+
+  private restoreScrollPosition() {
+    const raw = sessionStorage.getItem(VIEW_STATE_KEY);
+    if (raw == null) return;
+    sessionStorage.removeItem(VIEW_STATE_KEY);
+    let scrollTop = 0;
+    try { scrollTop = (JSON.parse(raw) as StudentListViewState).scrollTop ?? 0; } catch { return; }
+    setTimeout(() => {
+      const el = document.querySelector('.app-content');
+      if (el) el.scrollTop = scrollTop;
+    });
   }
 
   delete(student: Student) {
