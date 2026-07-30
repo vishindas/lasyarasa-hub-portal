@@ -76,7 +76,7 @@ export class DashboardComponent implements OnInit {
       });
   }
 
-  go(path: string, queryParams?: Record<string, string>) {
+  go(path: string, queryParams?: Record<string, string | string[]>) {
     this.router.navigate([path], queryParams ? { queryParams } : {});
   }
 

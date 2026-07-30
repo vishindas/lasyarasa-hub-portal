@@ -223,7 +223,7 @@ export class FeeListComponent implements OnInit {
     this.http.get<FeeTier[]>(`${environment.apiUrl}/school/settings/fee-tiers`)
       .subscribe(d => this.feeTiers.set(d));
     this.route.queryParams.subscribe(p => {
-      if (p['status']) this.statusFilter.set([p['status']]);
+      if (p['status']) this.statusFilter.set(Array.isArray(p['status']) ? p['status'] : [p['status']]);
     });
   }
 

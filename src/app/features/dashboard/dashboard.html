@@ -34,7 +34,7 @@
     </mat-card-content>
   </mat-card>
 
-  <mat-card class="stat-card stat-card-link" (click)="go('/vidya-rasa/fees', {status: 'PENDING'})">
+  <mat-card class="stat-card stat-card-link" (click)="go('/vidya-rasa/fees', {status: ['PENDING', 'OVERDUE']})">
     <mat-card-content>
       <div class="stat-icon amber"><mat-icon>payments</mat-icon></div>
       <div class="stat-info">
