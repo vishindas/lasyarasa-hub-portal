@@ -121,11 +121,60 @@ export class InvoiceListComponent implements OnInit {
 
   sendingIds = signal<Set<number>>(new Set());
 
+  // Per-card fee line-item selection for the "Ready to Invoice" view — keyed by
+  // guardianId (falling back to payerName for the no-guardian/download-only case,
+  // matching the @for track expression). Defaults to "all fees selected" so the
+  // existing behavior (invoice everything) is unchanged unless the admin unchecks something.
+  private feeSelections = signal<Map<string | number, Set<number>>>(new Map());
+
+  private cardKey(preview: InvoicePreview): string | number {
+    return preview.guardianId ?? preview.payerName;
+  }
+
+  private allFeeIds(preview: InvoicePreview): number[] {
+    return preview.students.flatMap(s => s.fees.map(f => f.feeId));
+  }
+
+  selectedFeeIds(preview: InvoicePreview): Set<number> {
+    const existing = this.feeSelections().get(this.cardKey(preview));
+    return existing ?? new Set(this.allFeeIds(preview));
+  }
+
+  isFeeSelected(preview: InvoicePreview, feeId: number): boolean {
+    return this.selectedFeeIds(preview).has(feeId);
+  }
+
+  toggleFee(preview: InvoicePreview, feeId: number) {
+    const current = new Set(this.selectedFeeIds(preview));
+    if (current.has(feeId)) current.delete(feeId); else current.add(feeId);
+    this.feeSelections.update(m => {
+      const next = new Map(m);
+      next.set(this.cardKey(preview), current);
+      return next;
+    });
+  }
+
+  cardFeeCount(preview: InvoicePreview): number {
+    return this.allFeeIds(preview).length;
+  }
+
+  cardSelectedCount(preview: InvoicePreview): number {
+    return this.selectedFeeIds(preview).size;
+  }
+
+  cardSelectedTotal(preview: InvoicePreview): number {
+    const ids = this.selectedFeeIds(preview);
+    return preview.students.flatMap(s => s.fees)
+      .filter(f => ids.has(f.feeId))
+      .reduce((sum, f) => sum + f.amount, 0);
+  }
+
   ngOnInit() { this.loadAll(); }
 
   loadAll() {
     this.loading.set(true);
     this.selected.set(new Set());
+    this.feeSelections.set(new Map());
     this.http.get<InvoicePreview[]>(`${environment.apiUrl}/school/invoices/preview`)
       .subscribe(d => { this.previews.set(d); this.loading.set(false); });
     this.http.get<Invoice[]>(`${environment.apiUrl}/school/invoices`)
@@ -154,15 +203,16 @@ export class InvoiceListComponent implements OnInit {
   }
 
   generate(preview: InvoicePreview) {
-    const allFeeIds = preview.students.flatMap(s => s.fees.map(f => f.feeId));
+    const feeIds = [...this.selectedFeeIds(preview)];
+    if (feeIds.length === 0) return;
     this.dialog.open(ConfirmInvoiceDialog, {
       width: '520px',
-      data: { preview, feeIds: allFeeIds }
+      data: { preview, feeIds }
     }).afterClosed().subscribe(confirmed => {
       if (confirmed) {
         this.http.post<Invoice>(`${environment.apiUrl}/school/invoices/generate`, {
           guardianId: preview.guardianId,
-          feeIds: allFeeIds,
+          feeIds,
           dueDate: confirmed.dueDate
         }).subscribe({
           next: () => {
