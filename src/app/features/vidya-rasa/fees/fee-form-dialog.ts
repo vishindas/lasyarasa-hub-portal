@@ -20,6 +20,7 @@ export interface FeeDialogData {
   studentId?: number;
   feeTierId?: number;
   feeTiers?: FeeTier[];
+  suppressPaymentEmail?: boolean;
 }
 
 @Component({
@@ -203,7 +204,7 @@ export class FeeFormDialog implements OnInit {
       paidBy:  v.paidBy || null
     };
     const req = this.fee
-      ? this.http.put(`${environment.apiUrl}/school/fees/${this.fee.id}`, payload)
+      ? this.http.put(`${environment.apiUrl}/school/fees/${this.fee.id}?sendEmail=${!this.data?.suppressPaymentEmail}`, payload)
       : this.http.post(`${environment.apiUrl}/school/fees`, payload);
     req.subscribe({
       next: () => this.ref.close(true),

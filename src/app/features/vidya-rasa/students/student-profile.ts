@@ -422,6 +422,15 @@ interface FeeRecord {
                 <td mat-cell *matCellDef="let f">{{ f.notes || '—' }}</td>
               </ng-container>
 
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let f">
+                  <button mat-icon-button (click)="openEditFee(f)" title="Edit Fee">
+                    <mat-icon style="font-size:18px">edit</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+
               <tr mat-header-row *matHeaderRowDef="feeColumns"></tr>
               <tr mat-row *matRowDef="let row; columns: feeColumns;"></tr>
             </table>
@@ -452,7 +461,7 @@ export class StudentProfileComponent implements OnInit {
   feeTiers = signal<FeeTier[]>([]);
   classes = signal<SchoolClass[]>([]);
 
-  feeColumns = ['feeTier', 'amount', 'dueDate', 'paidAt', 'status', 'paidBy', 'notes'];
+  feeColumns = ['feeTier', 'amount', 'dueDate', 'paidAt', 'status', 'paidBy', 'notes', 'actions'];
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
@@ -535,6 +544,24 @@ export class StudentProfileComponent implements OnInit {
         if (saved) {
           this.loadFees(String(studentId));
           this.snack.open('Fee added', 'OK', { duration: 2500 });
+        }
+      });
+  }
+
+  openEditFee(f: FeeRecord) {
+    const studentId = this.detail()!.student.id;
+    const data: FeeDialogData = {
+      fee: { ...f, studentId, status: f.status as any } as any,
+      feeTiers: this.feeTiers(),
+      // Admin correction from the student profile — the finance team's Fees screens
+      // already send this email; avoid double-notifying the guardian here.
+      suppressPaymentEmail: true
+    };
+    this.dialog.open(FeeFormDialog, { width: '480px', data })
+      .afterClosed().subscribe(saved => {
+        if (saved) {
+          this.loadFees(String(studentId));
+          this.snack.open('Fee updated', 'OK', { duration: 2500 });
         }
       });
   }

@@ -90,12 +90,25 @@ export class ClassFormDialog implements OnInit {
   });
 
   ngOnInit() {
+    // mat-select resolves its displayed label against the <mat-option> list at the
+    // moment the form value is set. These lists load asynchronously, so re-apply
+    // each control's value once its options exist — otherwise an existing selection
+    // renders blank until some later interaction forces mat-select to recheck.
     this.http.get<DanceStyle[]>(`${environment.apiUrl}/school/settings/dance-styles`)
-      .subscribe(d => this.styles = d);
+      .subscribe(d => {
+        this.styles = d;
+        this.form.get('danceStyleId')!.setValue(this.data?.danceStyleId ?? null);
+      });
     this.http.get<AgeGroup[]>(`${environment.apiUrl}/school/settings/age-groups`)
-      .subscribe(d => this.ageGroups = d);
+      .subscribe(d => {
+        this.ageGroups = d;
+        this.form.get('ageGroupId')!.setValue(this.data?.ageGroupId ?? null);
+      });
     this.http.get<FeeTier[]>(`${environment.apiUrl}/school/settings/fee-tiers`)
-      .subscribe(d => this.feeTiers = d);
+      .subscribe(d => {
+        this.feeTiers = d;
+        this.form.get('feeTierId')!.setValue(this.data?.feeTierId ?? null);
+      });
   }
 
   save() {
