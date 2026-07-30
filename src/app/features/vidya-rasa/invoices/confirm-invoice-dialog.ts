@@ -8,7 +8,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { InvoicePreview } from '../../../core/models/invoice.model';
+import { InvoicePreview, StudentFeeGroup, FeePreviewItem } from '../../../core/models/invoice.model';
 
 @Component({
   selector: 'app-confirm-invoice-dialog',
@@ -29,20 +29,22 @@ import { InvoicePreview } from '../../../core/models/invoice.model';
       </p>
 
       @for (sg of data.preview.students; track sg.studentId) {
-        <div class="invoice-student-block">
-          <p class="invoice-student-name">{{ sg.studentName }}</p>
-          @for (fee of sg.fees; track fee.feeId) {
-            <div class="invoice-line-item">
-              <span>{{ fee.description }}</span>
-              <span class="invoice-line-amount">₹{{ fee.amount | number:'1.0-0' }}</span>
-            </div>
-          }
-        </div>
+        @if (selectedFees(sg).length) {
+          <div class="invoice-student-block">
+            <p class="invoice-student-name">{{ sg.studentName }}</p>
+            @for (fee of selectedFees(sg); track fee.feeId) {
+              <div class="invoice-line-item">
+                <span>{{ fee.description }}</span>
+                <span class="invoice-line-amount">₹{{ fee.amount | number:'1.0-0' }}</span>
+              </div>
+            }
+          </div>
+        }
       }
 
       <div class="invoice-grand-total">
         <span>Grand Total</span>
-        <span>₹{{ data.preview.grandTotal | number:'1.0-0' }}</span>
+        <span>₹{{ selectedGrandTotal() | number:'1.0-0' }}</span>
       </div>
 
       <mat-form-field appearance="outline" style="width:100%;margin-top:16px">
@@ -80,6 +82,16 @@ export class ConfirmInvoiceDialog {
     new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // default: 15 days from now
     Validators.required
   );
+
+  selectedFees(sg: StudentFeeGroup): FeePreviewItem[] {
+    return sg.fees.filter(f => this.data.feeIds.includes(f.feeId));
+  }
+
+  selectedGrandTotal(): number {
+    return this.data.preview.students
+      .flatMap(sg => this.selectedFees(sg))
+      .reduce((sum, f) => sum + f.amount, 0);
+  }
 
   confirm() {
     if (!this.dueDateCtrl.valid) return;

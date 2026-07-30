@@ -88,6 +88,10 @@
                 <div class="preview-student-name">{{ sg.studentName }}</div>
                 @for (fee of sg.fees; track fee.feeId) {
                   <div class="preview-fee-row">
+                    <mat-checkbox class="preview-fee-checkbox"
+                                  [checked]="isFeeSelected(preview, fee.feeId)"
+                                  (change)="toggleFee(preview, fee.feeId)">
+                    </mat-checkbox>
                     <span class="preview-fee-desc">{{ fee.description }}</span>
                     <span class="preview-fee-status status-chip"
                           [class]="'status-' + fee.status.toLowerCase()">{{ fee.status }}</span>
@@ -102,8 +106,13 @@
           </div>
 
           <div class="preview-card-footer">
+            <span class="preview-selected-summary">
+              {{ cardSelectedCount(preview) }} of {{ cardFeeCount(preview) }} selected
+              &nbsp;·&nbsp;
+              {{ cardSelectedTotal(preview) | currency:cs.currency():'symbol':'1.0-0' }}
+            </span>
             <button mat-flat-button color="primary" (click)="generate(preview)"
-                    [disabled]="!preview.guardianId">
+                    [disabled]="!preview.guardianId || cardSelectedCount(preview) === 0">
               <mat-icon>receipt_long</mat-icon>
               Generate Invoice
             </button>
