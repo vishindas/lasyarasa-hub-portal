@@ -5,6 +5,16 @@ import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { AuthResponse, CurrentUser } from '../models/user.model';
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ChangePasswordResponse {
+  message: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly TOKEN_KEY = 'lr_token';
@@ -23,6 +33,10 @@ export class AuthService {
         this.currentUser.set(user);
       })
     );
+  }
+
+  changePassword(payload: ChangePasswordRequest) {
+    return this.http.post<ChangePasswordResponse>(`${environment.apiUrl}/auth/change-password`, payload);
   }
 
   logout() {
