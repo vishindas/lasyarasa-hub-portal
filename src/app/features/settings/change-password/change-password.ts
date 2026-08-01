@@ -156,7 +156,6 @@ export class ChangePasswordComponent {
         this.saving.set(false);
         if (err.status === 401) {
           this.wrongPassword.set(true);
-          this.form.get('currentPassword')?.setErrors({ wrong: true });
         } else if (err.status === 400) {
           const message = typeof err.error?.error === 'string'
             ? err.error.error
