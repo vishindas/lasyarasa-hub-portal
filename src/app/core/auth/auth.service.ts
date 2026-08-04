@@ -39,10 +39,14 @@ export class AuthService {
     return this.http.post<ChangePasswordResponse>(`${environment.apiUrl}/auth/change-password`, payload);
   }
 
-  logout() {
+  clearSession(): void {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
     this.currentUser.set(null);
+  }
+
+  logout() {
+    this.clearSession();
     this.router.navigate(['/login']);
   }
 
