@@ -25,6 +25,8 @@ interface Registration {
   emergencyContactName: string; emergencyContactRelationship: string; emergencyContactPhone: string;
   photoConsent: boolean | null;
   termsAccepted: boolean | null;
+  accountConsentRequested: boolean | null;
+  accountConsentRequestedAt: string | null;
   status: string; rejectionReason: string;
   createdAt: string;
 }
@@ -199,33 +201,44 @@ interface Registration {
       }
 
       <!-- Consents -->
-      @if (reg()!.photoConsent !== null || reg()!.termsAccepted !== null) {
-        <mat-card style="margin-bottom:20px;padding:24px">
-          <p class="section-title">Consents</p>
-          @if (reg()!.photoConsent !== null) {
-            <div class="consent-row">
-              <mat-icon [class]="reg()!.photoConsent ? 'consent-icon-yes' : 'consent-icon-no'">
-                {{ reg()!.photoConsent ? 'check_circle' : 'cancel' }}
-              </mat-icon>
-              <span style="font-size:0.95rem">
-                Photo release consent —
-                <strong>{{ reg()!.photoConsent ? 'Agreed' : 'Declined' }}</strong>
-              </span>
-            </div>
-          }
-          @if (reg()!.termsAccepted !== null) {
-            <div class="consent-row">
-              <mat-icon [class]="reg()!.termsAccepted ? 'consent-icon-yes' : 'consent-icon-no'">
-                {{ reg()!.termsAccepted ? 'check_circle' : 'cancel' }}
-              </mat-icon>
-              <span style="font-size:0.95rem">
-                Terms &amp; conditions —
-                <strong>{{ reg()!.termsAccepted ? 'Accepted' : 'Not accepted' }}</strong>
-              </span>
-            </div>
-          }
-        </mat-card>
-      }
+      <mat-card style="margin-bottom:20px;padding:24px">
+        <p class="section-title">Consents</p>
+        @if (reg()!.photoConsent !== null) {
+          <div class="consent-row">
+            <mat-icon [class]="reg()!.photoConsent ? 'consent-icon-yes' : 'consent-icon-no'">
+              {{ reg()!.photoConsent ? 'check_circle' : 'cancel' }}
+            </mat-icon>
+            <span style="font-size:0.95rem">
+              Photo release consent —
+              <strong>{{ reg()!.photoConsent ? 'Agreed' : 'Declined' }}</strong>
+            </span>
+          </div>
+        }
+        @if (reg()!.termsAccepted !== null) {
+          <div class="consent-row">
+            <mat-icon [class]="reg()!.termsAccepted ? 'consent-icon-yes' : 'consent-icon-no'">
+              {{ reg()!.termsAccepted ? 'check_circle' : 'cancel' }}
+            </mat-icon>
+            <span style="font-size:0.95rem">
+              Terms &amp; conditions —
+              <strong>{{ reg()!.termsAccepted ? 'Accepted' : 'Not accepted' }}</strong>
+            </span>
+          </div>
+        }
+        <!-- Online access consent evidence (R2D-C) — display-only, immutable. -->
+        <div class="consent-row">
+          <mat-icon [class]="reg()!.accountConsentRequested ? 'consent-icon-yes' : 'consent-icon-no'">
+            {{ reg()!.accountConsentRequested ? 'check_circle' : 'cancel' }}
+          </mat-icon>
+          <span style="font-size:0.95rem">
+            Online access requested —
+            <strong>{{ reg()!.accountConsentRequested ? 'Yes' : 'No' }}</strong>
+            @if (reg()!.accountConsentRequested && reg()!.accountConsentRequestedAt) {
+              <span style="color:#6b7280"> · Requested at {{ reg()!.accountConsentRequestedAt | date:'medium' }}</span>
+            }
+          </span>
+        </div>
+      </mat-card>
 
       <!-- Rejection reason -->
       @if (reg()!.status === 'REJECTED' && reg()!.rejectionReason) {
