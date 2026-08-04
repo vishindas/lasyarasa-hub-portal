@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/auth/auth.guard';
+import { authGuard, clientGuard, nonClientGuard } from './core/auth/auth.guard';
 
 export const routes: Routes = [
   {
@@ -15,9 +15,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/accept-invitation/accept-invitation').then(m => m.AcceptInvitationComponent)
   },
   {
+    path: 'my-students',
+    loadComponent: () => import('./features/my-students/my-students').then(m => m.MyStudentsComponent),
+    canActivate: [authGuard, clientGuard]
+  },
+  {
     path: '',
     loadComponent: () => import('./layout/shell/shell').then(m => m.ShellComponent),
-    canActivate: [authGuard],
+    canActivate: [authGuard, nonClientGuard],
     children: [
       {
         path: 'dashboard',
