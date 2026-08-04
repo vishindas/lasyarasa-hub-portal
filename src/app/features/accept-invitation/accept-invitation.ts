@@ -245,8 +245,8 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
             <mat-icon style="color:#16a34a">check_circle</mat-icon>
             <h2>Access granted</h2>
             <p>You now have {{ purposeLabel() }} on your account.</p>
+            <p>Access has been added to your account. You can close this page.</p>
           </div>
-          <button mat-flat-button color="primary" class="full-width invite-btn" (click)="goToDashboard()">Continue</button>
         }
 
       </mat-card>
@@ -409,9 +409,5 @@ export class AcceptInvitationComponent implements OnInit, OnDestroy {
 
   goToLogin() {
     this.router.navigate(['/login']);
-  }
-
-  goToDashboard() {
-    this.router.navigate(['/dashboard']);
   }
 }
