@@ -21,6 +21,7 @@ interface FormConfig {
   showPhotoConsent: boolean;
   showTerms: boolean;
   termsText: string | null;
+  showAccountConsent: boolean;
 }
 
 @Component({
@@ -250,6 +251,18 @@ interface FormConfig {
                 </mat-checkbox>
               }
 
+              <!-- Online Access Consent -->
+              @if (cfg().showAccountConsent) {
+                <mat-divider></mat-divider>
+                <mat-checkbox formControlName="accountConsentRequested">
+                  Create online access for this student
+                </mat-checkbox>
+                <p style="margin:-8px 0 0 32px;font-size:0.8rem;color:#6b7280">
+                  Request secure online access to view this student's school information.
+                  Account setup will be completed separately.
+                </p>
+              }
+
               <button mat-flat-button color="primary" type="submit"
                       [disabled]="form.invalid || submitting() || (cfg().showTerms && cfg().termsText && !form.value.termsAccepted)"
                       style="height:44px;font-size:1rem;margin-top:4px">
@@ -275,7 +288,7 @@ export class RegisterPageComponent implements OnInit {
   submitting = signal(false);
   cfg = signal<FormConfig>({
     showAddress: false, showEmergencyContact: false, showDanceExperience: true,
-    showPhotoConsent: false, showTerms: false, termsText: null
+    showPhotoConsent: false, showTerms: false, termsText: null, showAccountConsent: false
   });
 
   form = this.fb.group({
@@ -306,7 +319,8 @@ export class RegisterPageComponent implements OnInit {
     notes:                        [''],
     // Consent
     photoConsent:                 [false],
-    termsAccepted:                [false]
+    termsAccepted:                [false],
+    accountConsentRequested:      [false]
   });
 
   isParent = () => this.form.get('registrantType')?.value === 'PARENT';
@@ -320,11 +334,18 @@ export class RegisterPageComponent implements OnInit {
         this.providerName.set(info.providerName);
         this.danceStyles.set(info.danceStyles);
         const raw = info.formConfig ?? this.cfg();
+        // Absent/null on an older cached response defaults safely to false.
+        const showAccountConsent = !!raw.showAccountConsent;
         this.cfg.set({
           ...raw,
           // showTerms is only meaningful if actual text exists
-          showTerms: raw.showTerms && !!raw.termsText
+          showTerms: raw.showTerms && !!raw.termsText,
+          showAccountConsent
         });
+        // Explicitly reset — never let a hidden checkbox carry a stale value.
+        if (!showAccountConsent) {
+          this.form.patchValue({ accountConsentRequested: false });
+        }
         this.state.set('form');
       },
       error: () => this.state.set('invalid')
@@ -348,6 +369,9 @@ export class RegisterPageComponent implements OnInit {
       guardianPhone:        this.isParent() ? v.guardianPhone     : null,
       guardianEmail:        this.isParent() ? v.guardianEmail     : null,
       guardianRelationship: this.isParent() ? v.guardianRelationship : null,
+      // Strict boolean, server-authoritative anyway — but never send a
+      // stale/true value when the checkbox is hidden.
+      accountConsentRequested: this.cfg().showAccountConsent && !!v.accountConsentRequested,
     };
     this.http.post(`${environment.apiUrl}/public/register/${token}`, payload)
       .subscribe({

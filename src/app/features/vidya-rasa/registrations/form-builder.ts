@@ -135,6 +135,21 @@ import { environment } from '../../../../environments/environment';
         }
       </mat-card>
 
+      <!-- Online Access Consent -->
+      <mat-card style="margin-bottom:12px;padding:20px 24px">
+        <div class="section-row">
+          <mat-icon style="color:#6b7280">verified_user</mat-icon>
+          <div style="flex:1">
+            <p style="font-weight:600;margin:0">Show online-access consent option</p>
+            <p style="margin:2px 0 0;font-size:0.82rem;color:#6b7280">
+              When enabled, families may request online access for the student during registration.
+              This does not create an account immediately.
+            </p>
+          </div>
+          <mat-slide-toggle [(ngModel)]="showAccountConsent" (ngModelChange)="save()" color="primary"></mat-slide-toggle>
+        </div>
+      </mat-card>
+
     }
   `
 })
@@ -152,6 +167,7 @@ export class FormBuilderComponent implements OnInit {
   showPhotoConsent     = false;
   showTerms            = false;
   termsText            = '';
+  showAccountConsent   = false;
 
   ngOnInit() {
     this.http.get<any>(`${environment.apiUrl}/school/registration-form-config`)
@@ -163,6 +179,8 @@ export class FormBuilderComponent implements OnInit {
           this.showPhotoConsent     = !!c.showPhotoConsent;
           this.showTerms            = !!c.showTerms;
           this.termsText            = c.termsText ?? '';
+          // Absent/null on an older cached response defaults safely to false.
+          this.showAccountConsent   = !!c.showAccountConsent;
           this.loaded.set(true);   // toggles render now, with correct values already set
         },
         error: e => {
@@ -179,7 +197,8 @@ export class FormBuilderComponent implements OnInit {
       showDanceExperience:  this.showDanceExperience,
       showPhotoConsent:     this.showPhotoConsent,
       showTerms:            this.showTerms,
-      termsText:            this.termsText
+      termsText:            this.termsText,
+      showAccountConsent:   this.showAccountConsent
     }).subscribe({
       error: e => this.snack.open('Failed to save: ' + (e.error?.message || e.status), 'OK', { duration: 5000 })
     });
