@@ -322,7 +322,8 @@ export class AcceptInvitationComponent implements OnInit, OnDestroy {
   }
 
   signOut() {
-    this.auth.logout();
+    this.auth.clearSession();
+    this.backToChooser();
   }
 
   retry() {
