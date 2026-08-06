@@ -18,6 +18,7 @@ import { StudentFormDialog } from './student-form-dialog';
 import { FeeFormDialog, FeeDialogData } from '../fees/fee-form-dialog';
 import { FeeOverrideDialog, FeeOverrideDialogData } from './fee-override-dialog';
 import { ConfirmDialog } from '../../../shared/confirm-dialog';
+import { SendOnlineAccessDialog, SendOnlineAccessDialogData } from './send-online-access-dialog';
 
 interface EnrollmentDetail {
   id: number; classId: number; className: string; danceStyleId: number; danceStyleName: string;
@@ -121,9 +122,14 @@ interface FeeRecord {
             </p>
           </div>
         </div>
-        <button mat-flat-button color="primary" (click)="openEdit()">
-          <mat-icon>edit</mat-icon> Edit Student
-        </button>
+        <div style="display:flex;gap:8px">
+          <button mat-stroked-button (click)="openSendOnlineAccess(d)">
+            <mat-icon>mail_outline</mat-icon> Send Online Access Invitation
+          </button>
+          <button mat-flat-button color="primary" (click)="openEdit()">
+            <mat-icon>edit</mat-icon> Edit Student
+          </button>
+        </div>
       </div>
 
       <div class="profile-grid">
@@ -515,6 +521,17 @@ export class StudentProfileComponent implements OnInit {
             this.snack.open('Override removed', 'OK', { duration: 2500 });
           });
       });
+  }
+
+  openSendOnlineAccess(d: StudentDetailData) {
+    const data: SendOnlineAccessDialogData = {
+      studentId: d.student.id,
+      studentEmail: d.student.email ?? null,
+      guardians: d.guardians.map(g => ({
+        id: g.id, firstName: g.firstName, lastName: g.lastName, email: g.email, relationship: g.relationship
+      }))
+    };
+    this.dialog.open(SendOnlineAccessDialog, { width: '480px', data });
   }
 
   openEdit() {
