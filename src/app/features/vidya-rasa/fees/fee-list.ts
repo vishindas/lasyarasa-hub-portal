@@ -98,8 +98,8 @@ export class FeeListComponent implements OnInit {
   viewFees = computed(() => {
     const q = this.filterText().toLowerCase().trim();
     const st = this.statusFilter();
-    const col = this.sortCol();
-    const dir = this.sortDir();
+    const col = q ? 'dueDate' : this.sortCol();
+    const dir = q ? 'desc' : this.sortDir();
 
     let rows = this.fees();
 
