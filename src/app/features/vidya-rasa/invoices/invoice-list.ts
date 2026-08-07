@@ -214,7 +214,8 @@ export class InvoiceListComponent implements OnInit {
         this.http.post<Invoice>(`${environment.apiUrl}/school/invoices/generate`, {
           guardianId: preview.guardianId,
           feeIds,
-          dueDate: confirmed.dueDate
+          dueDate: confirmed.dueDate,
+          note: confirmed.note
         }).subscribe({
           next: () => {
             this.snack.open(`Invoice generated for ${preview.payerName}`, 'OK', { duration: 3000 });

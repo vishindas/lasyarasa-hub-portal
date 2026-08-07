@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -53,6 +53,18 @@ import { InvoicePreview, StudentFeeGroup, FeePreviewItem } from '../../../core/m
         <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
         <mat-datepicker #picker></mat-datepicker>
       </mat-form-field>
+
+      @if (!showNote()) {
+        <button mat-button type="button" class="invoice-note-toggle" (click)="showNote.set(true)">
+          <mat-icon style="font-size:18px;vertical-align:middle">add</mat-icon> Add a note to this invoice email
+        </button>
+      } @else {
+        <mat-form-field appearance="outline" style="width:100%">
+          <mat-label>Note to include in the email</mat-label>
+          <textarea matInput rows="3" [formControl]="noteCtrl"
+                    placeholder="e.g. We show this invoice as unpaid — please let us know if you've already paid."></textarea>
+        </mat-form-field>
+      }
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
@@ -72,6 +84,7 @@ import { InvoicePreview, StudentFeeGroup, FeePreviewItem } from '../../../core/m
     .invoice-line-amount { font-weight:600; }
     .invoice-grand-total { display:flex; justify-content:space-between; font-weight:700;
                             font-size:1rem; border-top:2px solid #e8eaf0; padding-top:10px; margin-top:4px; }
+    .invoice-note-toggle { margin-top:8px; color:#6c757d; }
   `]
 })
 export class ConfirmInvoiceDialog {
@@ -82,6 +95,8 @@ export class ConfirmInvoiceDialog {
     new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // default: 15 days from now
     Validators.required
   );
+  showNote = signal(false);
+  noteCtrl = new FormControl('');
 
   selectedFees(sg: StudentFeeGroup): FeePreviewItem[] {
     return sg.fees.filter(f => this.data.feeIds.includes(f.feeId));
@@ -97,6 +112,7 @@ export class ConfirmInvoiceDialog {
     if (!this.dueDateCtrl.valid) return;
     const d = this.dueDateCtrl.value as Date;
     const dueDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    this.ref.close({ dueDate });
+    const note = this.noteCtrl.value?.trim();
+    this.ref.close({ dueDate, note: note || undefined });
   }
 }
