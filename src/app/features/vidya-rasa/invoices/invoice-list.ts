@@ -116,7 +116,7 @@ export class InvoiceListComponent implements OnInit {
     this.selected().size > 0 && !this.allSelected()
   );
 
-  invoiceColumns = ['invoiceNumber', 'payerName', 'sentTo', 'period',
+  invoiceColumns = ['invoiceNumber', 'payerName', 'students', 'period',
                     'totalAmount', 'amountPaid', 'status', 'issueDate', 'actions'];
   selectColumns = ['select', 'payerName', 'payerEmail', 'students', 'grandTotal'];
 
@@ -290,6 +290,15 @@ export class InvoiceListComponent implements OnInit {
 
   studentNames(preview: InvoicePreview) {
     return preview.students.map(s => s.studentName).join(', ');
+  }
+
+  invoiceStudentNames(inv: Invoice): string {
+    const names = new Set(
+      (inv.lineItems ?? [])
+        .map(li => li.description?.split(' — ')[0]?.trim())
+        .filter((n): n is string => !!n)
+    );
+    return names.size ? [...names].join(', ') : '—';
   }
 
   canDelete(inv: Invoice)  { return inv.status === 'DRAFT'; }
