@@ -56,7 +56,8 @@ export class InvoiceListComponent implements OnInit {
       i.invoiceNumber?.toLowerCase().includes(q) ||
       i.payerName?.toLowerCase().includes(q) ||
       i.sentTo?.toLowerCase().includes(q) ||
-      i.status?.toLowerCase().includes(q)
+      i.status?.toLowerCase().includes(q) ||
+      i.lineItems?.some(li => li.description?.toLowerCase().includes(q))
     );
   });
 
