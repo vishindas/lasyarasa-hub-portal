@@ -92,6 +92,12 @@ export interface FeeDialogData {
           </mat-select>
         </mat-form-field>
 
+        @if (form.value.status === 'PAID') {
+          <mat-checkbox [formControl]="sendEmailCtrl">
+            Email guardian about this payment
+          </mat-checkbox>
+        }
+
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Paid On</mat-label>
           <input matInput [matDatepicker]="paidPicker" formControlName="paidAt" />
@@ -108,12 +114,6 @@ export interface FeeDialogData {
           <mat-label>Notes</mat-label>
           <textarea matInput formControlName="notes" rows="2"></textarea>
         </mat-form-field>
-
-        @if (form.value.status === 'PAID') {
-          <mat-checkbox [formControl]="sendEmailCtrl">
-            Email guardian about this payment
-          </mat-checkbox>
-        }
 
       </form>
     </mat-dialog-content>
