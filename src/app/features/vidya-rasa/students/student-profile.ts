@@ -569,10 +569,7 @@ export class StudentProfileComponent implements OnInit {
     const studentId = this.detail()!.student.id;
     const data: FeeDialogData = {
       fee: { ...f, studentId, status: f.status as any } as any,
-      feeTiers: this.feeTiers(),
-      // Admin correction from the student profile — the finance team's Fees screens
-      // already send this email; avoid double-notifying the guardian here.
-      suppressPaymentEmail: true
+      feeTiers: this.feeTiers()
     };
     this.dialog.open(FeeFormDialog, { width: '480px', data })
       .afterClosed().subscribe(saved => {

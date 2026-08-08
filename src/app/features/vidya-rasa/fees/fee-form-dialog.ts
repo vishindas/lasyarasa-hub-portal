@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
@@ -20,7 +21,6 @@ export interface FeeDialogData {
   studentId?: number;
   feeTierId?: number;
   feeTiers?: FeeTier[];
-  suppressPaymentEmail?: boolean;
 }
 
 @Component({
@@ -28,7 +28,7 @@ export interface FeeDialogData {
   standalone: true,
   imports: [DecimalPipe, ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
             MatInputModule, MatSelectModule, MatButtonModule, MatAutocompleteModule,
-            MatDatepickerModule, MatNativeDateModule],
+            MatDatepickerModule, MatNativeDateModule, MatCheckboxModule],
   template: `
     <h2 mat-dialog-title>{{ data?.fee ? 'Edit Fee' : 'Add Fee' }}</h2>
     <mat-dialog-content style="overflow-x:hidden">
@@ -109,6 +109,12 @@ export interface FeeDialogData {
           <textarea matInput formControlName="notes" rows="2"></textarea>
         </mat-form-field>
 
+        @if (form.value.status === 'PAID') {
+          <mat-checkbox [formControl]="sendEmailCtrl">
+            Email guardian about this payment
+          </mat-checkbox>
+        }
+
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -130,6 +136,8 @@ export class FeeFormDialog implements OnInit {
   private allStudents: Student[] = [];
   filteredStudents = signal<Student[]>([]);
   studentSearch = new FormControl<Student | string>('');
+
+  sendEmailCtrl = new FormControl(true);
 
   form = inject(FormBuilder).group({
     studentId: [this.fee?.studentId ?? this.data?.studentId ?? null, Validators.required],
@@ -204,7 +212,7 @@ export class FeeFormDialog implements OnInit {
       paidBy:  v.paidBy || null
     };
     const req = this.fee
-      ? this.http.put(`${environment.apiUrl}/school/fees/${this.fee.id}?sendEmail=${!this.data?.suppressPaymentEmail}`, payload)
+      ? this.http.put(`${environment.apiUrl}/school/fees/${this.fee.id}?sendEmail=${this.sendEmailCtrl.value}`, payload)
       : this.http.post(`${environment.apiUrl}/school/fees`, payload);
     req.subscribe({
       next: () => this.ref.close(true),
