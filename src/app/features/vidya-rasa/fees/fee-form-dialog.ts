@@ -94,7 +94,7 @@ export interface FeeDialogData {
 
         @if (form.value.status === 'PAID') {
           <mat-checkbox [formControl]="sendEmailCtrl">
-            Email guardian about this payment
+            Email about this payment
           </mat-checkbox>
         }
 
