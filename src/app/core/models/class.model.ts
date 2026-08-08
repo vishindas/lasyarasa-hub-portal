@@ -10,3 +10,10 @@ export interface SchoolClass {
   ageGroupLabel: string | null;
   feeTierLabel: string | null;
 }
+
+export interface ClassStudent {
+  id: number;
+  firstName: string;
+  lastName: string;
+  enrollmentStatus: string;
+}
