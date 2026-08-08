@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,6 +20,7 @@ import { ConfirmDialog } from '../../../shared/confirm-dialog';
 })
 export class ClassListComponent implements OnInit {
   private http = inject(HttpClient);
+  private router = inject(Router);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
 
@@ -30,6 +32,10 @@ export class ClassListComponent implements OnInit {
   load() {
     this.http.get<SchoolClass[]>(`${environment.apiUrl}/school/classes`)
       .subscribe(data => this.classes.set(data));
+  }
+
+  openDetail(cls: SchoolClass) {
+    this.router.navigate(['/vidya-rasa/classes', cls.id]);
   }
 
   openForm(cls?: SchoolClass) {
