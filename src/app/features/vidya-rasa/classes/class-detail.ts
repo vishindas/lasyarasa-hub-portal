@@ -48,6 +48,9 @@ import { ClassFormDialog } from './class-form-dialog';
           </div>
         </div>
         <div style="display:flex;gap:8px">
+          <button mat-stroked-button (click)="openCurriculum(c)">
+            <mat-icon>auto_stories</mat-icon> Curriculum
+          </button>
           <button mat-stroked-button (click)="openEdit(c)">
             <mat-icon>edit</mat-icon> Edit
           </button>
@@ -148,6 +151,10 @@ export class ClassDetailComponent implements OnInit {
 
   goBack() {
     this.router.navigate(['/vidya-rasa/classes']);
+  }
+
+  openCurriculum(cls: SchoolClass) {
+    this.router.navigate(['/vidya-rasa/classes', cls.id, 'curriculum']);
   }
 
   openStudent(s: ClassStudent) {
