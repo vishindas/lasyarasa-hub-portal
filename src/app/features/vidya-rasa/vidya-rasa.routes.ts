@@ -18,6 +18,14 @@ export const VIDYA_RASA_ROUTES: Routes = [
     loadComponent: () => import('./classes/class-detail').then(m => m.ClassDetailComponent)
   },
   {
+    path: 'classes/:id/curriculum',
+    loadComponent: () => import('../curriculum/class-curriculum/class-curriculum-management').then(m => m.ClassCurriculumManagementComponent)
+  },
+  {
+    path: 'curricula',
+    loadChildren: () => import('../curriculum/curricula.routes').then(m => m.CURRICULUM_ROUTES)
+  },
+  {
     path: 'fees',
     loadComponent: () => import('./fees/fee-list').then(m => m.FeeListComponent)
   },
