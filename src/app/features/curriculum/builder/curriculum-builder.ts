@@ -37,6 +37,8 @@ import { ArchiveConfirmDialog } from './archive-confirm-dialog';
     ClassroomLiteBannerComponent, CurriculumMessageComponent, StatusChipCurriculumComponent, ModuleListRowComponent
   ],
   styles: [`
+    /* Slice 3 SS6.3 hard floor: every actionable control >= 44px, including Material's default ~36-40px buttons. */
+    button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     .builder-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
     .lifecycle-rail { position: sticky; top: 16px; }
     .lifecycle-rail .action { width: 100%; margin-bottom: 8px; }

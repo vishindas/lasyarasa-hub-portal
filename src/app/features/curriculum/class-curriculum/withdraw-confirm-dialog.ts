@@ -17,6 +17,7 @@ export interface WithdrawConfirmData { moduleTitle: string; }
   selector: 'app-withdraw-confirm-dialog',
   standalone: true,
   imports: [FormsModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, A11yModule],
+  styles: [`button[mat-flat-button], button[mat-stroked-button] { min-height: 44px; }`],
   template: `
     <h2 mat-dialog-title>Withdraw "{{ data.moduleTitle }}"?</h2>
     <mat-dialog-content>

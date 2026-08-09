@@ -35,6 +35,7 @@ import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status
     ClassroomLiteBannerComponent, CurriculumMessageComponent, StatusChipCurriculumComponent
   ],
   styles: [`
+    button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     :host { display: block; }
     .panel { max-width: 640px; }
     .field-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }

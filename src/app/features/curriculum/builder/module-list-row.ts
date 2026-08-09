@@ -30,7 +30,7 @@ import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status
     }
     .title-btn:focus-visible { outline: 2px solid #4f63d2; outline-offset: 2px; }
     .order-buttons { display: flex; flex-direction: column; }
-    .order-buttons button { width: 32px; height: 32px; line-height: 32px; }
+    .order-buttons button.mat-mdc-icon-button { width: 44px; height: 44px; padding: 10px; }
     @media (max-width: 767px) { .row { flex-wrap: wrap; } }
   `],
   template: `

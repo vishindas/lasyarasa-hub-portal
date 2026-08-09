@@ -15,6 +15,7 @@ export interface ArchiveConfirmData { title: string; }
   selector: 'app-archive-confirm-dialog',
   standalone: true,
   imports: [MatDialogModule, MatButtonModule, A11yModule],
+  styles: [`button[mat-flat-button], button[mat-stroked-button] { min-height: 44px; }`],
   template: `
     <h2 mat-dialog-title>Archive "{{ data.title }}"?</h2>
     <mat-dialog-content>

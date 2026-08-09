@@ -11,6 +11,10 @@ import { CurriculumUiError } from '../../core/services/curriculum-api-error.util
  * identifiable -- this renders the form-level summary case), not-found, and
  * the generic unknown/retryable fallback. aria-live so screen-reader users
  * hear the outcome of the action they just took, not just sighted users.
+ * write-frozen/full-outage are deliberately never rendered here even if
+ * passed in -- ClassroomLiteBannerComponent is the single persistent
+ * banner Slice 3 requires for those two; duplicating the message locally
+ * on every failed action would contradict "a single persistent banner."
  */
 @Component({
   selector: 'app-curriculum-message',
@@ -30,18 +34,21 @@ import { CurriculumUiError } from '../../core/services/curriculum-api-error.util
     .unknown    { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
   `],
   template: `
+    <!-- write-frozen/full-outage are exclusively owned by the persistent global banner (ClassroomLiteBannerComponent) -- never duplicated here. -->
     @if (error(); as e) {
-      <div class="msg {{ e.kind }}" aria-live="polite" role="status">
-        <span class="msg-text">
-          <mat-icon aria-hidden="true">{{ iconFor(e.kind) }}</mat-icon>
-          {{ e.message }}
-        </span>
-        @if (e.kind === 'conflict' || e.kind === 'illegal-transition') {
-          <button mat-stroked-button type="button" (click)="reload.emit()">Reload</button>
-        } @else if (e.kind === 'unknown') {
-          <button mat-stroked-button type="button" (click)="retry.emit()">Retry</button>
-        }
-      </div>
+      @if (e.kind !== 'write-frozen' && e.kind !== 'full-outage') {
+        <div class="msg {{ e.kind }}" aria-live="polite" role="status">
+          <span class="msg-text">
+            <mat-icon aria-hidden="true">{{ iconFor(e.kind) }}</mat-icon>
+            {{ e.message }}
+          </span>
+          @if (e.kind === 'conflict' || e.kind === 'illegal-transition') {
+            <button mat-stroked-button type="button" (click)="reload.emit()">Reload</button>
+          } @else if (e.kind === 'unknown') {
+            <button mat-stroked-button type="button" (click)="retry.emit()">Retry</button>
+          }
+        </div>
+      }
     }
   `
 })

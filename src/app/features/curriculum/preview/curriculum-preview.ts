@@ -22,6 +22,7 @@ import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status
   standalone: true,
   imports: [MatButtonModule, MatIconModule, MatCardModule, CurriculumMessageComponent, StatusChipCurriculumComponent],
   styles: [`
+    button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     .preview-banner {
       display: flex; align-items: center; gap: 8px;
       background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe;

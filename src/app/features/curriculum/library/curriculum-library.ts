@@ -8,6 +8,7 @@ import { environment } from '../../../../environments/environment';
 import { DanceStyle } from '../../../core/models/settings.model';
 import { Curriculum, CurriculumVersion } from '../../../core/models/curriculum.model';
 import { CurriculumApiService } from '../../../core/services/curriculum-api.service';
+import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
 import { ClassroomLiteBannerComponent } from '../../../shared/curriculum/classroom-lite-banner';
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
@@ -27,6 +28,7 @@ interface RowState {
   standalone: true,
   imports: [MatButtonModule, MatIconModule, MatCardModule, ClassroomLiteBannerComponent, CurriculumMessageComponent, StatusChipCurriculumComponent],
   styles: [`
+    button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     .row { display: flex; flex-direction: column; gap: 4px; }
     .row-header {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -46,9 +48,11 @@ interface RowState {
         <h2>Curriculum Library</h2>
         <p class="page-subtitle">Create, version and archive curricula for your school.</p>
       </div>
-      <button mat-flat-button color="primary" (click)="createNew()" [disabled]="loading()">
-        <mat-icon>add</mat-icon> New Curriculum
-      </button>
+      @if (!mode.mutationsDisabled()) {
+        <button mat-flat-button color="primary" (click)="createNew()" [disabled]="loading()">
+          <mat-icon>add</mat-icon> New Curriculum
+        </button>
+      }
     </div>
 
     <app-classroom-lite-banner />
@@ -61,9 +65,11 @@ interface RowState {
       <mat-card>
         <mat-card-content style="padding:48px 24px;text-align:center">
           <p style="color:#6c757d;margin-bottom:16px">No curricula yet — create one to get started.</p>
-          <button mat-flat-button color="primary" (click)="createNew()">
-            <mat-icon>add</mat-icon> New Curriculum
-          </button>
+          @if (!mode.mutationsDisabled()) {
+            <button mat-flat-button color="primary" (click)="createNew()">
+              <mat-icon>add</mat-icon> New Curriculum
+            </button>
+          }
         </mat-card-content>
       </mat-card>
     } @else {
@@ -111,6 +117,7 @@ export class CurriculumLibraryComponent implements OnInit {
   private api = inject(CurriculumApiService);
   private http = inject(HttpClient);
   private router = inject(Router);
+  mode = inject(ClassroomLiteModeService);
 
   loading = signal(true);
   listError = signal<CurriculumUiError | null>(null);

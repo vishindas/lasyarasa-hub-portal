@@ -34,6 +34,7 @@ export interface ChangeCurriculumDialogData {
   standalone: true,
   imports: [FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatSelectModule, A11yModule, CurriculumMessageComponent, CurriculumVersionSelectorComponent],
   styles: [`
+    button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     .diff-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 16px; }
     .diff-col h4 { margin: 0 0 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6c757d; }
     .diff-item { padding: 8px; border-radius: 6px; margin-bottom: 6px; font-size: 0.85rem; }

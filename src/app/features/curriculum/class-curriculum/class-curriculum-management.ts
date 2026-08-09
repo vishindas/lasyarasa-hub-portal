@@ -51,6 +51,7 @@ interface ModuleRow {
     ClassroomLiteBannerComponent, CurriculumMessageComponent, StatusChipCurriculumComponent, CurriculumVersionSelectorComponent
   ],
   styles: [`
+    button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     .row {
       display: flex; align-items: center; gap: 12px; padding: 12px 8px;
       border-bottom: 1px solid #f1f3f5; min-height: 44px; flex-wrap: wrap;
