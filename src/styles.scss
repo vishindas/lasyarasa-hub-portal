@@ -155,7 +155,10 @@ $sidebar-accent: #3d4ed8;
   .nav-group-items {
     padding: 0;
     .mat-mdc-list-item {
-      height: 38px !important;
+      // 44px floor: Slice 6 added the first new item here (Curricula), and it
+      // cannot ship below the touch-target minimum -- raised for the whole
+      // shared rule rather than a one-off override for a single link.
+      height: 44px !important;
       margin: 1px 10px 1px 22px;
       font-size: 0.84rem !important;
     }
