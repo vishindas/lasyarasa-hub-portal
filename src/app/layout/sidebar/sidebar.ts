@@ -35,6 +35,14 @@ export class SidebarComponent implements OnInit {
     ]
   };
 
+  // Foundation v1.1 Part IV, item 2: admin desktop nav = "existing items + Learning sub-section".
+  private readonly learningGroup: NavGroup = {
+    label: 'Learning', icon: 'auto_stories',
+    items: [
+      { label: 'Curricula', icon: 'auto_stories', route: '/vidya-rasa/curricula' },
+    ]
+  };
+
   private readonly financeGroup: NavGroup = {
     label: 'Finance', icon: 'payments',
     items: [
@@ -58,7 +66,7 @@ export class SidebarComponent implements OnInit {
   allGroups = computed((): NavGroup[] => {
     const role = this.auth.currentUser()?.role;
     const main = role === 'SCHOOL_ADMIN' || role === 'HUB_ADMIN' || role === 'SUPER_ADMIN'
-      ? [this.studentsGroup, this.classesGroup, this.financeGroup]
+      ? [this.studentsGroup, this.classesGroup, this.learningGroup, this.financeGroup]
       : [];
     return [...main, this.settingsGroup];
   });

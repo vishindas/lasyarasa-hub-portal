@@ -5,12 +5,13 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { routes } from './app.routes';
 import { jwtInterceptor } from './core/auth/jwt.interceptor';
+import { curriculumModeInterceptor } from './core/services/curriculum-mode.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([jwtInterceptor])),
+    provideHttpClient(withInterceptors([jwtInterceptor, curriculumModeInterceptor])),
     provideAnimationsAsync(),
     provideNativeDateAdapter()
   ]
