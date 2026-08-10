@@ -172,3 +172,91 @@ export interface CurriculumErrorResponse {
   message: string;
   resource: string | null;
 }
+
+// -- Lessons (Slice 9, mirrors Slice 8's Lesson DTOs field-for-field,
+//    verified against the backend DTO source on main @ 9692c80 -- do not
+//    rename a field here without a matching backend change) -------------
+
+export type LessonContentType = 'VIDEO' | 'TEXT' | 'PDF_LINK' | 'EXTERNAL_LINK';
+export type LessonLifecycleStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+export type LessonVideoAvailability = 'AVAILABLE' | 'UNAVAILABLE';
+
+/** The MVP externally-returned classification set (Slice 8 architect decision 2) -- PRIVATE is never returned; it collapses into UNAVAILABLE. */
+export type YouTubeValidationResultKind = 'VALID' | 'INVALID' | 'UNSUPPORTED' | 'UNAVAILABLE';
+
+export interface Lesson {
+  id: number;
+  moduleId: number;
+  title: string;
+  contentType: LessonContentType;
+  lessonOrder: number;
+  lifecycleStatus: LessonLifecycleStatus;
+  videoId: string | null;
+  videoAvailability: LessonVideoAvailability | null;
+  textContent: string | null;
+  externalUrl: string | null;
+  externalLinkLabel: string | null;
+  practiceNotes: string | null;
+  rowVersion: number;
+  publishedAt: string | null;
+  publishedBy: number | null;
+  archivedAt: string | null;
+  archivedBy: number | null;
+  attestedAt: string | null;
+  attestedBy: number | null;
+}
+
+/** Create-only -- no expectedRowVersion. Exactly one of youtubeUrl/textContent/(externalUrl+externalLinkLabel) is populated, per contentType. */
+export interface CreateLessonRequest {
+  title: string;
+  contentType: LessonContentType;
+  youtubeUrl: string | null;
+  textContent: string | null;
+  externalUrl: string | null;
+  externalLinkLabel: string | null;
+  practiceNotes: string | null;
+  lessonOrder: number;
+}
+
+/** contentType is immutable after create -- not part of an update. */
+export interface UpdateLessonRequest {
+  title: string;
+  youtubeUrl: string | null;
+  textContent: string | null;
+  externalUrl: string | null;
+  externalLinkLabel: string | null;
+  practiceNotes: string | null;
+  expectedRowVersion: number;
+}
+
+export interface ReorderLessonEntry {
+  lessonId: number;
+  expectedRowVersion: number;
+  newOrder: number;
+}
+
+export interface ReorderLessonsRequest {
+  entries: ReorderLessonEntry[];
+}
+
+/** attested is only meaningful for a VIDEO lesson; ignored for the other three content types. */
+export interface PublishLessonRequest {
+  expectedRowVersion: number;
+  attested: boolean;
+}
+
+export interface RepairLessonVideoRequest {
+  url: string;
+  expectedRowVersion: number;
+  attested: boolean;
+}
+
+export interface ValidateYouTubeUrlRequest {
+  url: string;
+}
+
+/** videoId is non-null only when result is VALID. */
+export interface ValidateYouTubeUrlResponse {
+  result: YouTubeValidationResultKind;
+  videoId: string | null;
+}
