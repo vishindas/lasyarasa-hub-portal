@@ -943,13 +943,26 @@ mat-card {
 
 // ─── Mobile responsive ─────────────────────────────────────────────────────────
 @media (max-width: 768px) {
+  .app-content {
+    // Angular Material's CDK styles for mat-sidenav-content (.mat-drawer-content)
+    // win the specificity fight against the .app-content rule above, so in
+    // practice THIS element -- not .page-content -- is the real scrollable
+    // viewport (display:block, overflow:auto). That means a bottom-padding
+    // reservation on .page-content only clears the fixed chat-widget FAB
+    // (chat-widget.ts .chat-wrapper: bottom:24px, .fab-btn: 56px) once the
+    // user has scrolled all the way to the end -- it does nothing for the
+    // initial, unscrolled render, where a short page can already lay its
+    // last row out underneath the FAB. Shrinking this container's own height
+    // instead reserves a permanent bottom strip that is never part of the
+    // scrollable content box, so no row -- at any scroll position, including
+    // the very first paint -- can ever land behind the FAB. 24px (FAB offset)
+    // + 56px (FAB height) + 16px (visible separation) = 96px, plus the
+    // device's own safe-area inset.
+    height: calc(100% - 96px - env(safe-area-inset-bottom, 0px)) !important;
+  }
+
   .page-content {
-    // Fixed chat-widget FAB (chat-widget.ts .chat-wrapper: bottom:24px, .fab-btn: 56px)
-    // floats above every page rendered through this shared scroll container --
-    // reserve room here, once, so no phone screen's final row/control ends up
-    // physically underneath it. 24px (FAB offset) + 56px (FAB height) + 16px
-    // (visible separation) = 96px, plus the device's own safe-area inset.
-    padding: 16px 16px calc(96px + env(safe-area-inset-bottom, 0px)) 16px;
+    padding: 16px;
   }
 
   .page-header {
