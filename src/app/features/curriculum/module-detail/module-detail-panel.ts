@@ -102,10 +102,9 @@ import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status
             </div>
 
             <p class="section-label" style="margin-top:20px">Lessons</p>
-            <div class="reserved-entry">
-              <mat-icon aria-hidden="true" style="vertical-align:middle;font-size:18px;width:18px;height:18px">lock_clock</mat-icon>
-              No lessons yet. Lesson authoring is reserved for a later design slice (Slice 7).
-            </div>
+            <button mat-stroked-button type="button" (click)="manageLessons()">
+              Manage Lessons <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+            </button>
 
             <p class="section-label" style="margin-top:20px">Linked assignment template</p>
             <div class="reserved-entry">
@@ -204,5 +203,10 @@ export class ModuleDetailPanelComponent implements OnInit {
   close() {
     const cId = this.curriculumId(), vId = this.versionId();
     this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId]);
+  }
+
+  manageLessons() {
+    const cId = this.curriculumId(), vId = this.versionId(), mId = this.moduleId();
+    this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'modules', mId, 'lessons']);
   }
 }

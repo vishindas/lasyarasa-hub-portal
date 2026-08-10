@@ -14,7 +14,7 @@ import { delay } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   FIXTURE_DANCE_STYLES, FIXTURE_CURRICULA, FIXTURE_VERSIONS, FIXTURE_MODULES,
-  FIXTURE_ASSIGNMENT, FIXTURE_MODULE_STATES, FIXTURE_CLASS
+  FIXTURE_ASSIGNMENT, FIXTURE_MODULE_STATES, FIXTURE_CLASS, FIXTURE_LESSONS
 } from './curriculum-fixture-data';
 import { CurriculumErrorResponse } from '../core/models/curriculum.model';
 
@@ -138,6 +138,84 @@ export const curriculumFixtureInterceptor: HttpInterceptorFn = (req: HttpRequest
     }
     if (action === 'publish') return ok({ ...m, contentStatus: 'PUBLISHED', publishedAt: new Date().toISOString(), publishedBy: 100, rowVersion: m.rowVersion + 1 });
     if (action === 'archive') return ok({ ...m, contentStatus: 'ARCHIVED', archivedAt: new Date().toISOString(), archivedBy: 100, rowVersion: m.rowVersion + 1 });
+  }
+
+  // -- Lessons (Slice 9) ----------------------------------------------------
+  const lessonListMatch = path.match(/^\/school\/curricula\/versions\/modules\/(\d+)\/lessons$/);
+  if (lessonListMatch && req.method === 'GET') {
+    const moduleId = Number(lessonListMatch[1]);
+    return ok(s === 'empty' ? [] : FIXTURE_LESSONS.filter(l => l.moduleId === moduleId).sort((a, b) => a.lessonOrder - b.lessonOrder));
+  }
+  if (lessonListMatch && req.method === 'POST') {
+    if (s === 'staleConflict') return errorResponse(409, 'ILLEGAL_TRANSITION', 'Lessons can only be added while the curriculum version is DRAFT.', 'Lesson', req.url);
+    if (s === 'validationFailed') return errorResponse(400, 'VALIDATION_FAILED', 'Title is required.', 'Lesson', req.url);
+    const moduleId = Number(lessonListMatch[1]);
+    const body = req.body as { title: string; contentType: string; youtubeUrl: string | null; textContent: string | null; externalUrl: string | null; externalLinkLabel: string | null; practiceNotes: string | null; lessonOrder: number };
+    return ok({
+      id: 900 + Math.floor(Math.random() * 90), moduleId, title: body.title, contentType: body.contentType,
+      lessonOrder: body.lessonOrder, lifecycleStatus: 'DRAFT',
+      videoId: body.contentType === 'VIDEO' ? 'dQw4w9WgXcQ' : null, videoAvailability: body.contentType === 'VIDEO' ? 'AVAILABLE' : null,
+      textContent: body.textContent, externalUrl: body.externalUrl, externalLinkLabel: body.externalLinkLabel, practiceNotes: body.practiceNotes,
+      rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null, attestedAt: null, attestedBy: null
+    });
+  }
+  if (path.match(/^\/school\/curricula\/versions\/modules\/(\d+)\/lessons\/reorder$/) && req.method === 'POST') {
+    const moduleId = Number(path.match(/modules\/(\d+)\/lessons\/reorder/)![1]);
+    if (s === 'staleConflict') return errorResponse(409, 'STALE_VERSION', 'Lesson order changed elsewhere — reload before reordering', 'Lesson', req.url);
+    const entries = (req.body as { entries: { lessonId: number; newOrder: number }[] }).entries;
+    const updated = FIXTURE_LESSONS.filter(l => l.moduleId === moduleId).map(l => {
+      const entry = entries.find(e => e.lessonId === l.id);
+      return entry ? { ...l, lessonOrder: entry.newOrder, rowVersion: l.rowVersion + 1 } : l;
+    }).sort((a, b) => a.lessonOrder - b.lessonOrder);
+    return ok(updated);
+  }
+  const lessonActionMatch = path.match(/^\/school\/curricula\/versions\/modules\/lessons\/(\d+)(\/(publish|unpublish|archive|repair-video|check-video))?$/);
+  if (lessonActionMatch) {
+    const lessonId = Number(lessonActionMatch[1]);
+    const action = lessonActionMatch[3];
+    const l = FIXTURE_LESSONS.find(x => x.id === lessonId);
+    if (!l || s === 'notFound') return errorResponse(404, 'RESOURCE_NOT_FOUND', 'This lesson is unavailable.', 'Lesson', req.url);
+    if (s === 'staleConflict') {
+      const copy: Record<string, string> = {
+        undefined: 'This lesson was already changed — reload before saving',
+        publish: 'This lesson was already changed — reload to see the latest content',
+        unpublish: 'This lesson was already unpublished or changed — reload',
+        archive: 'This lesson was already archived — reload',
+        'repair-video': 'This lesson was already changed — reload before repairing'
+      };
+      return errorResponse(409, 'STALE_VERSION', copy[String(action)] ?? copy['undefined'], 'Lesson', req.url);
+    }
+    if (s === 'illegalTransition' && action) {
+      return errorResponse(409, 'ILLEGAL_TRANSITION', `This lesson is ${l.lifecycleStatus}, not eligible for this action.`, 'Lesson', req.url);
+    }
+    if (req.method === 'PUT') {
+      const body = req.body as { title: string; textContent: string | null; externalUrl: string | null; externalLinkLabel: string | null; practiceNotes: string | null };
+      return ok({ ...l, title: body.title, textContent: body.textContent, externalUrl: body.externalUrl, externalLinkLabel: body.externalLinkLabel, practiceNotes: body.practiceNotes, rowVersion: l.rowVersion + 1 });
+    }
+    if (action === 'publish') {
+      const attestedNow = l.contentType === 'VIDEO' ? new Date().toISOString() : null;
+      return ok({ ...l, lifecycleStatus: 'PUBLISHED', publishedAt: new Date().toISOString(), publishedBy: 100, attestedAt: attestedNow, attestedBy: attestedNow ? 100 : null, rowVersion: l.rowVersion + 1 });
+    }
+    if (action === 'unpublish') return ok({ ...l, lifecycleStatus: 'DRAFT', publishedAt: null, publishedBy: null, attestedAt: null, attestedBy: null, rowVersion: l.rowVersion + 1 });
+    if (action === 'archive') return ok({ ...l, lifecycleStatus: 'ARCHIVED', archivedAt: new Date().toISOString(), archivedBy: 100, rowVersion: l.rowVersion + 1 });
+    if (action === 'repair-video') {
+      return ok({ ...l, videoId: 'dQw4w9WgXcQ', videoAvailability: 'AVAILABLE', attestedAt: new Date().toISOString(), attestedBy: 100, rowVersion: l.rowVersion + 1 });
+    }
+    if (action === 'check-video') {
+      // Deterministic for manual verification: id 306 is seeded UNAVAILABLE and stays so; every other VIDEO lesson checks as still AVAILABLE.
+      if (l.videoAvailability === 'UNAVAILABLE') return ok(l);
+      return ok({ ...l, rowVersion: l.rowVersion + 1 });
+    }
+  }
+  if (path === '/school/curricula/lessons/validate-youtube-url' && req.method === 'POST') {
+    if (s === 'unknownError') return errorResponse(500, '', '', null, req.url);
+    const url = ((req.body as { url: string })?.url ?? '').toLowerCase();
+    if (url.includes('unsupported') || url.includes('playlist') || url.includes('/live/')) return ok({ result: 'UNSUPPORTED', videoId: null });
+    if (url.includes('unavailable') || url.includes('private') || url.includes('removed')) return ok({ result: 'UNAVAILABLE', videoId: null });
+    if (url.includes('youtube.com/watch') || url.includes('youtu.be/') || url.includes('youtube-nocookie.com/embed')) {
+      return ok({ result: 'VALID', videoId: 'dQw4w9WgXcQ' });
+    }
+    return ok({ result: 'INVALID', videoId: null });
   }
 
   // -- Class curriculum assignment / module states -------------------------

@@ -20,5 +20,21 @@ export const CURRICULUM_ROUTES: Routes = [
   {
     path: ':curriculumId/versions/:versionId/modules/:moduleId',
     loadComponent: () => import('./module-detail/module-detail-panel').then(m => m.ModuleDetailPanelComponent)
+  },
+  {
+    path: ':curriculumId/versions/:versionId/modules/:moduleId/lessons',
+    loadComponent: () => import('./lessons/lesson-list').then(m => m.LessonListComponent)
+  },
+  {
+    path: ':curriculumId/versions/:versionId/modules/:moduleId/lessons/new',
+    loadComponent: () => import('./lessons/lesson-editor').then(m => m.LessonEditorComponent)
+  },
+  {
+    path: ':curriculumId/versions/:versionId/modules/:moduleId/lessons/:lessonId/edit',
+    loadComponent: () => import('./lessons/lesson-editor').then(m => m.LessonEditorComponent)
+  },
+  {
+    path: ':curriculumId/versions/:versionId/modules/:moduleId/lessons/:lessonId/preview',
+    loadComponent: () => import('./lessons/lesson-preview').then(m => m.LessonPreviewComponent)
   }
 ];

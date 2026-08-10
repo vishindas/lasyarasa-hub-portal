@@ -9,7 +9,7 @@
 // real contract without a compile error.
 
 import {
-  Curriculum, CurriculumVersion, CurriculumModule, ClassCurriculumAssignment, ClassModuleState
+  Curriculum, CurriculumVersion, CurriculumModule, ClassCurriculumAssignment, ClassModuleState, Lesson
 } from '../core/models/curriculum.model';
 import { DanceStyle } from '../core/models/settings.model';
 
@@ -49,6 +49,42 @@ export const FIXTURE_MODULE_STATES: ClassModuleState[] = [
   { id: 500, classCurriculumAssignmentId: 50, moduleId: 201, status: 'COMPLETED', rowVersion: 2, releasedAt: '2026-06-04T09:00:00', releasedBy: 100, completedAt: '2026-06-10T09:00:00', completedBy: 100, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null },
   { id: 501, classCurriculumAssignmentId: 50, moduleId: 202, status: 'RELEASED', rowVersion: 1, releasedAt: '2026-06-11T09:00:00', releasedBy: 100, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null },
   { id: 502, classCurriculumAssignmentId: 50, moduleId: 203, status: 'LOCKED', rowVersion: 0, releasedAt: null, releasedBy: null, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null }
+];
+
+// Slice 9: covers all four content types (module 101, DRAFT version 10 --
+// fully editable), a PUBLISHED+AVAILABLE video (module 201, ACTIVE version
+// 20 -- normal Preview/check-video path), a PUBLISHED+UNAVAILABLE video
+// (repair/republish + Preview's neutral-block path) and an ARCHIVED lesson
+// (terminal, read-only).
+export const FIXTURE_LESSONS: Lesson[] = [
+  { id: 301, moduleId: 101, title: 'Introduction Video', contentType: 'VIDEO', lessonOrder: 1, lifecycleStatus: 'DRAFT',
+    videoId: 'dQw4w9WgXcQ', videoAvailability: 'AVAILABLE', textContent: null, externalUrl: null, externalLinkLabel: null,
+    practiceNotes: 'Watch before class.', rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null,
+    attestedAt: null, attestedBy: null },
+  { id: 302, moduleId: 101, title: 'Posture Notes', contentType: 'TEXT', lessonOrder: 2, lifecycleStatus: 'DRAFT',
+    videoId: null, videoAvailability: null, textContent: 'Stand tall, feet together, shoulders relaxed.', externalUrl: null, externalLinkLabel: null,
+    practiceNotes: null, rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null,
+    attestedAt: null, attestedBy: null },
+  { id: 303, moduleId: 101, title: 'Reference Chart', contentType: 'PDF_LINK', lessonOrder: 3, lifecycleStatus: 'DRAFT',
+    videoId: null, videoAvailability: null, textContent: null, externalUrl: 'https://example.com/adavu-chart.pdf', externalLinkLabel: 'Adavu Reference Chart',
+    practiceNotes: null, rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null,
+    attestedAt: null, attestedBy: null },
+  { id: 304, moduleId: 101, title: 'Further Reading', contentType: 'EXTERNAL_LINK', lessonOrder: 4, lifecycleStatus: 'DRAFT',
+    videoId: null, videoAvailability: null, textContent: null, externalUrl: 'https://example.com/reading', externalLinkLabel: 'Bharatanatyam History',
+    practiceNotes: null, rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null,
+    attestedAt: null, attestedBy: null },
+  { id: 305, moduleId: 201, title: 'Namaskaram Demo', contentType: 'VIDEO', lessonOrder: 1, lifecycleStatus: 'PUBLISHED',
+    videoId: 'dQw4w9WgXcQ', videoAvailability: 'AVAILABLE', textContent: null, externalUrl: null, externalLinkLabel: null,
+    practiceNotes: 'Practice daily.', rowVersion: 1, publishedAt: '2026-06-05T09:00:00', publishedBy: 100, archivedAt: null, archivedBy: null,
+    attestedAt: '2026-06-05T09:00:00', attestedBy: 100 },
+  { id: 306, moduleId: 201, title: 'Adavu Combinations', contentType: 'VIDEO', lessonOrder: 2, lifecycleStatus: 'PUBLISHED',
+    videoId: 'AAAAAAAAAAA', videoAvailability: 'UNAVAILABLE', textContent: null, externalUrl: null, externalLinkLabel: null,
+    practiceNotes: null, rowVersion: 2, publishedAt: '2026-06-06T09:00:00', publishedBy: 100, archivedAt: null, archivedBy: null,
+    attestedAt: '2026-06-06T09:00:00', attestedBy: 100 },
+  { id: 307, moduleId: 202, title: 'Retired Jatis Overview', contentType: 'TEXT', lessonOrder: 1, lifecycleStatus: 'ARCHIVED',
+    videoId: null, videoAvailability: null, textContent: 'This content has been retired.', externalUrl: null, externalLinkLabel: null,
+    practiceNotes: null, rowVersion: 3, publishedAt: '2026-06-07T09:00:00', publishedBy: 100, archivedAt: '2026-06-20T09:00:00', archivedBy: 100,
+    attestedAt: null, attestedBy: null }
 ];
 
 export const FIXTURE_CLASS = {
