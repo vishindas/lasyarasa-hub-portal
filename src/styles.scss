@@ -944,7 +944,12 @@ mat-card {
 // ─── Mobile responsive ─────────────────────────────────────────────────────────
 @media (max-width: 768px) {
   .page-content {
-    padding: 16px;
+    // Fixed chat-widget FAB (chat-widget.ts .chat-wrapper: bottom:24px, .fab-btn: 56px)
+    // floats above every page rendered through this shared scroll container --
+    // reserve room here, once, so no phone screen's final row/control ends up
+    // physically underneath it. 24px (FAB offset) + 56px (FAB height) + 16px
+    // (visible separation) = 96px, plus the device's own safe-area inset.
+    padding: 16px 16px calc(96px + env(safe-area-inset-bottom, 0px)) 16px;
   }
 
   .page-header {

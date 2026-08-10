@@ -117,7 +117,7 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
               @if (needsRepair()) {
                 <div class="repair-banner">
                   <mat-icon aria-hidden="true">warning</mat-icon>
-                  This video is unavailable. It may have been removed or deleted — repair or replace the link.
+                  This video is private, removed, restricted, or currently unavailable. Repair or replace the link.
                 </div>
                 <app-youtube-url-validator [disabled]="mode.mutationsDisabled() || saving()" (validated)="onRepairValidated($event)" />
                 <div class="actions">
@@ -128,8 +128,7 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
               } @else {
                 @if (isEdit()) {
                   <p class="readonly-note">
-                    Current video id: {{ lesson()?.videoId }}. The original URL is never stored — re-enter and validate a
-                    YouTube URL (the same link or a new one) to save any change to this lesson.
+                    A YouTube video is currently linked. Re-enter and validate a YouTube URL to replace it or save video changes.
                   </p>
                 }
                 <app-youtube-url-validator

@@ -60,7 +60,7 @@ export interface YouTubeValidatedEvent {
       @if (r.result === 'VALID') {
         <div class="banner valid">
           <mat-icon aria-hidden="true">check_circle</mat-icon>
-          Video validated — id {{ r.videoId }}
+          Video validated successfully.
         </div>
       } @else {
         <div class="banner {{ r.result.toLowerCase() }}">
