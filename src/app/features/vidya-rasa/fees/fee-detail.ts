@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CurrencyPipe, DatePipe, TitleCasePipe } from '@angular/common';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,7 +19,7 @@ import { FeeTier } from '../../../core/models/settings.model';
 @Component({
   selector: 'app-fee-detail',
   standalone: true,
-  imports: [CurrencyPipe, DatePipe, TitleCasePipe, MatButtonModule, MatIconModule,
+  imports: [CurrencyPipe, DatePipe, TitleCasePipe, RouterLink, MatButtonModule, MatIconModule,
             MatCardModule, MatDividerModule, MatDialogModule, MatSnackBarModule],
   styles: [`
     .detail-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 16px; }
@@ -31,6 +31,9 @@ import { FeeTier } from '../../../core/models/settings.model';
     .info-item { display: flex; flex-direction: column; }
     .info-label { font-size: 0.72rem; color: #adb5bd; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
     .info-value { font-size: 0.88rem; color: #1a1f36; margin-top: 3px; font-weight: 500; }
+    .student-link { color: inherit; text-decoration: none; }
+    .student-link:hover { text-decoration: underline; }
+    .student-link:focus-visible { outline: 2px solid #3d4ed8; outline-offset: 2px; border-radius: 2px; }
     .info-value.large { font-size: 1.15rem; font-weight: 800; color: #3d4ed8; }
     .tier-row { display: flex; justify-content: space-between; font-size: 0.875rem;
                 padding: 8px 0; border-bottom: 1px solid #f3f4f6; color: #374151; }
@@ -117,7 +120,8 @@ import { FeeTier } from '../../../core/models/settings.model';
               <div class="info-grid">
                 <div class="info-item" style="grid-column:1/-1">
                   <span class="info-label">Name</span>
-                  <span class="info-value" style="font-weight:700;font-size:1rem">{{ f.studentName }}</span>
+                  <a class="info-value student-link" style="font-weight:700;font-size:1rem"
+                     [routerLink]="['/vidya-rasa/students', f.studentId]">{{ f.studentName }}</a>
                 </div>
                 @if (f.guardianNames?.length) {
                   <div class="info-item" style="grid-column:1/-1">
