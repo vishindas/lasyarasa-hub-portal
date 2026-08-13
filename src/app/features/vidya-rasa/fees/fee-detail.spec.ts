@@ -49,6 +49,6 @@ describe('FeeDetailComponent', () => {
 
     const link = fixture.debugElement.query(By.directive(RouterLink));
     expect(link.nativeElement.textContent.trim()).toBe('Preetha Prem');
-    expect(link.injector.get(RouterLink).routerLink).toEqual(['/vidya-rasa/students', 73]);
+    expect(link.nativeElement.getAttribute('href')).toBe('/vidya-rasa/students/73');
   });
 });
