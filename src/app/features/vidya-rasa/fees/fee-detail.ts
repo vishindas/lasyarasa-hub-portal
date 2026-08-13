@@ -16,6 +16,11 @@ import { MarkPaidDialog, MarkPaidDialogData } from './mark-paid-dialog';
 import { ConfirmDialog } from '../../../shared/confirm-dialog';
 import { FeeTier } from '../../../core/models/settings.model';
 
+interface StudentPanelDetail {
+  guardians: { firstName: string; lastName: string; relationship?: string }[];
+  enrollments: { classId: number; className: string; status: string }[];
+}
+
 @Component({
   selector: 'app-fee-detail',
   standalone: true,
@@ -123,9 +128,30 @@ import { FeeTier } from '../../../core/models/settings.model';
                   <a class="info-value student-link" style="font-weight:700;font-size:1rem"
                      [routerLink]="['/vidya-rasa/students', f.studentId]">{{ f.studentName }}</a>
                 </div>
-                @if (f.guardianNames?.length) {
+                @if (studentDetail(); as student) {
+                  @if (activeEnrollments(student).length) {
+                    <div class="info-item" style="grid-column:1/-1">
+                      <span class="info-label">Class</span>
+                      @for (enrollment of activeEnrollments(student); track enrollment.classId) {
+                        <a class="info-value student-link"
+                           [routerLink]="['/vidya-rasa/classes', enrollment.classId]">{{ enrollment.className }}</a>
+                      }
+                    </div>
+                  }
+                  @if (student.guardians.length) {
+                    <div class="info-item" style="grid-column:1/-1">
+                      <span class="info-label">Parent / Guardian / Payer</span>
+                      @for (guardian of student.guardians; track guardian.firstName + guardian.lastName) {
+                        <span class="info-value">
+                          {{ guardian.firstName }} {{ guardian.lastName }}
+                          @if (guardian.relationship) { ({{ guardian.relationship }}) }
+                        </span>
+                      }
+                    </div>
+                  }
+                } @else if (f.guardianNames?.length) {
                   <div class="info-item" style="grid-column:1/-1">
-                    <span class="info-label">Guardian(s)</span>
+                    <span class="info-label">Parent / Guardian / Payer</span>
                     <span class="info-value">{{ f.guardianNames!.join(', ') }}</span>
                   </div>
                 }
@@ -175,6 +201,7 @@ export class FeeDetailComponent implements OnInit {
   private snack = inject(MatSnackBar);
 
   fee = signal<Fee | null>(null);
+  studentDetail = signal<StudentPanelDetail | null>(null);
   feeTiers = signal<FeeTier[]>([]);
 
   ngOnInit() {
@@ -186,7 +213,15 @@ export class FeeDetailComponent implements OnInit {
 
   load(id: string) {
     this.http.get<Fee>(`${environment.apiUrl}/school/fees/${id}`)
-      .subscribe(d => this.fee.set(d));
+      .subscribe(d => {
+        this.fee.set(d);
+        this.http.get<StudentPanelDetail>(`${environment.apiUrl}/school/v2/students/${d.studentId}`)
+          .subscribe(student => this.studentDetail.set(student));
+      });
+  }
+
+  activeEnrollments(student: StudentPanelDetail) {
+    return student.enrollments.filter(enrollment => enrollment.status === 'ACTIVE');
   }
 
   goBack() {
