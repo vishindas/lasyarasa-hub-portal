@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,10 +16,15 @@ import { EditInvoiceDialog } from './edit-invoice-dialog';
 import { VoidInvoiceDialog } from './void-invoice-dialog';
 import { ConfirmDialog } from '../../../shared/confirm-dialog';
 
+interface LineItemStudent {
+  studentId: number;
+  studentName: string;
+}
+
 @Component({
   selector: 'app-invoice-detail',
   standalone: true,
-  imports: [CurrencyPipe, DatePipe, DecimalPipe, MatButtonModule, MatIconModule, MatCardModule,
+  imports: [CurrencyPipe, DatePipe, DecimalPipe, RouterLink, MatButtonModule, MatIconModule, MatCardModule,
             MatDividerModule, MatTableModule, MatDialogModule, MatSnackBarModule],
   styles: [`
     .detail-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; }
@@ -39,6 +44,9 @@ import { ConfirmDialog } from '../../../shared/confirm-dialog';
     .balance-amount { font-size: 1.15rem; font-weight: 800; color: #3d4ed8; }
     .balance-paid { color: #16a34a; }
     .line-table { width: 100%; }
+    .student-link { color: inherit; font-weight: 600; text-decoration: none; }
+    .student-link:hover { text-decoration: underline; }
+    .student-link:focus-visible { outline: 2px solid #3d4ed8; outline-offset: 2px; border-radius: 2px; }
     .line-table-total {
       display: flex; justify-content: flex-end; padding: 10px 16px 0;
       font-weight: 700; font-size: 0.92rem; color: #1a1f36; gap: 32px;
@@ -186,7 +194,16 @@ import { ConfirmDialog } from '../../../shared/confirm-dialog';
                 <ng-container matColumnDef="description">
                   <th mat-header-cell *matHeaderCellDef style="font-size:0.72rem;font-weight:700;color:#6c757d">Description</th>
                   <td mat-cell *matCellDef="let item" style="font-size:0.88rem;color:#1a1f36">
-                    {{ item.description }}
+                    @if (lineItemStudents()[item.id]; as student) {
+                      <a class="student-link" [routerLink]="['/vidya-rasa/students', student.studentId]">
+                        {{ student.studentName }}
+                      </a>
+                      @if (descriptionAfterStudent(item.description, student.studentName); as detail) {
+                        <span> — {{ detail }}</span>
+                      }
+                    } @else {
+                      {{ item.description }}
+                    }
                   </td>
                 </ng-container>
 
@@ -227,6 +244,7 @@ export class InvoiceDetailComponent implements OnInit {
   private snack = inject(MatSnackBar);
 
   invoice = signal<Invoice | null>(null);
+  lineItemStudents = signal<Record<number, LineItemStudent>>({});
   sending = signal(false);
   lineColumns = ['description', 'amount'];
 
@@ -237,7 +255,21 @@ export class InvoiceDetailComponent implements OnInit {
 
   load(id: string) {
     this.http.get<Invoice>(`${environment.apiUrl}/school/invoices/${id}`)
-      .subscribe(d => this.invoice.set(d));
+      .subscribe(d => {
+        this.invoice.set(d);
+        this.lineItemStudents.set({});
+        for (const item of d.lineItems ?? []) {
+          this.http.get<LineItemStudent>(`${environment.apiUrl}/school/fees/${item.feeRecordId}`)
+            .subscribe({
+              next: fee => this.lineItemStudents.update(current => ({ ...current, [item.id]: fee }))
+            });
+        }
+      });
+  }
+
+  descriptionAfterStudent(description: string, studentName: string) {
+    const prefix = `${studentName} — `;
+    return description.startsWith(prefix) ? description.slice(prefix.length) : description;
   }
 
   canDelete(inv: Invoice)  { return inv.status === 'DRAFT'; }
