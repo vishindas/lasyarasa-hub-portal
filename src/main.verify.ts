@@ -30,14 +30,24 @@ import { environment } from './environments/environment';
 // configuration by the same esbuild-graph guarantee as the rest of this
 // file -- not the "runtime configuration infrastructure" the architect
 // ruled out for the shipped app itself. When CLIENT is selected,
-// studentLearningEntryEnabled is also forced true here, in this file only,
-// so the dormant-gate flow can be exercised locally without ever changing
-// the committed false default in src/environments/*.
+// studentLearningEntryEnabled is forced true by default here, in this file
+// only, so the entry-enabled flow can be exercised locally without ever
+// changing the committed false default in src/environments/*.
+//
+// Verification-closure addition: sessionStorage('fixtureEntryOverride') ===
+// 'false' keeps the real committed default (false) even under a CLIENT
+// session, so My Students' actual dormant rendering (no learning
+// links/affordances) can also be captured under real CLIENT auth, not only
+// inferred from the SCHOOL_ADMIN-inaccessible route guard. Any other value
+// (including unset) preserves the pre-existing forced-true behavior.
 const fixtureRole = sessionStorage.getItem('fixtureRole') === 'CLIENT' ? 'CLIENT' : 'SCHOOL_ADMIN';
+const fixtureEntryOverride = sessionStorage.getItem('fixtureEntryOverride');
 if (fixtureRole === 'CLIENT') {
   localStorage.setItem('lr_token', 'fixture-token-not-real');
   localStorage.setItem('lr_user', JSON.stringify({ email: 'verify-client@example.test', role: 'CLIENT', providerId: null }));
-  (environment as { studentLearningEntryEnabled: boolean }).studentLearningEntryEnabled = true;
+  if (fixtureEntryOverride !== 'false') {
+    (environment as { studentLearningEntryEnabled: boolean }).studentLearningEntryEnabled = true;
+  }
 } else {
   localStorage.setItem('lr_token', 'fixture-token-not-real');
   localStorage.setItem('lr_user', JSON.stringify({ email: 'verify@example.test', role: 'SCHOOL_ADMIN', providerId: 1 }));
