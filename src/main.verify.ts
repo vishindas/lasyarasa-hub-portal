@@ -15,14 +15,33 @@ import { routes } from './app/app.routes';
 import { App } from './app/app';
 import { curriculumFixtureInterceptor } from './app/dev-fixtures/curriculum-fixture.interceptor';
 import { curriculumModeInterceptor } from './app/core/services/curriculum-mode.interceptor';
+import { environment } from './environments/environment';
 
 // Seed a fake, obviously-fake session so the route guards pass without ever
 // hitting the real /auth/login endpoint. The real jwtInterceptor is
 // deliberately not wired in here -- every /api/ request is answered
 // entirely by curriculumFixtureInterceptor before it would ever reach the
 // network, so there is nothing for an auth header to be attached to.
-localStorage.setItem('lr_token', 'fixture-token-not-real');
-localStorage.setItem('lr_user', JSON.stringify({ email: 'verify@example.test', role: 'SCHOOL_ADMIN', providerId: 1 }));
+//
+// Slice 12: sessionStorage('fixtureRole') switches the seeded role between
+// the pre-existing SCHOOL_ADMIN verification path (default, unchanged) and
+// a CLIENT session for exercising My Students / Student Learning. This is
+// verification-only bootstrap code, excluded from every real build
+// configuration by the same esbuild-graph guarantee as the rest of this
+// file -- not the "runtime configuration infrastructure" the architect
+// ruled out for the shipped app itself. When CLIENT is selected,
+// studentLearningEntryEnabled is also forced true here, in this file only,
+// so the dormant-gate flow can be exercised locally without ever changing
+// the committed false default in src/environments/*.
+const fixtureRole = sessionStorage.getItem('fixtureRole') === 'CLIENT' ? 'CLIENT' : 'SCHOOL_ADMIN';
+if (fixtureRole === 'CLIENT') {
+  localStorage.setItem('lr_token', 'fixture-token-not-real');
+  localStorage.setItem('lr_user', JSON.stringify({ email: 'verify-client@example.test', role: 'CLIENT', providerId: null }));
+  (environment as { studentLearningEntryEnabled: boolean }).studentLearningEntryEnabled = true;
+} else {
+  localStorage.setItem('lr_token', 'fixture-token-not-real');
+  localStorage.setItem('lr_user', JSON.stringify({ email: 'verify@example.test', role: 'SCHOOL_ADMIN', providerId: 1 }));
+}
 
 bootstrapApplication(App, {
   providers: [
