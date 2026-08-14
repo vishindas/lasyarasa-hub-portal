@@ -45,4 +45,17 @@ describe('curriculumModeInterceptor', () => {
     httpMock.expectOne('/api/school/settings/currency').flush({}, { status: 423, statusText: 'Locked' });
     expect(mode.mode()).toBe('NORMAL');
   });
+
+  // Slice 12
+  it('sets FULL_OUTAGE on a 503 from a student-learning route', () => {
+    http.get('/api/account/students/5/learning/home').subscribe({ error: () => {} });
+    httpMock.expectOne('/api/account/students/5/learning/home').flush({ code: 'FULL_OUTAGE', message: 'down', resource: null }, { status: 503, statusText: 'Service Unavailable' });
+    expect(mode.mode()).toBe('FULL_OUTAGE');
+  });
+
+  it('does not gate the pre-existing My Students list endpoint, matching the real backend scoping', () => {
+    http.get('/api/account/students').subscribe({ error: () => {} });
+    httpMock.expectOne('/api/account/students').flush({}, { status: 503, statusText: 'Service Unavailable' });
+    expect(mode.mode()).toBe('NORMAL');
+  });
 });

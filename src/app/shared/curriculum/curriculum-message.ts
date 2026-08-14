@@ -15,6 +15,11 @@ import { CurriculumUiError } from '../../core/services/curriculum-api-error.util
  * passed in -- ClassroomLiteBannerComponent is the single persistent
  * banner Slice 3 requires for those two; duplicating the message locally
  * on every failed action would contradict "a single persistent banner."
+ *
+ * Slice 12 addition: an optional `backLabel`/`back` pair for a distinct
+ * recovery action, additive and opt-in -- every existing caller (Slice 5/7)
+ * passes neither and is byte-for-byte unaffected. Rendered instead of
+ * Reload/Retry, never alongside them, since no existing kind uses both.
  */
 @Component({
   selector: 'app-curriculum-message',
@@ -32,6 +37,9 @@ import { CurriculumUiError } from '../../core/services/curriculum-api-error.util
     .validation { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
     .not-found  { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
     .unknown    { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .student-context-unavailable, .class-context-unavailable, .learning-content-not-found {
+      background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;
+    }
   `],
   template: `
     <!-- write-frozen/full-outage are exclusively owned by the persistent global banner (ClassroomLiteBannerComponent) -- never duplicated here. -->
@@ -46,6 +54,8 @@ import { CurriculumUiError } from '../../core/services/curriculum-api-error.util
             <button mat-stroked-button type="button" (click)="reload.emit()">Reload</button>
           } @else if (e.kind === 'unknown') {
             <button mat-stroked-button type="button" (click)="retry.emit()">Retry</button>
+          } @else if (backLabel()) {
+            <button mat-stroked-button type="button" (click)="back.emit()">{{ backLabel() }}</button>
           }
         </div>
       }
@@ -54,8 +64,10 @@ import { CurriculumUiError } from '../../core/services/curriculum-api-error.util
 })
 export class CurriculumMessageComponent {
   error = input<CurriculumUiError | null>(null);
+  backLabel = input<string | null>(null);
   reload = output<void>();
   retry = output<void>();
+  back = output<void>();
 
   iconFor(kind: CurriculumUiError['kind']): string {
     switch (kind) {
@@ -63,6 +75,9 @@ export class CurriculumMessageComponent {
       case 'illegal-transition': return 'block';
       case 'validation': return 'error_outline';
       case 'not-found': return 'search_off';
+      case 'student-context-unavailable': return 'person_off';
+      case 'class-context-unavailable': return 'block';
+      case 'learning-content-not-found': return 'search_off';
       default: return 'error_outline';
     }
   }

@@ -16,9 +16,16 @@ import {
   FIXTURE_DANCE_STYLES, FIXTURE_CURRICULA, FIXTURE_VERSIONS, FIXTURE_MODULES,
   FIXTURE_ASSIGNMENT, FIXTURE_MODULE_STATES, FIXTURE_CLASS, FIXTURE_LESSONS
 } from './curriculum-fixture-data';
+import {
+  FIXTURE_STUDENTS, FIXTURE_CLASSES, FIXTURE_HOME, FIXTURE_LEARNING_PATH,
+  FIXTURE_MODULE_DETAIL, FIXTURE_LESSON_DETAIL, FIXTURE_CLASS_INFO
+} from './student-learning-fixture-data';
 import { CurriculumErrorResponse } from '../core/models/curriculum.model';
 
-type Scenario = 'default' | 'empty' | 'notFound' | 'staleConflict' | 'illegalTransition' | 'validationFailed' | 'writeFrozen' | 'fullOutage' | 'unknownError';
+type Scenario =
+  | 'default' | 'empty' | 'notFound' | 'staleConflict' | 'illegalTransition' | 'validationFailed' | 'writeFrozen' | 'fullOutage' | 'unknownError'
+  // Slice 12 additions -- the three typed Slice 11 errors, distinct per architect correction 1 (never collapsed into one).
+  | 'studentContextUnavailable' | 'classContextUnavailable' | 'learningContentNotFound';
 
 function scenario(): Scenario {
   return (sessionStorage.getItem('fixtureScenario') as Scenario) || 'default';
@@ -26,7 +33,11 @@ function scenario(): Scenario {
 
 // Mirrors curriculum-mode.interceptor.ts's own route scoping exactly, so the fixture's
 // WRITE_FROZEN/FULL_OUTAGE gating matches what the real backend actually scopes.
+// The student-learning family is included here too (Slice 12) because the real
+// backend's ClassroomLiteOperatingModeInterceptor is genuinely one global mode
+// shared by both route families -- see ClassroomLiteWebConfig.
 const CURRICULUM_PATH_RE = /\/school\/(curricula(\/|$)|classes\/[^/]+\/(curriculum-assignment|modules)(\/|$))/;
+const STUDENT_LEARNING_PATH_RE = /\/account\/students\/[^/]+\/learning(\/|$)/;
 
 function errorResponse(status: number, code: string, message: string, resource: string | null, url: string): Observable<never> {
   const body: CurriculumErrorResponse = { code, message, resource };
@@ -52,12 +63,107 @@ export const curriculumFixtureInterceptor: HttpInterceptorFn = (req: HttpRequest
   if (path === '/school/classes' && req.method === 'GET') return ok([FIXTURE_CLASS]);
 
   const isCurriculumRoute = CURRICULUM_PATH_RE.test(path);
+  const isStudentLearningRoute = STUDENT_LEARNING_PATH_RE.test(path);
 
-  if (isCurriculumRoute && s === 'fullOutage') {
-    return errorResponse(503, 'FULL_OUTAGE', 'Curriculum is temporarily unavailable.', null, req.url);
+  if ((isCurriculumRoute || isStudentLearningRoute) && s === 'fullOutage') {
+    return errorResponse(503, 'FULL_OUTAGE', 'Learning is temporarily unavailable.', null, req.url);
   }
-  if (isCurriculumRoute && s === 'writeFrozen' && req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
-    return errorResponse(423, 'WRITE_FROZEN', 'Curriculum is temporarily read-only.', null, req.url);
+  if ((isCurriculumRoute || isStudentLearningRoute) && s === 'writeFrozen' && req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {
+    return errorResponse(423, 'WRITE_FROZEN', 'Learning is temporarily read-only.', null, req.url);
+  }
+
+  // -- Slice 12: student learning (Slice 11 contract) ------------------------
+  // GET /account/students (pre-existing My Students endpoint -- deliberately
+  // NOT matched by STUDENT_LEARNING_PATH_RE, mirroring the real backend's own
+  // ClassroomLiteWebConfig scoping comment on this exact point).
+  if (path === '/account/students' && req.method === 'GET') {
+    return ok(FIXTURE_STUDENTS);
+  }
+
+  const learningMatch = path.match(/^\/account\/students\/(\d+)\/learning(\/.*)?$/);
+  if (learningMatch) {
+    const studentId = Number(learningMatch[1]);
+    const sub = learningMatch[2] ?? '';
+
+    if (s === 'studentContextUnavailable') {
+      return errorResponse(404, 'STUDENT_CONTEXT_UNAVAILABLE', 'Student context is unavailable.', 'Student', req.url);
+    }
+
+    if (sub === '/classes' || sub === '/classes/') {
+      const classes = FIXTURE_CLASSES[studentId] ?? [];
+      return ok(classes);
+    }
+
+    if (sub.startsWith('/home')) {
+      const classIdParam = req.params.get('classId');
+      const classes = FIXTURE_CLASSES[studentId] ?? [];
+      if (classIdParam == null && classes.length > 1) {
+        return ok({ classSelectionRequired: true, classChoices: classes });
+      }
+      const resolvedClassId = classIdParam != null ? Number(classIdParam) : classes[0]?.classId;
+      if (resolvedClassId == null) {
+        return ok({ classSelectionRequired: false });
+      }
+      if (s === 'classContextUnavailable' && classIdParam != null) {
+        return errorResponse(404, 'CLASS_CONTEXT_UNAVAILABLE', 'Class context is unavailable.', 'SchoolClass', req.url);
+      }
+      const home = FIXTURE_HOME[resolvedClassId];
+      return ok(home ?? { classSelectionRequired: false });
+    }
+
+    const classScopedMatch = sub.match(/^\/classes\/(\d+)(\/.*)?$/);
+    if (classScopedMatch) {
+      const classId = Number(classScopedMatch[1]);
+      const rest = classScopedMatch[2] ?? '';
+
+      if (s === 'classContextUnavailable') {
+        return errorResponse(404, 'CLASS_CONTEXT_UNAVAILABLE', 'Class context is unavailable.', 'SchoolClass', req.url);
+      }
+
+      if (rest === '/learning-path' || rest === '') {
+        const lp = FIXTURE_LEARNING_PATH[classId];
+        if (!lp || s === 'learningContentNotFound') {
+          return errorResponse(404, 'LEARNING_CONTENT_NOT_FOUND', 'The requested learning content was not found.', 'StudentLearning', req.url);
+        }
+        return ok(lp);
+      }
+
+      if (rest === '/class-info') {
+        const info = FIXTURE_CLASS_INFO[classId];
+        if (!info || s === 'learningContentNotFound') {
+          return errorResponse(404, 'LEARNING_CONTENT_NOT_FOUND', 'The requested learning content was not found.', 'StudentLearning', req.url);
+        }
+        return ok(info);
+      }
+
+      const moduleMatch = rest.match(/^\/modules\/(\d+)(\/lessons\/(\d+))?$/);
+      if (moduleMatch) {
+        const moduleId = Number(moduleMatch[1]);
+        const lessonId = moduleMatch[3] ? Number(moduleMatch[3]) : null;
+
+        if (s === 'learningContentNotFound') {
+          return errorResponse(404, 'LEARNING_CONTENT_NOT_FOUND', 'The requested learning content was not found.', 'StudentLearning', req.url);
+        }
+
+        if (lessonId != null) {
+          const lesson = FIXTURE_LESSON_DETAIL[lessonId];
+          if (!lesson) {
+            return errorResponse(404, 'LEARNING_CONTENT_NOT_FOUND', 'The requested learning content was not found.', 'StudentLearning', req.url);
+          }
+          return ok(lesson);
+        }
+
+        const module = FIXTURE_MODULE_DETAIL[moduleId];
+        if (!module) {
+          // Mirrors the real backend exactly (Part VII.2/correction 6): a
+          // direct request for a LOCKED or WITHDRAWN module's detail is
+          // rejected the same generic, non-leaking way as a genuinely
+          // absent one -- never a distinct "locked" response.
+          return errorResponse(404, 'LEARNING_CONTENT_NOT_FOUND', 'The requested learning content was not found.', 'StudentLearning', req.url);
+        }
+        return ok(module);
+      }
+    }
   }
 
   // -- Curricula / versions --------------------------------------------------

@@ -20,6 +20,23 @@ export const routes: Routes = [
     canActivate: [authGuard, clientGuard]
   },
   {
+    // Slice 12: exists in the compiled bundle regardless of
+    // studentLearningEntryEnabled -- the dormant-deployment gate (architect
+    // decision 4) controls whether My Students exposes a normal entry
+    // point into this subtree, not whether the subtree is reachable by
+    // direct URL. Same guards as /my-students; the backend's own global
+    // flag fails safely if reached while disabled.
+    path: 'my-students/:studentId',
+    loadComponent: () => import('./features/student-learning/student-learning-shell').then(m => m.StudentLearningShellComponent),
+    canActivate: [authGuard, clientGuard],
+    children: [
+      {
+        path: '',
+        loadChildren: () => import('./features/student-learning/student-learning.routes').then(m => m.STUDENT_LEARNING_ROUTES)
+      }
+    ]
+  },
+  {
     path: '',
     loadComponent: () => import('./layout/shell/shell').then(m => m.ShellComponent),
     canActivate: [authGuard, nonClientGuard],

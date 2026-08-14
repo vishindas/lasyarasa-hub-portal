@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["ng", "serve", "--port", "4200"],
       "port": 4200
+    },
+    {
+      "name": "provider-portal-verify",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ng", "serve", "--configuration", "verify", "--port", "4201"],
+      "port": 4201
     }
   ]
 }

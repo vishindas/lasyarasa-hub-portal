@@ -16,7 +16,15 @@ export type CurriculumUiErrorKind =
   | 'not-found'
   | 'write-frozen'
   | 'full-outage'
-  | 'unknown';
+  | 'unknown'
+  // Slice 12 additions -- the three typed Slice 11 errors, deliberately kept
+  // as three DISTINCT kinds (architect correction 1: "do not collapse all
+  // three Slice 11 error codes into one identical state"). Each carries its
+  // own generic, non-leaking copy and its own recovery destination, chosen
+  // by the calling screen -- see student-learning error-recovery.util.ts.
+  | 'student-context-unavailable'
+  | 'class-context-unavailable'
+  | 'learning-content-not-found';
 
 export interface CurriculumUiError {
   kind: CurriculumUiErrorKind;
@@ -42,6 +50,15 @@ export function toCurriculumUiError(err: HttpErrorResponse): CurriculumUiError {
       return { kind: 'write-frozen', message: 'Curriculum is temporarily read-only.', resource: null };
     case 'FULL_OUTAGE':
       return { kind: 'full-outage', message: 'Curriculum is temporarily unavailable.', resource: null };
+    case 'STUDENT_CONTEXT_UNAVAILABLE':
+      // Generic by design (backend doc: "deliberately identical in shape to
+      // 'studentId does not exist at all'") -- never names a reason (revoked,
+      // never granted, ambiguous access).
+      return { kind: 'student-context-unavailable', message: 'You can no longer access this student.', resource: null };
+    case 'CLASS_CONTEXT_UNAVAILABLE':
+      return { kind: 'class-context-unavailable', message: "This class isn't available right now.", resource: null };
+    case 'LEARNING_CONTENT_NOT_FOUND':
+      return { kind: 'learning-content-not-found', message: "This content isn't available right now.", resource: null };
     default:
       // Unknown/malformed server error -- generic, retryable, no internals exposed.
       return { kind: 'unknown', message: 'Something went wrong. Please try again.', resource: null };
