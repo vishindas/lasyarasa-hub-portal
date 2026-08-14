@@ -67,14 +67,20 @@ type ViewState = 'loading' | 'loaded' | 'empty' | 'error';
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 16px;
     }
-    .student-card {
+    .student-card, .student-card mat-card {
       border-radius: 12px !important;
     }
     /* Slice 12 dormant gate: while studentLearningEntryEnabled is false, cards
        render with zero visual/behavioral change from today -- no cursor
        change, no hover affordance, no link semantics (see enableEntry()
        below, which controls whether routerLink is even bound). This rule
-       only ever applies once that flag is true. */
+       only ever applies once that flag is true.
+       Verification-closure correction: MatCard's selector is the element
+       "mat-card" only, not an attribute selector -- "mat-card" on the <a>
+       itself never instantiated the component, so the enabled-state card
+       rendered with no Material card styling at all (found via a real-Chrome
+       screenshot diff against the dormant state). Fixed by nesting a real
+       <mat-card> inside the <a> instead. */
     a.student-card {
       display: block;
       text-decoration: none;
@@ -160,12 +166,14 @@ type ViewState = 'loading' | 'loaded' | 'empty' | 'error';
             @for (s of students(); track trackByAccess($index, s)) {
               @if (entryEnabled) {
                 <!-- Slice 12: entry point exposed only when studentLearningEntryEnabled is true (architect decision 4). -->
-                <a class="student-card" mat-card [routerLink]="['/my-students', s.studentId, 'home']">
-                  <mat-card-content>
-                    <h2 class="student-name">{{ s.studentDisplayName }}</h2>
-                    <p class="provider-name">{{ s.providerDisplayName }}</p>
-                    <span class="access-badge">{{ accessLabel(s.accessType) }}</span>
-                  </mat-card-content>
+                <a class="student-card" [routerLink]="['/my-students', s.studentId, 'home']">
+                  <mat-card>
+                    <mat-card-content>
+                      <h2 class="student-name">{{ s.studentDisplayName }}</h2>
+                      <p class="provider-name">{{ s.providerDisplayName }}</p>
+                      <span class="access-badge">{{ accessLabel(s.accessType) }}</span>
+                    </mat-card-content>
+                  </mat-card>
                 </a>
               } @else {
                 <mat-card class="student-card">

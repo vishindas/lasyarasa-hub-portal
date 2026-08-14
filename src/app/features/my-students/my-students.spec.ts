@@ -66,4 +66,32 @@ describe('MyStudentsComponent', () => {
     const fixture = setup();
     expect(fixture.componentInstance.entryEnabled).toBe(environment.studentLearningEntryEnabled);
   });
+
+  /**
+   * Verification-closure regression (found via a real-Chrome screenshot
+   * diff against the dormant state): MatCard's selector in this installed
+   * Angular Material version is the element "mat-card" only, not an
+   * attribute selector, so `<a mat-card>` never instantiated the card at
+   * all -- the enabled-state card rendered with zero Material styling.
+   * entryEnabled is overridden directly here (it's a runtime-mutable class
+   * field despite the `readonly` compile-time annotation) since the test
+   * environment's real committed environment.ts value is false.
+   */
+  it('when entryEnabled is true, student cards render as <a class="student-card"> containing a real <mat-card> element', () => {
+    const fixture = setup();
+    (fixture.componentInstance as unknown as { entryEnabled: boolean }).entryEnabled = true;
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
+      { studentId: 1, providerId: 9, studentDisplayName: 'Arjun Rao', providerDisplayName: 'LasyaRasa', accessType: 'GUARDIAN' }
+    ]);
+    fixture.detectChanges();
+
+    const anchor = fixture.nativeElement.querySelector('a.student-card');
+    expect(anchor).not.toBeNull();
+    expect(anchor.getAttribute('href')).toBe('/my-students/1/home');
+    const nestedCard = anchor.querySelector('mat-card');
+    expect(nestedCard).not.toBeNull();
+    // mat-mdc-card is the class MatCard's own component styles/host bindings attach -- its presence proves the component actually instantiated, not just an inert tag.
+    expect(nestedCard.classList.contains('mat-mdc-card')).toBe(true);
+  });
 });

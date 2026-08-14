@@ -50,7 +50,8 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
     .captions-row { font-size: 0.75rem; color: #6B6255; margin: 8px 0 0; }
     .lesson-text { white-space: pre-wrap; line-height: 1.6; color: #1C1A16; }
     .resource-card { display: flex; align-items: center; gap: 10px; padding: 16px; border: 1px solid #E3DCC8; background: #fff; }
-    .resource-card a { color: #A3762C; font-weight: 600; }
+    /* 44px touch-target floor (found undersized at 19.2px during verification-closure numerical layout checks): same fix pattern as the breadcrumb link above -- height comes from padding via inline-flex, not font-size. */
+    .resource-card a { display: inline-flex; align-items: center; min-height: 44px; color: #A3762C; font-weight: 600; }
     .practice-notes { margin-top: 20px; padding: 14px 16px; background: #F3EEDE; border: 1px solid #E3DCC8; }
     .practice-notes p { margin: 0; color: #1C1A16; font-size: 0.9rem; }
     .nav-row { display: flex; justify-content: space-between; margin-top: 24px; }
