@@ -57,7 +57,7 @@ export class SidebarComponent implements OnInit {
       { label: 'Dance Styles',       icon: 'music_note',    route: '/settings/dance-styles' },
       { label: 'Fee Tiers',          icon: 'price_change',  route: '/settings/fee-tiers' },
       { label: 'Age Groups',         icon: 'group',         route: '/settings/age-groups' },
-      { label: 'Invoice Reminders',  icon: 'schedule_send', route: '/settings/invoice-reminders' },
+      { label: 'Invoice',             icon: 'receipt_long',  route: '/settings/invoice' },
       { label: 'Currency',           icon: 'currency_exchange', route: '/settings/currency' },
       { label: 'Change Password',    icon: 'lock_reset',    route: '/settings/change-password' },
     ]
