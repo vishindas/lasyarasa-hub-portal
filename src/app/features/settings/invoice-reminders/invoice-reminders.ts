@@ -15,6 +15,8 @@ import { environment } from '../../../../environments/environment';
 interface EmailSettings {
   reminderDays: number[];
   enabled: boolean;
+  dueDateEnabled: boolean;
+  dueDateDayOfMonth: number | null;
 }
 
 @Component({
@@ -51,10 +53,54 @@ interface EmailSettings {
 
       <div class="page-header">
         <div>
-          <h2>Invoice Reminders</h2>
-          <p class="page-subtitle">Automatically email overdue invoices on specific days of the month</p>
+          <h2>Invoice</h2>
+          <p class="page-subtitle">Invoice due date and automatic reminder settings</p>
         </div>
       </div>
+
+      <mat-card style="max-width:560px;margin-bottom:24px">
+        <mat-card-content style="padding-top:20px">
+
+          <p class="section-label">Due Date</p>
+
+          <!-- Due date toggle -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <div>
+              <div style="font-weight:600;font-size:0.95rem;color:#1a1f36">Fixed due date day of month</div>
+              <div style="font-size:0.82rem;color:#6c757d;margin-top:2px">
+                @if (s.dueDateEnabled && s.dueDateDayOfMonth) {
+                  Invoices default to the {{ s.dueDateDayOfMonth }}{{ ordinal(s.dueDateDayOfMonth) }} of each month
+                } @else {
+                  Invoices default to 15 days from issue date
+                }
+              </div>
+            </div>
+            <mat-slide-toggle [checked]="s.dueDateEnabled" (change)="toggleDueDate($event.checked)"></mat-slide-toggle>
+          </div>
+
+          @if (s.dueDateEnabled) {
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <mat-form-field appearance="outline" style="width:120px">
+                <mat-label>Day (1–28)</mat-label>
+                <input matInput type="number" min="1" max="28"
+                       [ngModel]="s.dueDateDayOfMonth"
+                       (ngModelChange)="setDueDateDay($event)" />
+              </mat-form-field>
+              <span style="font-size:0.83rem;color:#6c757d">
+                The next occurrence of this day is used.<br>
+                If today is past the day, it rolls to next month.
+              </span>
+            </div>
+          }
+
+          <div style="margin-top:16px;display:flex;justify-content:flex-end">
+            <button mat-flat-button color="primary" (click)="save()">
+              <mat-icon>save</mat-icon> Save Settings
+            </button>
+          </div>
+
+        </mat-card-content>
+      </mat-card>
 
       <mat-card style="max-width:560px">
         <mat-card-content style="padding-top:20px">
@@ -67,6 +113,8 @@ interface EmailSettings {
               invoices that have a payer email on file.
             </div>
           </div>
+
+          <p class="section-label">Reminders</p>
 
           <!-- Enable toggle -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
@@ -131,11 +179,24 @@ export class InvoiceRemindersComponent implements OnInit {
 
   load() {
     this.http.get<EmailSettings>(`${environment.apiUrl}/school/settings/invoice-email`)
-      .subscribe(d => this.settings.set({ ...d, reminderDays: [...(d.reminderDays ?? [])] }));
+      .subscribe(d => this.settings.set({
+        ...d,
+        reminderDays: [...(d.reminderDays ?? [])],
+        dueDateEnabled: d.dueDateEnabled ?? false,
+        dueDateDayOfMonth: d.dueDateDayOfMonth ?? null,
+      }));
   }
 
   toggle(enabled: boolean) {
     this.settings.update(s => s ? { ...s, enabled } : s);
+  }
+
+  toggleDueDate(dueDateEnabled: boolean) {
+    this.settings.update(s => s ? { ...s, dueDateEnabled } : s);
+  }
+
+  setDueDateDay(day: number | null) {
+    this.settings.update(s => s ? { ...s, dueDateDayOfMonth: day } : s);
   }
 
   isValidDay() {

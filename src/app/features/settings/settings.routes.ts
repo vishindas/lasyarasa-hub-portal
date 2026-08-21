@@ -14,9 +14,10 @@ export const SETTINGS_ROUTES: Routes = [
     loadComponent: () => import('./age-groups/age-group-list').then(m => m.AgeGroupListComponent)
   },
   {
-    path: 'invoice-reminders',
+    path: 'invoice',
     loadComponent: () => import('./invoice-reminders/invoice-reminders').then(m => m.InvoiceRemindersComponent)
   },
+  { path: 'invoice-reminders', redirectTo: 'invoice', pathMatch: 'full' },
   {
     path: 'currency',
     loadComponent: () => import('./currency/currency-settings').then(m => m.CurrencySettingsComponent)
