@@ -23,15 +23,36 @@ export const FIXTURE_VERSION_PUBLISHED: AssignmentTemplateVersionDTO = {
   status: 'PUBLISHED', title: 'Unit 2 Quiz (published)', clonedFromVersionId: null, rowVersion: 0,
   createdAt: '2026-08-01T00:00:00', createdBy: 1, publishedAt: '2026-08-05T00:00:00', publishedBy: 1, archivedAt: null, archivedBy: null,
   questions: [
-    { id: 10, templateVersionId: 1001, questionType: 'SHORT_TEXT', prompt: 'Name a basic adavu.', questionOrder: 1, maxSelections: null, rowVersion: 0, options: [] }
+    { id: 10, templateVersionId: 1001, questionType: 'SHORT_TEXT', prompt: 'Name a basic adavu.', questionOrder: 1, maxSelections: null, rowVersion: 0, options: [] },
+    {
+      id: 20, templateVersionId: 1001, questionType: 'SINGLE_CHOICE', prompt: 'Which style is this from?', questionOrder: 2, maxSelections: null, rowVersion: 0,
+      options: [
+        { id: 30, questionId: 20, optionLabel: 'Bharatanatyam', optionOrder: 1, isCorrect: true, rowVersion: 0 },
+        { id: 31, questionId: 20, optionLabel: 'Kuchipudi', optionOrder: 2, isCorrect: false, rowVersion: 0 }
+      ]
+    }
   ]
 };
 
-/** The auto-created draft ensureDraftVersion() clones this into -- a fresh version id/rowVersion, questions cloned with new ids, matching startDraft()'s real semantics. */
+/**
+ * The auto-created draft ensureDraftVersion() clones this into -- a fresh
+ * version id/rowVersion, questions AND options cloned with brand-new ids
+ * (11/21 for the two questions, 41/42 for the choice question's options),
+ * matching startDraft()'s real clone semantics exactly.
+ */
 export const FIXTURE_VERSION_AUTO_DRAFT: AssignmentTemplateVersionDTO = {
   ...FIXTURE_VERSION_PUBLISHED,
   id: 1002, status: 'DRAFT', clonedFromVersionId: 1001, publishedAt: null, publishedBy: null,
-  questions: [{ ...FIXTURE_VERSION_PUBLISHED.questions[0], id: 11, templateVersionId: 1002 }]
+  questions: [
+    { ...FIXTURE_VERSION_PUBLISHED.questions[0], id: 11, templateVersionId: 1002 },
+    {
+      ...FIXTURE_VERSION_PUBLISHED.questions[1], id: 21, templateVersionId: 1002,
+      options: [
+        { ...FIXTURE_VERSION_PUBLISHED.questions[1].options[0], id: 41, questionId: 21 },
+        { ...FIXTURE_VERSION_PUBLISHED.questions[1].options[1], id: 42, questionId: 21 }
+      ]
+    }
+  ]
 };
 
 export const FIXTURE_TEMPLATE_SUMMARIES: AssignmentTemplateSummaryDTO[] = [

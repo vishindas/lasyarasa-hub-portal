@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Observable, of, tap, shareReplay } from 'rxjs';
+import { Observable, of, tap, shareReplay, map } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -27,6 +27,7 @@ import { DiscardDraftConfirmDialog } from './discard-draft-confirm-dialog';
 import { ArchiveTemplateConfirmDialog, ArchiveTemplateConfirmResult } from './archive-template-confirm-dialog';
 import { PublishAttestationAssignmentDialog, PublishAttestationAssignmentResult } from './publish-attestation-assignment-dialog';
 import { AssignToClassDialog, AssignToClassDialogData } from '../assign-dialog/assign-to-class-dialog';
+import { EnsureDraftOutcome } from './ensure-draft-outcome.model';
 
 /**
  * T2/T3/T7/T8 shell -- create+draft/auto-draft/preview/publish. Imports BOTH
@@ -34,17 +35,17 @@ import { AssignToClassDialog, AssignToClassDialogData } from '../assign-dialog/a
  * authoring service (11 endpoints) -- normal features -> core composition,
  * not a boundary violation (Plan v2.1.2 §8.2).
  *
- * T3 auto-draft-on-edit (correction pass item 5): ensureDraftVersion() is
- * passed down to question-list/option-list as `ensureDraft`; every mutating
- * action in either child calls it first. If the template already has an
- * open DRAFT, it resolves immediately with no network call. If not, it
- * calls startDraft() exactly once (concurrent callers share the same
- * in-flight Observable via shareReplay(1), so rapid double-clicks never
- * issue duplicate draft calls), updates this component's own template/version
- * state, and only then resolves -- the child's actual intended mutation
- * fires against the now-real draft afterward. The explicit "Start Draft"
- * button (T2) is a separate, still-available manual action -- it does not
- * substitute for this, it is simply another way to reach the same state.
+ * T3 auto-draft-on-edit: ensureDraftVersion() is passed down to
+ * question-list/option-list as `ensureDraft`; every mutating action in
+ * either child calls it first and resolves its actual target from the
+ * returned EnsureDraftOutcome (see that type's doc comment) rather than
+ * from a captured pre-clone object. If the template already has an open
+ * DRAFT, it resolves immediately with no network call. If not, it calls
+ * startDraft() exactly once (concurrent callers share the same in-flight
+ * Observable via shareReplay(1), so rapid double-clicks never issue
+ * duplicate draft calls). The explicit "Start Draft" button (T2) is a
+ * separate, still-available manual action -- it does not substitute for
+ * this, it is simply another way to reach the same state.
  */
 @Component({
   selector: 'app-template-editor',
@@ -150,7 +151,7 @@ export class TemplateEditorComponent implements OnInit {
   private draftCreation$: Observable<AssignmentTemplateVersionDTO> | null = null;
 
   /** Bound once (arrow function, stable reference) so question-list's ngOnChanges is never re-triggered by a new function identity on each render. */
-  ensureDraftVersionRef = (): Observable<AssignmentTemplateVersionDTO> => this.ensureDraftVersion();
+  ensureDraftVersionRef = (): Observable<EnsureDraftOutcome> => this.ensureDraftVersion();
 
   ngOnInit() {
     this.templateId.set(Number(this.route.snapshot.paramMap.get('templateId')));
@@ -181,16 +182,16 @@ export class TemplateEditorComponent implements OnInit {
     });
   }
 
-  /** T3 auto-draft-on-edit: resolves to the current open draft, creating one (once, de-duplicated) if none exists yet. */
-  private ensureDraftVersion(): Observable<AssignmentTemplateVersionDTO> {
+  /** T3 auto-draft-on-edit: resolves to the current open draft, creating one (once, de-duplicated) if none exists yet. See EnsureDraftOutcome's doc comment for why callers must branch on `freshlyCreated`. */
+  private ensureDraftVersion(): Observable<EnsureDraftOutcome> {
     const t = this.template();
     const v = this.version();
     if (t?.draftVersionId && v?.status === 'DRAFT') {
-      return of(v);
+      return of({ version: v, freshlyCreated: false });
     }
     if (!this.draftCreation$) {
       const id = this.templateId();
-      if (id == null) return of(v!);
+      if (id == null) return of({ version: v!, freshlyCreated: false });
       this.draftCreation$ = this.authoringApi.startDraft(id).pipe(
         tap(newDraft => {
           this.version.set(newDraft);
@@ -201,7 +202,7 @@ export class TemplateEditorComponent implements OnInit {
         shareReplay(1)
       );
     }
-    return this.draftCreation$;
+    return this.draftCreation$.pipe(map(newDraft => ({ version: newDraft, freshlyCreated: true })));
   }
 
   saveTitle() {
@@ -210,7 +211,7 @@ export class TemplateEditorComponent implements OnInit {
     const trimmed = this.titleDraft.trim();
     if (!trimmed || trimmed === v.title) return;
     this.ensureDraftVersion().subscribe({
-      next: current => {
+      next: ({ version: current }) => {
         this.authoringApi.updateTitle(current.id, { expectedRowVersion: current.rowVersion, title: trimmed }).subscribe({
           next: updated => this.version.set(updated),
           error: (err: HttpErrorResponse) => this.actionError.set(toAssignmentUiError(err))
