@@ -16,6 +16,7 @@ import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/c
 import { ClassroomLiteBannerComponent } from '../../../shared/curriculum/classroom-lite-banner';
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
 import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status-chip-curriculum';
+import { AssignmentCapabilityStateService } from '../../../core/services/assignment-capability-state.service';
 
 /**
  * Full-screen route on phone/tablet, side-panel styling at >=1024px --
@@ -106,11 +107,12 @@ import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status
               Manage Lessons <mat-icon aria-hidden="true">arrow_forward</mat-icon>
             </button>
 
-            <p class="section-label" style="margin-top:20px">Linked assignment template</p>
-            <div class="reserved-entry">
-              <mat-icon aria-hidden="true" style="vertical-align:middle;font-size:18px;width:18px;height:18px">lock_clock</mat-icon>
-              No linked template. Assignment template authoring is reserved for a later design slice (Slice 13).
-            </div>
+            @if (capabilityState.loadState() === 'loaded' && capabilityState.enabled()) {
+              <p class="section-label" style="margin-top:20px">Assignments</p>
+              <button mat-stroked-button type="button" (click)="manageAssignments()">
+                Manage Assignments <mat-icon aria-hidden="true">arrow_forward</mat-icon>
+              </button>
+            }
           </mat-card-content>
         </mat-card>
       </div>
@@ -124,6 +126,7 @@ export class ModuleDetailPanelComponent implements OnInit {
   private moduleApi = inject(CurriculumModuleApiService);
   private snack = inject(MatSnackBar);
   mode = inject(ClassroomLiteModeService);
+  capabilityState = inject(AssignmentCapabilityStateService);
 
   curriculumId = signal<number | null>(null);
   versionId = signal<number | null>(null);
@@ -208,5 +211,11 @@ export class ModuleDetailPanelComponent implements OnInit {
   manageLessons() {
     const cId = this.curriculumId(), vId = this.versionId(), mId = this.moduleId();
     this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'modules', mId, 'lessons']);
+  }
+
+  manageAssignments() {
+    const mId = this.moduleId();
+    const v = this.version();
+    this.router.navigate(['/vidya-rasa/assignments'], { queryParams: { moduleId: mId, curriculumVersionId: v?.id ?? null } });
   }
 }

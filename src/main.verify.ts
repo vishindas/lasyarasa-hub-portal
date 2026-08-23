@@ -14,6 +14,7 @@ import { provideNativeDateAdapter } from '@angular/material/core';
 import { routes } from './app/app.routes';
 import { App } from './app/app';
 import { curriculumFixtureInterceptor } from './app/dev-fixtures/curriculum-fixture.interceptor';
+import { assignmentFixtureInterceptor } from './app/dev-fixtures/assignment-fixture.interceptor';
 import { curriculumModeInterceptor } from './app/core/services/curriculum-mode.interceptor';
 import { environment } from './environments/environment';
 
@@ -60,10 +61,21 @@ bootstrapApplication(App, {
     // curriculumModeInterceptor is the real, shipped interceptor -- kept in
     // the chain here so a WRITE_FROZEN/FULL_OUTAGE fixture response is
     // observed exactly as it would be against the real backend. It must
-    // wrap curriculumFixtureInterceptor (i.e. come first): interceptor
-    // order is outermost-to-innermost, and the fixture is standing in for
-    // the backend itself, not calling next().
-    provideHttpClient(withInterceptors([curriculumModeInterceptor, curriculumFixtureInterceptor])),
+    // wrap both fixture interceptors (i.e. come first): interceptor order
+    // is outermost-to-innermost, and the fixtures are standing in for the
+    // backend itself, not calling next().
+    //
+    // assignmentFixtureInterceptor must come BEFORE curriculumFixtureInterceptor:
+    // curriculumFixtureInterceptor has an unconditional catch-all at its end
+    // (`if GET return ok([]); return ok({})`) for any environment.apiUrl-prefixed
+    // path it doesn't explicitly recognize, and /school/assignments/** was
+    // never one of its recognized paths -- with the reverse order, every
+    // assignment request was silently answered by that catch-all (e.g.
+    // GET /school/assignments/capability -> ok([]), which deserializes as
+    // {effectiveEnabled: undefined}, i.e. falsy) instead of ever reaching
+    // assignmentFixtureInterceptor. Caught during this slice's own manual
+    // verify-build pass (Plan v2.1.2 §14) -- see the implementation report.
+    provideHttpClient(withInterceptors([curriculumModeInterceptor, assignmentFixtureInterceptor, curriculumFixtureInterceptor])),
     provideAnimationsAsync(),
     provideNativeDateAdapter()
   ]

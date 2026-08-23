@@ -26,6 +26,10 @@ export const VIDYA_RASA_ROUTES: Routes = [
     loadChildren: () => import('../curriculum/curricula.routes').then(m => m.CURRICULUM_ROUTES)
   },
   {
+    path: 'assignments',
+    loadChildren: () => import('../assignments/assignments.routes').then(m => m.ASSIGNMENTS_ROUTES)
+  },
+  {
     path: 'fees',
     loadComponent: () => import('./fees/fee-list').then(m => m.FeeListComponent)
   },
