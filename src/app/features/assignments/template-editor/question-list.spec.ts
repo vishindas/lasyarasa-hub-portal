@@ -184,4 +184,88 @@ describe('QuestionList (T4/T6 + WRITE_FROZEN disabling + T3 auto-draft target re
     component.moveUp(0); // i === 0, no-op guarded before any reorder logic runs
     httpMock.expectNone(`${versionsBase}/1000/questions/reorder`);
   });
+
+  it('final review item 1: empty draft -> addQuestion() emits questionsChanged with the new question (parent can sync its authoritative graph)', () => {
+    const { fixture } = setup({
+      dialogResult: { questionType: 'SHORT_TEXT', prompt: 'First question', maxSelections: null },
+      ensureDraft: () => of({ version: draftVersion([], 1000), freshlyCreated: false }),
+      initialQuestions: []
+    });
+    let emitted: AssignmentQuestionDTO[] | null = null;
+    fixture.componentInstance.questionsChanged.subscribe((qs: AssignmentQuestionDTO[]) => (emitted = qs));
+
+    fixture.componentInstance.addQuestion();
+    const req = httpMock.expectOne(`${versionsBase}/1000/questions`);
+    req.flush({ id: 900, templateVersionId: 1000, questionType: 'SHORT_TEXT', prompt: 'First question', questionOrder: 1, maxSelections: null, rowVersion: 0, options: [] });
+
+    expect(emitted).toEqual([{ id: 900, templateVersionId: 1000, questionType: 'SHORT_TEXT', prompt: 'First question', questionOrder: 1, maxSelections: null, rowVersion: 0, options: [] }]);
+  });
+
+  it('final review item 1: editQuestion() emits questionsChanged with the updated question reflected (no-clone case)', () => {
+    const { fixture } = setup({ dialogResult: { questionType: 'SINGLE_CHOICE', prompt: 'Edited', maxSelections: null } });
+    let emitted: AssignmentQuestionDTO[] | null = null;
+    fixture.componentInstance.questionsChanged.subscribe((qs: AssignmentQuestionDTO[]) => (emitted = qs));
+
+    fixture.componentInstance.editQuestion(publishedQuestions[0]);
+    const req = httpMock.expectOne(`${questionsBase}/1`);
+    req.flush({ ...publishedQuestions[0], prompt: 'Edited' });
+
+    expect(emitted![0].prompt).toBe('Edited');
+    expect(emitted!.length).toBe(2);
+  });
+
+  it('final review item 1: deleteQuestion() emits questionsChanged without the removed question', () => {
+    const dialogOpenSpy = vi.fn().mockReturnValueOnce({ afterClosed: () => of({ expectedRowVersion: 5 }) });
+    TestBed.configureTestingModule({
+      imports: [QuestionList],
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: MatDialog, useValue: { open: dialogOpenSpy } }]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(QuestionList);
+    fixture.componentRef.setInput('versionId', 1000);
+    fixture.componentRef.setInput('initialQuestions', publishedQuestions);
+    fixture.componentRef.setInput('editable', true);
+    fixture.componentRef.setInput('mutationsDisabled', false);
+    fixture.componentRef.setInput('ensureDraft', () => of({ version: draftVersion(publishedQuestions, 1000), freshlyCreated: false }));
+    fixture.detectChanges();
+
+    let emitted: AssignmentQuestionDTO[] | null = null;
+    fixture.componentInstance.questionsChanged.subscribe((qs: AssignmentQuestionDTO[]) => (emitted = qs));
+
+    fixture.componentInstance.deleteQuestion(publishedQuestions[1]);
+    const req = httpMock.expectOne(`${questionsBase}/2`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+
+    expect(emitted).toEqual([publishedQuestions[0]]);
+  });
+
+  it('final review item 1: reorder emits questionsChanged with the server-returned order (Preview stays in sync without a full reload)', () => {
+    const { fixture } = setup(); // default: freshlyCreated false, versionId 1000
+    let emitted: AssignmentQuestionDTO[] | null = null;
+    fixture.componentInstance.questionsChanged.subscribe((qs: AssignmentQuestionDTO[]) => (emitted = qs));
+
+    fixture.componentInstance.moveUp(1);
+    const req = httpMock.expectOne(`${versionsBase}/1000/questions/reorder`);
+    const reordered = [publishedQuestions[1], publishedQuestions[0]];
+    req.flush(reordered);
+
+    expect(emitted).toEqual(reordered);
+  });
+
+  it('final review item 1: onQuestionUpdated with a freshlyCreatedGraph (option-level clone trigger) adopts the WHOLE clone graph, never a mix of published/cloned ids, and emits questionsChanged', () => {
+    const { fixture } = setup({ initialQuestions: publishedQuestions }); // local state still describes the published snapshot
+    let emitted: AssignmentQuestionDTO[] | null = null;
+    fixture.componentInstance.questionsChanged.subscribe((qs: AssignmentQuestionDTO[]) => (emitted = qs));
+
+    const patchedClonedQ1 = { ...clonedDraftQuestions[0], options: [{ ...clonedDraftQuestions[0].options[0], isCorrect: false }, { ...clonedDraftQuestions[0].options[1], isCorrect: true }] };
+    fixture.componentInstance.onQuestionUpdated({
+      question: patchedClonedQ1,
+      freshlyCreatedGraph: [patchedClonedQ1, clonedDraftQuestions[1]]
+    });
+
+    // Every question now carries a CLONE id -- no leftover published ids (1, 2) anywhere.
+    expect(fixture.componentInstance.questions().map(q => q.id)).toEqual([501, 502]);
+    expect(emitted!.map(q => q.id)).toEqual([501, 502]);
+  });
 });

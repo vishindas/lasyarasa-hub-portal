@@ -15,6 +15,24 @@ import { DeleteOptionConfirmDialog } from './delete-option-confirm-dialog';
 import { EnsureDraftOutcome } from './ensure-draft-outcome.model';
 
 /**
+ * Emitted to question-list.ts after any successful option mutation.
+ *
+ * `freshlyCreatedGraph`, when present, is the COMPLETE cloned sibling
+ * question set (with this mutation's question already patched in) --
+ * required whenever THIS mutation is what triggered the auto-draft clone,
+ * since question-list.ts's own local state still describes the published
+ * snapshot at that point and must not be patched question-by-question (that
+ * would leave a mix of cloned and published ids across siblings). When
+ * absent, question-list.ts patches its own current state by questionOrder
+ * as before -- no clone happened this call, so that state is already
+ * consistent.
+ */
+export interface QuestionUpdatedEvent {
+  question: AssignmentQuestionDTO;
+  freshlyCreatedGraph?: AssignmentQuestionDTO[];
+}
+
+/**
  * T5/T6 -- MCQ option config + reorder, nested under a question in
  * question-list.ts. isCorrect (the answer key) renders only here, under
  * features/assignments/**. Every mutation routes through the SAME
@@ -69,7 +87,7 @@ export class OptionList implements OnChanges {
   editable = input.required<boolean>();
   mutationsDisabled = input(false);
   ensureDraft = input.required<() => Observable<EnsureDraftOutcome>>();
-  questionUpdated = output<AssignmentQuestionDTO>();
+  questionUpdated = output<QuestionUpdatedEvent>();
   reload = output<void>();
 
   private api = inject(AssignmentAuthoringApiService);
@@ -113,9 +131,18 @@ export class OptionList implements OnChanges {
     return outcome.version.questions.find(x => x.questionOrder === questionOrder) ?? null;
   }
 
-  private emitUpdated(question: AssignmentQuestionDTO, options: AssignmentQuestionOptionDTO[]) {
+  private emitUpdated(outcome: EnsureDraftOutcome, question: AssignmentQuestionDTO, options: AssignmentQuestionOptionDTO[]) {
     this.options.set(options);
-    this.questionUpdated.emit({ ...question, options });
+    const updatedQuestion = { ...question, options };
+    if (outcome.freshlyCreated) {
+      // Establish the FULL clone graph first, then layer this mutation's
+      // result onto it -- never leave sibling questions holding published
+      // ids while this one holds cloned ids.
+      const freshlyCreatedGraph = outcome.version.questions.map(q => (q.questionOrder === updatedQuestion.questionOrder ? updatedQuestion : q));
+      this.questionUpdated.emit({ question: updatedQuestion, freshlyCreatedGraph });
+    } else {
+      this.questionUpdated.emit({ question: updatedQuestion });
+    }
   }
 
   addOption() {
@@ -132,7 +159,7 @@ export class OptionList implements OnChanges {
         this.api.createOption(currentQuestion.id, {
           optionLabel: result.optionLabel, optionOrder: currentQuestion.options.length + 1, isCorrect: result.isCorrect
         }).subscribe({
-          next: created => this.emitUpdated(currentQuestion, [...currentQuestion.options, created]),
+          next: created => this.emitUpdated(outcome, currentQuestion, [...currentQuestion.options, created]),
           error: (err: HttpErrorResponse) => this.handleError(err)
         });
       },
@@ -157,7 +184,7 @@ export class OptionList implements OnChanges {
         this.api.updateOption(currentOption.id, {
           expectedRowVersion: currentOption.rowVersion, optionLabel: result.optionLabel, optionOrder: currentOption.optionOrder, isCorrect: result.isCorrect
         }).subscribe({
-          next: updated => this.emitUpdated(currentQuestion, currentQuestion.options.map(x => (x.optionOrder === updated.optionOrder ? updated : x))),
+          next: updated => this.emitUpdated(outcome, currentQuestion, currentQuestion.options.map(x => (x.optionOrder === updated.optionOrder ? updated : x))),
           error: (err: HttpErrorResponse) => this.handleError(err)
         });
       },
@@ -181,7 +208,7 @@ export class OptionList implements OnChanges {
         });
         ref.afterClosed().pipe(filter((r): r is { expectedRowVersion: number } => !!r)).subscribe(result => {
           this.api.deleteOption(currentOption.id, { expectedRowVersion: result.expectedRowVersion }).subscribe({
-            next: () => this.emitUpdated(currentQuestion, currentQuestion.options.filter(x => x.id !== currentOption.id)),
+            next: () => this.emitUpdated(outcome, currentQuestion, currentQuestion.options.filter(x => x.id !== currentOption.id)),
             error: (err: HttpErrorResponse) => this.handleError(err)
           });
         });
@@ -226,7 +253,7 @@ export class OptionList implements OnChanges {
         if (targets.some(t => !t)) { this.error.set(this.notFoundOptionError()); return; }
         const entries = (targets as AssignmentQuestionOptionDTO[]).map(o => ({ id: o.id, expectedRowVersion: o.rowVersion }));
         this.api.reorderOptions(currentQuestion.id, { entries }).subscribe({
-          next: updated => { this.emitUpdated(currentQuestion, updated); this.announcer.announce('Option order updated'); },
+          next: updated => { this.emitUpdated(outcome, currentQuestion, updated); this.announcer.announce('Option order updated'); },
           error: (err: HttpErrorResponse) => this.handleError(err)
         });
       },

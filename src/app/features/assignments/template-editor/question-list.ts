@@ -13,7 +13,7 @@ import { AssignmentMessageComponent } from '../../../shared/assignment/assignmen
 import { QuestionListRowComponent } from './question-list-row';
 import { QuestionFormDialog, QuestionFormDialogResult } from './question-form-dialog';
 import { DeleteQuestionConfirmDialog } from './delete-question-confirm-dialog';
-import { OptionList } from './option-list';
+import { OptionList, QuestionUpdatedEvent } from './option-list';
 import { EnsureDraftOutcome } from './ensure-draft-outcome.model';
 
 /**
@@ -30,8 +30,16 @@ import { EnsureDraftOutcome } from './ensure-draft-outcome.model';
  * matching questionOrder (the one identifier cloning preserves) against the
  * correct source for that outcome (outcome.version.questions when
  * freshlyCreated, this.questions() otherwise -- see EnsureDraftOutcome's
- * doc comment in template-editor.ts) -- never against the originally
- * captured object's id/rowVersion directly.
+ * doc comment in ensure-draft-outcome.model.ts) -- never against the
+ * originally captured object's id/rowVersion directly.
+ *
+ * State-sync fix (final architect re-review): `questionsChanged` is emitted
+ * with the full current list after EVERY successful mutation -- including
+ * option-level ones bubbled up via onQuestionUpdated() -- so
+ * TemplateEditorComponent can keep its own `version` signal (the single
+ * source TemplatePreviewComponent and validateForPublish() both read)
+ * synchronized. This component's own local `questions` signal is for
+ * rendering only; it is never the authoritative graph on its own.
  */
 @Component({
   selector: 'app-question-list',
@@ -85,6 +93,8 @@ export class QuestionList implements OnChanges {
   ensureDraft = input.required<() => Observable<EnsureDraftOutcome>>();
   /** Emitted when a stale-conflict Reload is requested -- the parent owns the authoritative full-version reload. */
   reload = output<void>();
+  /** Emitted with the full current question list after every successful mutation (question- or option-level) -- see class doc comment. */
+  questionsChanged = output<AssignmentQuestionDTO[]>();
 
   private api = inject(AssignmentAuthoringApiService);
   private dialog = inject(MatDialog);
@@ -97,8 +107,24 @@ export class QuestionList implements OnChanges {
     this.questions.set(this.initialQuestions());
   }
 
-  onQuestionUpdated(updated: AssignmentQuestionDTO) {
-    this.questions.update(list => list.map(q => (q.questionOrder === updated.questionOrder ? updated : q)));
+  /**
+   * Handles option-list.ts's bubbled-up mutation event.
+   * - freshlyCreatedGraph present: THIS option mutation is what triggered
+   *   the auto-draft clone -- adopt the complete cloned sibling set
+   *   wholesale (it already has the mutation applied), rather than patching
+   *   our own (still-published-snapshot) local state question-by-question,
+   *   which would leave a mix of cloned and published ids across siblings.
+   * - absent: no clone happened this call -- our own local state is already
+   *   correct and current; patch just the one affected question by
+   *   questionOrder.
+   */
+  onQuestionUpdated(event: QuestionUpdatedEvent) {
+    if (event.freshlyCreatedGraph) {
+      this.questions.set(event.freshlyCreatedGraph);
+    } else {
+      this.questions.update(list => list.map(q => (q.questionOrder === event.question.questionOrder ? event.question : q)));
+    }
+    this.questionsChanged.emit(this.questions());
   }
 
   private handleError(err: HttpErrorResponse) {
@@ -129,7 +155,10 @@ export class QuestionList implements OnChanges {
           questionType: result.questionType, prompt: result.prompt,
           questionOrder: baseline.length + 1, maxSelections: result.maxSelections
         }).subscribe({
-          next: created => this.questions.set([...baseline, created]),
+          next: created => {
+            this.questions.set([...baseline, created]);
+            this.questionsChanged.emit(this.questions());
+          },
           error: (err: HttpErrorResponse) => this.handleError(err)
         });
       },
@@ -153,8 +182,13 @@ export class QuestionList implements OnChanges {
           expectedRowVersion: current.rowVersion, prompt: result.prompt, questionOrder: current.questionOrder, maxSelections: result.maxSelections
         }).subscribe({
           next: updated => {
-            if (outcome.freshlyCreated) this.questions.set(outcome.version.questions.map(x => (x.questionOrder === updated.questionOrder ? updated : x)));
-            else this.onQuestionUpdated(updated);
+            if (outcome.freshlyCreated) {
+              // Establish the full clone graph first, then layer this mutation's result onto it.
+              this.questions.set(outcome.version.questions.map(x => (x.questionOrder === updated.questionOrder ? updated : x)));
+              this.questionsChanged.emit(this.questions());
+            } else {
+              this.onQuestionUpdated({ question: updated }); // emits internally
+            }
           },
           error: (err: HttpErrorResponse) => this.handleError(err)
         });
@@ -179,6 +213,7 @@ export class QuestionList implements OnChanges {
             next: () => {
               const baseline = outcome.freshlyCreated ? outcome.version.questions : this.questions();
               this.questions.set(baseline.filter(x => x.id !== current.id));
+              this.questionsChanged.emit(this.questions());
             },
             error: (err: HttpErrorResponse) => this.handleError(err)
           });
@@ -226,6 +261,7 @@ export class QuestionList implements OnChanges {
         this.api.reorderQuestions(outcome.version.id, { entries }).subscribe({
           next: updated => {
             this.questions.set(updated);
+            this.questionsChanged.emit(this.questions());
             this.announcer.announce('Question order updated');
           },
           error: (err: HttpErrorResponse) => this.handleError(err)
