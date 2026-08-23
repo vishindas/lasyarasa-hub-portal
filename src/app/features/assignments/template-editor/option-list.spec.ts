@@ -133,4 +133,86 @@ describe('OptionList (T5/T6 + T3 auto-draft target resolution)', () => {
     expect(req.request.body.expectedRowVersion).toBe(0);
     req.flush({ ...clonedQuestion.options[0], optionLabel: 'A (edited)' });
   });
+
+  it('final review item 1: editing an option\'s isCorrect (no-clone case) emits questionUpdated with the new answer key and no freshlyCreatedGraph, so Preview/publish validation see it immediately', () => {
+    const { fixture } = setup({
+      dialogResult: { optionLabel: 'A', isCorrect: false }, // flips the answer key: A was correct, now B should become the sole correct answer via a follow-up edit in real usage; here we assert THIS option's isCorrect update propagates
+      ensureDraft: () => of({ version: draftVersion([clonedQuestion]), freshlyCreated: false }),
+      question: clonedQuestion
+    });
+    let emitted: { question: AssignmentQuestionDTO; freshlyCreatedGraph?: AssignmentQuestionDTO[] } | null = null;
+    fixture.componentInstance.questionUpdated.subscribe(e => (emitted = e));
+
+    fixture.componentInstance.editOption(clonedQuestion.options[0]); // option A, currently isCorrect: true
+    const req = httpMock.expectOne(`${optionsBase}/511`);
+    req.flush({ ...clonedQuestion.options[0], isCorrect: false });
+
+    expect(emitted).toBeTruthy();
+    expect(emitted!.freshlyCreatedGraph).toBeUndefined();
+    const updatedOption = emitted!.question.options.find(o => o.id === 511);
+    expect(updatedOption?.isCorrect).toBe(false);
+  });
+
+  it('final review item 1: an option edit that ITSELF triggers the auto-draft clone emits questionUpdated with the FULL cloned sibling graph (mutated question patched in), never a mix of published/cloned ids', () => {
+    const siblingQuestion: AssignmentQuestionDTO = { id: 2, templateVersionId: 1000, questionType: 'SHORT_TEXT', prompt: 'Published Q2', questionOrder: 2, maxSelections: null, rowVersion: 1, options: [] };
+    const clonedSibling: AssignmentQuestionDTO = { ...siblingQuestion, id: 502, templateVersionId: 2000, rowVersion: 0 };
+    const { fixture } = setup({
+      dialogResult: { optionLabel: 'A (edited)', isCorrect: true },
+      ensureDraft: () => of({ version: draftVersion([clonedQuestion, clonedSibling]), freshlyCreated: true }),
+      question: publishedQuestion // still the PUBLISHED snapshot -- this call is what triggers the clone
+    });
+    let emitted: { question: AssignmentQuestionDTO; freshlyCreatedGraph?: AssignmentQuestionDTO[] } | null = null;
+    fixture.componentInstance.questionUpdated.subscribe(e => (emitted = e));
+
+    fixture.componentInstance.editOption(publishedQuestion.options[0]);
+    const req = httpMock.expectOne(`${optionsBase}/511`);
+    req.flush({ ...clonedQuestion.options[0], optionLabel: 'A (edited)' });
+
+    expect(emitted).toBeTruthy();
+    expect(emitted!.freshlyCreatedGraph).toBeTruthy();
+    // Every question in the graph carries a CLONE id -- no leftover published ids (1, 2).
+    expect(emitted!.freshlyCreatedGraph!.map(q => q.id)).toEqual([501, 502]);
+    const mutatedInGraph = emitted!.freshlyCreatedGraph!.find(q => q.id === 501);
+    expect(mutatedInGraph?.options.find(o => o.id === 511)?.optionLabel).toBe('A (edited)');
+  });
+
+  it('final review item 1: option delete emits questionUpdated with the option removed from the question', () => {
+    const dialogOpenSpy = vi.fn().mockReturnValue({ afterClosed: () => of({ expectedRowVersion: 0 }) });
+    TestBed.configureTestingModule({
+      imports: [OptionList],
+      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: MatDialog, useValue: { open: dialogOpenSpy } }]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(OptionList);
+    fixture.componentRef.setInput('question', clonedQuestion);
+    fixture.componentRef.setInput('editable', true);
+    fixture.componentRef.setInput('mutationsDisabled', false);
+    fixture.componentRef.setInput('ensureDraft', () => of({ version: draftVersion([clonedQuestion]), freshlyCreated: false }));
+    fixture.detectChanges();
+
+    let emitted: { question: AssignmentQuestionDTO; freshlyCreatedGraph?: AssignmentQuestionDTO[] } | null = null;
+    fixture.componentInstance.questionUpdated.subscribe(e => (emitted = e));
+
+    fixture.componentInstance.deleteOption(clonedQuestion.options[0]);
+    const req = httpMock.expectOne(`${optionsBase}/511`);
+    req.flush(null);
+
+    expect(emitted!.question.options.map(o => o.id)).toEqual([512]);
+  });
+
+  it('final review item 1: option reorder emits questionUpdated with the server-returned option order', () => {
+    const { fixture } = setup({
+      ensureDraft: () => of({ version: draftVersion([clonedQuestion]), freshlyCreated: false }),
+      question: clonedQuestion
+    });
+    let emitted: { question: AssignmentQuestionDTO; freshlyCreatedGraph?: AssignmentQuestionDTO[] } | null = null;
+    fixture.componentInstance.questionUpdated.subscribe(e => (emitted = e));
+
+    fixture.componentInstance.moveUp(1);
+    const req = httpMock.expectOne(`${questionsBase}/501/options/reorder`);
+    const reorderedOptions = [clonedQuestion.options[1], clonedQuestion.options[0]];
+    req.flush(reorderedOptions);
+
+    expect(emitted!.question.options.map(o => o.id)).toEqual([512, 511]);
+  });
 });

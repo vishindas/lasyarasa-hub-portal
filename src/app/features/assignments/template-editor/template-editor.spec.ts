@@ -131,4 +131,79 @@ describe('TemplateEditorComponent (T2/T3/T7/T8 + WRITE_FROZEN + real publish gat
     req.flush(emptyVersion(3000));
     httpMock.expectNone(`${templatesBase}/1/draft`);
   });
+
+  it('final review item 2: a failed startDraft() clears draftCreation$ so a later edit genuinely retries with a new POST /draft', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    httpMock.expectOne(`${templatesBase}/1`).flush(templatePublishedOnly);
+    httpMock.expectOne(`${versionsBase}/2000`).flush(emptyVersion(2000, 'PUBLISHED'));
+    fixture.detectChanges();
+
+    const ref = (fixture.componentInstance as unknown as { ensureDraftVersionRef: () => { subscribe: (o: { next?: (v: unknown) => void; error?: (e: unknown) => void }) => void } });
+
+    // First attempt fails.
+    let firstErrored = false;
+    ref.ensureDraftVersionRef().subscribe({ error: () => { firstErrored = true; } });
+    const firstReq = httpMock.expectOne(`${templatesBase}/1/draft`);
+    firstReq.flush({ code: 'BOOM', message: 'boom' }, { status: 500, statusText: 'Server Error' });
+    expect(firstErrored).toBe(true);
+
+    // A later edit retries -- must issue a genuinely NEW POST /draft, not replay the cached failure.
+    let secondSucceeded = false;
+    ref.ensureDraftVersionRef().subscribe({ next: () => { secondSucceeded = true; } });
+    const secondReq = httpMock.expectOne(`${templatesBase}/1/draft`);
+    expect(secondSucceeded).toBe(false);
+    secondReq.flush(emptyVersion(3000));
+    expect(secondSucceeded).toBe(true);
+  });
+
+  it('final review item 2: concurrent calls during the SAME in-flight (failing or succeeding) request still collapse to one HTTP request', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    httpMock.expectOne(`${templatesBase}/1`).flush(templatePublishedOnly);
+    httpMock.expectOne(`${versionsBase}/2000`).flush(emptyVersion(2000, 'PUBLISHED'));
+    fixture.detectChanges();
+
+    const ref = (fixture.componentInstance as unknown as { ensureDraftVersionRef: () => { subscribe: (o: { next?: (v: unknown) => void; error?: (e: unknown) => void }) => void } });
+
+    // Two concurrent calls sharing the same in-flight (about to fail) request.
+    let errors = 0;
+    ref.ensureDraftVersionRef().subscribe({ error: () => { errors++; } });
+    ref.ensureDraftVersionRef().subscribe({ error: () => { errors++; } });
+    const failingReq = httpMock.expectOne(`${templatesBase}/1/draft`);
+    failingReq.flush({ code: 'BOOM', message: 'boom' }, { status: 500, statusText: 'Server Error' });
+    expect(errors).toBe(2);
+    httpMock.expectNone(`${templatesBase}/1/draft`);
+
+    // Retry after the failure: two more concurrent calls sharing the same new in-flight (succeeding) request.
+    let successes = 0;
+    ref.ensureDraftVersionRef().subscribe({ next: () => { successes++; } });
+    ref.ensureDraftVersionRef().subscribe({ next: () => { successes++; } });
+    const succeedingReq = httpMock.expectOne(`${templatesBase}/1/draft`);
+    succeedingReq.flush(emptyVersion(3000));
+    expect(successes).toBe(2);
+    httpMock.expectNone(`${templatesBase}/1/draft`);
+  });
+
+  it('final review item 1: empty draft -> add first question via onQuestionsChanged -> publish() validation sees it (no longer stale-rejects)', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    httpMock.expectOne(`${templatesBase}/1`).flush(templateWithDraft);
+    httpMock.expectOne(`${versionsBase}/1000`).flush(emptyVersion(1000));
+    fixture.detectChanges();
+
+    // Before the fix, question-list.ts's own local signal would hold the new
+    // question while this component's `version` signal (what publish() reads)
+    // remained the stale empty array -- publish() would still reject it.
+    fixture.componentInstance.publish();
+    expect(dialogOpenSpy).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.actionError()?.message).toContain('at least one question');
+
+    fixture.componentInstance.onQuestionsChanged([
+      { id: 1, templateVersionId: 1000, questionType: 'SHORT_TEXT', prompt: 'p', questionOrder: 1, maxSelections: null, rowVersion: 0, options: [] }
+    ]);
+
+    fixture.componentInstance.publish();
+    expect(dialogOpenSpy).toHaveBeenCalled();
+  });
 });

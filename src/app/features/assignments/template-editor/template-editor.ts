@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Observable, of, tap, shareReplay, map } from 'rxjs';
+import { Observable, of, tap, shareReplay, map, finalize } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,7 +13,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AssignmentTemplateApiService } from '../../../core/services/assignment-template-api.service';
 import { AssignmentAuthoringApiService } from '../data-access/assignment-authoring-api.service';
 import { AssignmentTemplateDTO, AssignmentInstanceDTO } from '../../../core/models/assignment.model';
-import { AssignmentTemplateVersionDTO } from '../data-access/assignment-staff.model';
+import { AssignmentTemplateVersionDTO, AssignmentQuestionDTO } from '../data-access/assignment-staff.model';
 import { AssignmentUiError, toAssignmentUiError } from '../../../core/services/assignment-api-error.util';
 import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
 import { StatusChipAssignmentComponent, AssignmentChipState } from '../../../shared/assignment/status-chip-assignment';
@@ -121,7 +121,7 @@ import { EnsureDraftOutcome } from './ensure-draft-outcome.model';
             <app-question-list
               [versionId]="v.id" [initialQuestions]="v.questions"
               [editable]="!t.archivedAt" [mutationsDisabled]="mode.mutationsDisabled()"
-              [ensureDraft]="ensureDraftVersionRef" (reload)="load()" />
+              [ensureDraft]="ensureDraftVersionRef" (reload)="load()" (questionsChanged)="onQuestionsChanged($event)" />
           }
         } @else {
           <p class="empty">No version to display yet -- start a draft or add a question to begin authoring.</p>
@@ -197,12 +197,34 @@ export class TemplateEditorComponent implements OnInit {
           this.version.set(newDraft);
           this.titleDraft = newDraft.title;
           this.template.update(tt => tt ? { ...tt, draftVersionId: newDraft.id, displayStatus: tt.publishedVersionId ? 'PUBLISHED_WITH_DRAFT' : 'DRAFT' } : tt);
-          this.draftCreation$ = null;
         }),
+        // Clears the cache on EVERY terminal outcome -- success AND error --
+        // not just success. A failed startDraft() previously left the
+        // failed, shareReplay(1)-cached Observable in place forever, so any
+        // later edit attempt would just replay the same stale error instead
+        // of genuinely retrying. Concurrent callers during the SAME
+        // in-flight request still correctly collapse to one HTTP call,
+        // since finalize only runs once the source itself completes/errors,
+        // not per-subscriber.
+        finalize(() => { this.draftCreation$ = null; }),
         shareReplay(1)
       );
     }
     return this.draftCreation$.pipe(map(newDraft => ({ version: newDraft, freshlyCreated: true })));
+  }
+
+  /**
+   * State-sync fix (final architect re-review): QuestionList/OptionList own
+   * their local signals for rendering, but this component's `version` signal
+   * is the SINGLE authoritative graph TemplatePreviewComponent and
+   * validateForPublish() both read. Without this, Preview and the publish
+   * gate could see a stale/empty questions array after a mutation that
+   * question-list.ts/option-list.ts had already applied to their own local
+   * state. QuestionList emits its full current list after every successful
+   * mutation (including option-level ones, bubbled up); this just adopts it.
+   */
+  onQuestionsChanged(questions: AssignmentQuestionDTO[]) {
+    this.version.update(v => (v ? { ...v, questions } : v));
   }
 
   saveTitle() {
