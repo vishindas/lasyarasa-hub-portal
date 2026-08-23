@@ -58,4 +58,29 @@ describe('curriculumModeInterceptor', () => {
     httpMock.expectOne('/api/account/students').flush({}, { status: 503, statusText: 'Service Unavailable' });
     expect(mode.mode()).toBe('NORMAL');
   });
+
+  // Slice 15 -- regression guard for the CURRICULUM_PATH_RE extension (Plan v2.1.1 §4/§8.5)
+  it('sets WRITE_FROZEN on a 423 from an assignment mutation route', () => {
+    http.post('/api/school/assignments/templates', {}).subscribe({ error: () => {} });
+    httpMock.expectOne('/api/school/assignments/templates').flush({ code: 'WRITE_FROZEN', message: 'frozen', resource: null }, { status: 423, statusText: 'Locked' });
+    expect(mode.mode()).toBe('WRITE_FROZEN');
+  });
+
+  it('sets FULL_OUTAGE on a 503 from an assignment route', () => {
+    http.get('/api/school/assignments/instances').subscribe({ error: () => {} });
+    httpMock.expectOne('/api/school/assignments/instances').flush({ code: 'FULL_OUTAGE', message: 'down', resource: null }, { status: 503, statusText: 'Service Unavailable' });
+    expect(mode.mode()).toBe('FULL_OUTAGE');
+  });
+
+  it('does NOT set WRITE_FROZEN for a normal 200 GET /assignments/capability response (safe method, not blocked under WRITE_FROZEN per the backend contract)', () => {
+    http.get('/api/school/assignments/capability').subscribe();
+    httpMock.expectOne('/api/school/assignments/capability').flush({ globalEnabled: false, providerEnabled: false, effectiveEnabled: false });
+    expect(mode.mode()).toBe('NORMAL');
+  });
+
+  it('sets FULL_OUTAGE on a 503 from GET /assignments/capability itself', () => {
+    http.get('/api/school/assignments/capability').subscribe({ error: () => {} });
+    httpMock.expectOne('/api/school/assignments/capability').flush({ code: 'FULL_OUTAGE', message: 'down', resource: null }, { status: 503, statusText: 'Service Unavailable' });
+    expect(mode.mode()).toBe('FULL_OUTAGE');
+  });
 });

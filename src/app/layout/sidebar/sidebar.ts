@@ -4,6 +4,7 @@ import { filter } from 'rxjs/operators';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../core/auth/auth.service';
+import { AssignmentCapabilityStateService } from '../../core/services/assignment-capability-state.service';
 
 interface NavItem  { label: string; icon: string; route: string; }
 interface NavGroup { label: string; icon: string; items: NavItem[]; }
@@ -17,6 +18,7 @@ interface NavGroup { label: string; icon: string; items: NavItem[]; }
 export class SidebarComponent implements OnInit {
   auth   = inject(AuthService);
   private router = inject(Router);
+  private capabilityState = inject(AssignmentCapabilityStateService);
 
   expandedGroups = signal<Set<string>>(new Set());
 
@@ -36,12 +38,22 @@ export class SidebarComponent implements OnInit {
   };
 
   // Foundation v1.1 Part IV, item 2: admin desktop nav = "existing items + Learning sub-section".
-  private readonly learningGroup: NavGroup = {
+  // Slice 15: "Assignment Templates"/"Validation Queue" are gated by the
+  // shared AssignmentCapabilityStateService (Plan v2.1.2 §9) -- present only
+  // once capability state has loaded AND is enabled, hidden during loading,
+  // disabled, outage, and unknown-failure states alike (fail closed).
+  private readonly learningGroup = computed((): NavGroup => ({
     label: 'Learning', icon: 'auto_stories',
     items: [
       { label: 'Curricula', icon: 'auto_stories', route: '/vidya-rasa/curricula' },
+      ...(this.capabilityState.loadState() === 'loaded' && this.capabilityState.enabled()
+        ? [
+            { label: 'Assignment Templates', icon: 'assignment', route: '/vidya-rasa/assignments' },
+            { label: 'Validation Queue', icon: 'fact_check', route: '/vidya-rasa/assignments/submissions' }
+          ]
+        : [])
     ]
-  };
+  }));
 
   private readonly financeGroup: NavGroup = {
     label: 'Finance', icon: 'payments',
@@ -66,7 +78,7 @@ export class SidebarComponent implements OnInit {
   allGroups = computed((): NavGroup[] => {
     const role = this.auth.currentUser()?.role;
     const main = role === 'SCHOOL_ADMIN' || role === 'HUB_ADMIN' || role === 'SUPER_ADMIN'
-      ? [this.studentsGroup, this.classesGroup, this.learningGroup, this.financeGroup]
+      ? [this.studentsGroup, this.classesGroup, this.learningGroup(), this.financeGroup]
       : [];
     return [...main, this.settingsGroup];
   });

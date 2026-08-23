@@ -4,8 +4,21 @@ import { catchError, throwError } from 'rxjs';
 import { ClassroomLiteModeService } from './classroom-lite-mode.service';
 import { CurriculumErrorResponse } from '../models/curriculum.model';
 
-/** Mirrors the backend's own route scoping (ClassroomLiteWebConfig): curricula/**, classes/*\/curriculum-assignment/**, classes/*\/modules/**. */
-const CURRICULUM_PATH_RE = /\/school\/(curricula(\/|$)|classes\/[^/]+\/(curriculum-assignment|modules)(\/|$))/;
+/**
+ * Mirrors the backend's own route scoping (ClassroomLiteWebConfig):
+ * curricula/**, classes/*\/curriculum-assignment/**, classes/*\/modules/**,
+ * and (Slice 15) assignments/** -- the backend has covered
+ * STAFF_ASSIGNMENTS_PATH_PATTERN ("/api/school/assignments/**") with the
+ * same operating-mode interceptor since Slice 14, but this frontend
+ * counterpart had not been extended to match until now, so an assignment
+ * 423/503 previously reached the caller correctly but never updated
+ * ClassroomLiteModeService's shared banner/mutations-disabled state. This
+ * also covers GET /school/assignments/capability, which is unaffected in
+ * practice since that call is a safe method under WRITE_FROZEN (200, not
+ * blocked) and only sets outage state via a real 503 under FULL_OUTAGE --
+ * see assignment-capability-state.service.ts.
+ */
+const CURRICULUM_PATH_RE = /\/school\/(curricula(\/|$)|classes\/[^/]+\/(curriculum-assignment|modules)(\/|$)|assignments(\/|$))/;
 /**
  * Slice 12: mirrors ClassroomLiteWebConfig's STUDENT_LEARNING_PATH_PATTERN
  * (/api/account/students/*\/learning/**) exactly -- deliberately scoped to

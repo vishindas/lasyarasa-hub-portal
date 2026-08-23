@@ -6,7 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "check:assignment-import-boundary": "node scripts/check-assignment-import-boundary.mjs"
   },
   "private": true,
   "packageManager": "npm@11.6.4",
