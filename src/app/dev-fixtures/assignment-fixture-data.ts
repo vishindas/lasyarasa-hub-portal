@@ -11,10 +11,38 @@ export const FIXTURE_TEMPLATE: AssignmentTemplateDTO = {
   createdAt: '2026-08-01T00:00:00', createdBy: 1, archivedAt: null, archivedBy: null
 };
 
+/** Published-only (no open draft) -- exercises T3 auto-draft-on-edit and T9 Assign to Class in the verify build. */
+export const FIXTURE_TEMPLATE_PUBLISHED_ONLY: AssignmentTemplateDTO = {
+  id: 2, moduleId: 10, curriculumVersionId: 100, displayStatus: 'PUBLISHED',
+  publishedVersionId: 1001, draftVersionId: null, rowVersion: 0,
+  createdAt: '2026-08-01T00:00:00', createdBy: 1, archivedAt: null, archivedBy: null
+};
+
+export const FIXTURE_VERSION_PUBLISHED: AssignmentTemplateVersionDTO = {
+  id: 1001, templateId: 2, moduleId: 10, curriculumVersionId: 100, versionNumber: 1,
+  status: 'PUBLISHED', title: 'Unit 2 Quiz (published)', clonedFromVersionId: null, rowVersion: 0,
+  createdAt: '2026-08-01T00:00:00', createdBy: 1, publishedAt: '2026-08-05T00:00:00', publishedBy: 1, archivedAt: null, archivedBy: null,
+  questions: [
+    { id: 10, templateVersionId: 1001, questionType: 'SHORT_TEXT', prompt: 'Name a basic adavu.', questionOrder: 1, maxSelections: null, rowVersion: 0, options: [] }
+  ]
+};
+
+/** The auto-created draft ensureDraftVersion() clones this into -- a fresh version id/rowVersion, questions cloned with new ids, matching startDraft()'s real semantics. */
+export const FIXTURE_VERSION_AUTO_DRAFT: AssignmentTemplateVersionDTO = {
+  ...FIXTURE_VERSION_PUBLISHED,
+  id: 1002, status: 'DRAFT', clonedFromVersionId: 1001, publishedAt: null, publishedBy: null,
+  questions: [{ ...FIXTURE_VERSION_PUBLISHED.questions[0], id: 11, templateVersionId: 1002 }]
+};
+
 export const FIXTURE_TEMPLATE_SUMMARIES: AssignmentTemplateSummaryDTO[] = [
   {
     id: 1, moduleId: 10, moduleTitle: 'Bharatanatyam Basics', curriculumVersionId: 100, curriculumTitle: 'Vidya Rasa Level 1',
     displayStatus: 'DRAFT', draftTitle: 'Unit 1 Quiz', publishedTitle: null, rowVersion: 0,
+    createdAt: '2026-08-01T00:00:00', createdBy: 1, archivedAt: null, archivedBy: null
+  },
+  {
+    id: 2, moduleId: 10, moduleTitle: 'Bharatanatyam Basics', curriculumVersionId: 100, curriculumTitle: 'Vidya Rasa Level 1',
+    displayStatus: 'PUBLISHED', draftTitle: null, publishedTitle: 'Unit 2 Quiz (published)', rowVersion: 0,
     createdAt: '2026-08-01T00:00:00', createdBy: 1, archivedAt: null, archivedBy: null
   }
 ];

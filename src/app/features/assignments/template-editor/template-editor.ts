@@ -1,44 +1,62 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Observable, of, tap, shareReplay } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AssignmentTemplateApiService } from '../../../core/services/assignment-template-api.service';
 import { AssignmentAuthoringApiService } from '../data-access/assignment-authoring-api.service';
-import { AssignmentTemplateDTO } from '../../../core/models/assignment.model';
+import { AssignmentTemplateDTO, AssignmentInstanceDTO } from '../../../core/models/assignment.model';
 import { AssignmentTemplateVersionDTO } from '../data-access/assignment-staff.model';
 import { AssignmentUiError, toAssignmentUiError } from '../../../core/services/assignment-api-error.util';
+import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
 import { StatusChipAssignmentComponent, AssignmentChipState } from '../../../shared/assignment/status-chip-assignment';
+import { AssignmentModeBannerComponent } from '../../../shared/assignment/assignment-mode-banner';
+import { AssignmentMessageComponent } from '../../../shared/assignment/assignment-message';
+import { FullOutageBlockComponent } from '../../../shared/curriculum/full-outage-block';
 import { QuestionList } from './question-list';
+import { TemplatePreviewComponent } from './template-preview';
+import { validateForPublish } from './assignment-publish-validation.util';
 import { DiscardDraftConfirmDialog } from './discard-draft-confirm-dialog';
 import { ArchiveTemplateConfirmDialog, ArchiveTemplateConfirmResult } from './archive-template-confirm-dialog';
 import { PublishAttestationAssignmentDialog, PublishAttestationAssignmentResult } from './publish-attestation-assignment-dialog';
 import { AssignToClassDialog, AssignToClassDialogData } from '../assign-dialog/assign-to-class-dialog';
-import { AssignmentInstanceDTO } from '../../../core/models/assignment.model';
 
 /**
  * T2/T3/T7/T8 shell -- create+draft/auto-draft/preview/publish. Imports BOTH
- * the core template-lifecycle service (7 endpoints: get/publish/archive/
- * discardDraft) AND the feature-scoped authoring service (11 endpoints:
- * startDraft/getVersion/question+option CRUD/reorder) -- normal
- * features -> core composition, not a boundary violation (Plan v2.1.2 §8.2).
+ * the core template-lifecycle service (7 endpoints) AND the feature-scoped
+ * authoring service (11 endpoints) -- normal features -> core composition,
+ * not a boundary violation (Plan v2.1.2 §8.2).
+ *
+ * T3 auto-draft-on-edit (correction pass item 5): ensureDraftVersion() is
+ * passed down to question-list/option-list as `ensureDraft`; every mutating
+ * action in either child calls it first. If the template already has an
+ * open DRAFT, it resolves immediately with no network call. If not, it
+ * calls startDraft() exactly once (concurrent callers share the same
+ * in-flight Observable via shareReplay(1), so rapid double-clicks never
+ * issue duplicate draft calls), updates this component's own template/version
+ * state, and only then resolves -- the child's actual intended mutation
+ * fires against the now-real draft afterward. The explicit "Start Draft"
+ * button (T2) is a separate, still-available manual action -- it does not
+ * substitute for this, it is simply another way to reach the same state.
  */
 @Component({
   selector: 'app-template-editor',
   standalone: true,
   imports: [
-    FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSnackBarModule,
-    StatusChipAssignmentComponent, QuestionList
+    FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatButtonToggleModule, MatSnackBarModule,
+    StatusChipAssignmentComponent, AssignmentModeBannerComponent, AssignmentMessageComponent, FullOutageBlockComponent,
+    QuestionList, TemplatePreviewComponent
   ],
   styles: [`
     .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    .actions { display: flex; gap: 8px; margin: 16px 0; }
-    .error { color: #b91c1c; padding: 8px 0; }
+    .actions { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
     .empty { color: #adb5bd; padding: 32px 0; }
     button[mat-flat-button], button[mat-stroked-button] { min-height: 44px; }
   `],
@@ -51,44 +69,62 @@ import { AssignmentInstanceDTO } from '../../../core/models/assignment.model';
       @if (template(); as t) { <app-status-chip-assignment [state]="chipState(t)" /> }
     </div>
 
-    @if (loading()) {
-      <p class="empty">Loading…</p>
-    } @else if (loadError()) {
-      <p class="error">{{ loadError()!.message }} <button mat-stroked-button (click)="load()">Reload</button></p>
-    } @else if (template(); as t) {
-      @if (actionError()) { <p class="error">{{ actionError()!.message }}</p> }
+    @if (mode.mode() === 'FULL_OUTAGE') {
+      <app-full-outage-block />
+    } @else {
+      <app-assignment-mode-banner />
 
-      <div class="actions">
-        @if (!t.draftVersionId) {
-          <button mat-stroked-button type="button" (click)="startDraft()">
-            <mat-icon>edit</mat-icon> Start Draft
-          </button>
-        }
-        @if (t.draftVersionId) {
-          <button mat-stroked-button color="warn" type="button" (click)="discardDraft()">Discard Draft</button>
-          <button mat-flat-button color="primary" type="button" [disabled]="!version() || version()!.questions.length === 0" (click)="publish()">
-            <mat-icon>check_circle</mat-icon> Publish
-          </button>
-        }
-        @if (t.publishedVersionId && !t.archivedAt) {
-          <button mat-stroked-button color="warn" type="button" (click)="archive()">
-            <mat-icon>archive</mat-icon> Archive
-          </button>
-          <button mat-flat-button color="primary" type="button" (click)="assignToClass()">
-            <mat-icon>send</mat-icon> Assign to Class
-          </button>
-        }
-      </div>
+      @if (loading()) {
+        <p class="empty">Loading…</p>
+      } @else if (loadError()) {
+        <app-assignment-message [error]="loadError()" (reload)="load()" (retry)="load()" />
+      } @else if (template(); as t) {
+        <app-assignment-message [error]="actionError()" (reload)="load()" (retry)="load()" />
 
-      @if (version(); as v) {
-        <mat-form-field appearance="outline" style="max-width:480px;width:100%">
-          <mat-label>Title</mat-label>
-          <input matInput [(ngModel)]="titleDraft" [disabled]="v.status !== 'DRAFT'" (blur)="saveTitle(v)" />
-        </mat-form-field>
+        <div class="actions">
+          @if (!t.draftVersionId) {
+            <button mat-stroked-button type="button" [disabled]="mode.mutationsDisabled()" (click)="startDraft()">
+              <mat-icon>edit</mat-icon> Start Draft
+            </button>
+          }
+          @if (t.draftVersionId) {
+            <button mat-stroked-button color="warn" type="button" [disabled]="mode.mutationsDisabled()" (click)="discardDraft()">Discard Draft</button>
+            <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled() || !version()" (click)="publish()">
+              <mat-icon>check_circle</mat-icon> Publish
+            </button>
+          }
+          @if (t.publishedVersionId && !t.archivedAt) {
+            <button mat-stroked-button color="warn" type="button" [disabled]="mode.mutationsDisabled()" (click)="archive()">
+              <mat-icon>archive</mat-icon> Archive
+            </button>
+            <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled()" (click)="assignToClass()">
+              <mat-icon>send</mat-icon> Assign to Class
+            </button>
+          }
+        </div>
 
-        <app-question-list [versionId]="v.id" [initialQuestions]="v.questions" [draft]="v.status === 'DRAFT'" />
-      } @else {
-        <p class="empty">No version to display yet -- start a draft to begin authoring.</p>
+        @if (version(); as v) {
+          <mat-form-field appearance="outline" style="max-width:480px;width:100%">
+            <mat-label>Title</mat-label>
+            <input matInput [(ngModel)]="titleDraft" [disabled]="mode.mutationsDisabled() || !t.draftVersionId" (blur)="saveTitle()" />
+          </mat-form-field>
+
+          <mat-button-toggle-group [value]="viewMode()" (change)="viewMode.set($event.value)" style="margin:12px 0">
+            <mat-button-toggle value="edit">Edit</mat-button-toggle>
+            <mat-button-toggle value="preview">Preview</mat-button-toggle>
+          </mat-button-toggle-group>
+
+          @if (viewMode() === 'preview') {
+            <app-template-preview [questions]="v.questions" />
+          } @else {
+            <app-question-list
+              [versionId]="v.id" [initialQuestions]="v.questions"
+              [editable]="!t.archivedAt" [mutationsDisabled]="mode.mutationsDisabled()"
+              [ensureDraft]="ensureDraftVersionRef" (reload)="load()" />
+          }
+        } @else {
+          <p class="empty">No version to display yet -- start a draft or add a question to begin authoring.</p>
+        }
       }
     }
   `
@@ -100,6 +136,7 @@ export class TemplateEditorComponent implements OnInit {
   private authoringApi = inject(AssignmentAuthoringApiService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
+  mode = inject(ClassroomLiteModeService);
 
   templateId = signal<number | null>(null);
   template = signal<AssignmentTemplateDTO | null>(null);
@@ -107,7 +144,13 @@ export class TemplateEditorComponent implements OnInit {
   loading = signal(true);
   loadError = signal<AssignmentUiError | null>(null);
   actionError = signal<AssignmentUiError | null>(null);
+  viewMode = signal<'edit' | 'preview'>('edit');
   titleDraft = '';
+
+  private draftCreation$: Observable<AssignmentTemplateVersionDTO> | null = null;
+
+  /** Bound once (arrow function, stable reference) so question-list's ngOnChanges is never re-triggered by a new function identity on each render. */
+  ensureDraftVersionRef = (): Observable<AssignmentTemplateVersionDTO> => this.ensureDraftVersion();
 
   ngOnInit() {
     this.templateId.set(Number(this.route.snapshot.paramMap.get('templateId')));
@@ -138,20 +181,47 @@ export class TemplateEditorComponent implements OnInit {
     });
   }
 
-  saveTitle(v: AssignmentTemplateVersionDTO) {
+  /** T3 auto-draft-on-edit: resolves to the current open draft, creating one (once, de-duplicated) if none exists yet. */
+  private ensureDraftVersion(): Observable<AssignmentTemplateVersionDTO> {
+    const t = this.template();
+    const v = this.version();
+    if (t?.draftVersionId && v?.status === 'DRAFT') {
+      return of(v);
+    }
+    if (!this.draftCreation$) {
+      const id = this.templateId();
+      if (id == null) return of(v!);
+      this.draftCreation$ = this.authoringApi.startDraft(id).pipe(
+        tap(newDraft => {
+          this.version.set(newDraft);
+          this.titleDraft = newDraft.title;
+          this.template.update(tt => tt ? { ...tt, draftVersionId: newDraft.id, displayStatus: tt.publishedVersionId ? 'PUBLISHED_WITH_DRAFT' : 'DRAFT' } : tt);
+          this.draftCreation$ = null;
+        }),
+        shareReplay(1)
+      );
+    }
+    return this.draftCreation$;
+  }
+
+  saveTitle() {
+    const v = this.version();
+    if (!v) return;
     const trimmed = this.titleDraft.trim();
     if (!trimmed || trimmed === v.title) return;
-    this.authoringApi.updateTitle(v.id, { expectedRowVersion: v.rowVersion, title: trimmed }).subscribe({
-      next: updated => this.version.set(updated),
+    this.ensureDraftVersion().subscribe({
+      next: current => {
+        this.authoringApi.updateTitle(current.id, { expectedRowVersion: current.rowVersion, title: trimmed }).subscribe({
+          next: updated => this.version.set(updated),
+          error: (err: HttpErrorResponse) => this.actionError.set(toAssignmentUiError(err))
+        });
+      },
       error: (err: HttpErrorResponse) => this.actionError.set(toAssignmentUiError(err))
     });
   }
 
   startDraft() {
-    const id = this.templateId();
-    if (id == null) return;
-    this.authoringApi.startDraft(id).subscribe({
-      next: () => this.load(),
+    this.ensureDraftVersion().subscribe({
       error: (err: HttpErrorResponse) => this.actionError.set(toAssignmentUiError(err))
     });
   }
@@ -169,9 +239,23 @@ export class TemplateEditorComponent implements OnInit {
     });
   }
 
+  /**
+   * T8/real technical publish gate (correction pass item 3): validates the
+   * freshly-held draft graph against the exact same rules
+   * AssignmentTemplateService.validateAnswerKey() enforces server-side,
+   * BEFORE ever opening the attestation dialog. The attestation dialog
+   * remains a separate human-confirmation step reached only once this
+   * technical validation passes.
+   */
   publish() {
     const id = this.templateId();
-    if (id == null) return;
+    const v = this.version();
+    if (id == null || v == null) return;
+    const validationError = validateForPublish(v.questions);
+    if (validationError) {
+      this.actionError.set(validationError);
+      return;
+    }
     const ref = this.dialog.open<PublishAttestationAssignmentDialog, unknown, PublishAttestationAssignmentResult | null>(
       PublishAttestationAssignmentDialog, { data: { templateId: id } }
     );

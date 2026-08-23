@@ -8,6 +8,10 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { AssignmentSubmissionReviewApiService } from '../data-access/assignment-submission-review-api.service';
 import { StaffSubmissionDetailDTO } from '../data-access/assignment-staff.model';
 import { AssignmentUiError, toAssignmentUiError } from '../../../core/services/assignment-api-error.util';
+import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
+import { AssignmentModeBannerComponent } from '../../../shared/assignment/assignment-mode-banner';
+import { AssignmentMessageComponent } from '../../../shared/assignment/assignment-message';
+import { FullOutageBlockComponent } from '../../../shared/curriculum/full-outage-block';
 import { AttemptHistoryPanelComponent } from './attempt-history-panel';
 import { RequestRevisionDialog, RequestRevisionDialogResult } from './request-revision-dialog';
 
@@ -15,17 +19,21 @@ import { RequestRevisionDialog, RequestRevisionDialogResult } from './request-re
  * T13/T14/T15/T16. currentAttemptId/rowVersion from THIS freshly-loaded
  * detail response are the only source ever used for
  * expectedAttemptId/expectedRowVersion on Validate/Request-Revision --
- * never a value cached from the queue row (Plan §9/§18).
+ * never a value cached from the queue row. Any STALE_VERSION/
+ * ASSIGNMENT_STALE failure on either action surfaces the blocking
+ * stale-conflict banner with a Reload action that re-fetches this
+ * authoritative detail (discarding any local unsaved state) rather than
+ * silently retrying the mutation.
  */
 @Component({
   selector: 'app-submission-detail',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, AttemptHistoryPanelComponent],
+  imports: [MatButtonModule, MatIconModule, AssignmentModeBannerComponent, AssignmentMessageComponent, FullOutageBlockComponent, AttemptHistoryPanelComponent],
   styles: [`
     .page-header { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; }
     .meta { color: #6c757d; margin-bottom: 16px; }
     .actions { display: flex; gap: 8px; margin: 16px 0; }
-    .error { color: #b91c1c; }
+    .empty { color: #adb5bd; padding: 32px 0; }
     button[mat-flat-button], button[mat-stroked-button] { min-height: 44px; }
   `],
   template: `
@@ -34,23 +42,29 @@ import { RequestRevisionDialog, RequestRevisionDialogResult } from './request-re
       <h2 style="margin:0">Submission</h2>
     </div>
 
-    @if (loading()) {
-      <p>Loading…</p>
-    } @else if (loadError()) {
-      <p class="error">{{ loadError()!.message }} <button mat-stroked-button (click)="load()">Reload</button></p>
-    } @else if (detail(); as d) {
-      <p class="meta">{{ d.firstName }} {{ d.lastName }} · {{ d.templateTitle }} · {{ d.className }} · status {{ d.status }}</p>
+    @if (mode.mode() === 'FULL_OUTAGE') {
+      <app-full-outage-block />
+    } @else {
+      <app-assignment-mode-banner />
 
-      @if (actionError()) { <p class="error">{{ actionError()!.message }}</p> }
+      @if (loading()) {
+        <p class="empty">Loading…</p>
+      } @else if (loadError()) {
+        <app-assignment-message [error]="loadError()" (reload)="load()" (retry)="load()" />
+      } @else if (detail(); as d) {
+        <p class="meta">{{ d.firstName }} {{ d.lastName }} · {{ d.templateTitle }} · {{ d.className }} · status {{ d.status }}</p>
 
-      @if (d.status === 'SUBMITTED') {
-        <div class="actions">
-          <button mat-flat-button color="primary" type="button" (click)="validate(d)">Validate</button>
-          <button mat-stroked-button color="warn" type="button" (click)="requestRevision(d)">Request Revision</button>
-        </div>
+        <app-assignment-message [error]="actionError()" (reload)="load()" (retry)="load()" />
+
+        @if (d.status === 'SUBMITTED') {
+          <div class="actions">
+            <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled()" (click)="validate(d)">Validate</button>
+            <button mat-stroked-button color="warn" type="button" [disabled]="mode.mutationsDisabled()" (click)="requestRevision(d)">Request Revision</button>
+          </div>
+        }
+
+        <app-attempt-history-panel [questions]="d.questions" [attemptHistory]="d.attemptHistory" />
       }
-
-      <app-attempt-history-panel [questions]="d.questions" [attemptHistory]="d.attemptHistory" />
     }
   `
 })
@@ -60,6 +74,7 @@ export class SubmissionDetailComponent implements OnInit {
   private api = inject(AssignmentSubmissionReviewApiService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
+  mode = inject(ClassroomLiteModeService);
 
   studentAssignmentId = signal<number | null>(null);
   detail = signal<StaffSubmissionDetailDTO | null>(null);
