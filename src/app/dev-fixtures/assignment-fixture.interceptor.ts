@@ -99,6 +99,25 @@ export const assignmentFixtureInterceptor: HttpInterceptorFn = (req: HttpRequest
     if (s === 'guardedDeleteStale') return errorResponse(409, 'STALE_VERSION', 'This changed since you opened it.', req.url);
     return ok(null);
   }
+
+  // T3 defect-fix manual verification tripwires (template 2's published-only
+  // clone flow): 10/20/30 are the PUBLISHED version's ids -- a fixed T3
+  // implementation must never target these once auto-draft has cloned.
+  // 11/21/41/42 are the CLONE's ids -- the only correct targets post-clone.
+  if (path === '/school/assignments/questions/10' && req.method === 'PUT') {
+    return errorResponse(400, 'FIXTURE_BUG_PUBLISHED_ID_USED', 'T3 defect: mutation targeted the PUBLISHED question id (10), not the cloned draft id (11).', req.url);
+  }
+  if (path === '/school/assignments/questions/11' && req.method === 'PUT') {
+    const body = req.body as { prompt: string; questionOrder: number; maxSelections: number | null };
+    return ok({ id: 11, templateVersionId: 1002, questionType: 'SHORT_TEXT', rowVersion: 1, options: [], ...body });
+  }
+  if (path === '/school/assignments/options/30' && req.method === 'PUT') {
+    return errorResponse(400, 'FIXTURE_BUG_PUBLISHED_ID_USED', 'T3 defect: mutation targeted the PUBLISHED option id (30), not the cloned draft id (41).', req.url);
+  }
+  if (path === '/school/assignments/options/41' && req.method === 'PUT') {
+    const body = req.body as { optionLabel: string; optionOrder: number; isCorrect: boolean };
+    return ok({ id: 41, questionId: 21, rowVersion: 1, ...body });
+  }
   if (path.startsWith('/school/assignments/questions/') && path.endsWith('/options/reorder')) return ok([]);
 
   if (path === '/school/assignments/instances' && req.method === 'POST') {
