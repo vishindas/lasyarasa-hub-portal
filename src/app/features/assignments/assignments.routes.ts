@@ -1,10 +1,12 @@
 import { Routes } from '@angular/router';
 import { assignmentRouteGuard } from './assignment-route.guard';
+import { AssignmentsShellComponent } from './assignments-shell';
 
 export const ASSIGNMENTS_ROUTES: Routes = [
   {
     path: '',
     canActivate: [assignmentRouteGuard],
+    component: AssignmentsShellComponent,
     children: [
       { path: '', loadComponent: () => import('./template-list/template-list').then(m => m.TemplateListComponent) },
       { path: 'templates/:templateId', loadComponent: () => import('./template-editor/template-editor').then(m => m.TemplateEditorComponent) },

@@ -3,41 +3,48 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDialog } from '@angular/material/dialog';
 import { AssignmentTemplateApiService } from '../../../core/services/assignment-template-api.service';
 import { AssignmentTemplateSummaryDTO } from '../../../core/models/assignment.model';
 import { AssignmentUiError, toAssignmentUiError } from '../../../core/services/assignment-api-error.util';
+import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
+import { AssignmentModeBannerComponent } from '../../../shared/assignment/assignment-mode-banner';
+import { AssignmentMessageComponent } from '../../../shared/assignment/assignment-message';
+import { FullOutageBlockComponent } from '../../../shared/curriculum/full-outage-block';
 import { TemplateListRowComponent } from './template-list-row';
 
-/** T1 -- paginated template list, optionally module-scoped via the ?moduleId= query param (Manage Assignments entry point, Plan §6). */
+/** T1 -- paginated template list, optionally module-scoped via the ?moduleId= query param (Manage Assignments entry point). Reads/navigation remain available during WRITE_FROZEN; "New Template" is disabled. */
 @Component({
   selector: 'app-template-list',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, TemplateListRowComponent],
+  imports: [MatButtonModule, MatIconModule, AssignmentModeBannerComponent, AssignmentMessageComponent, FullOutageBlockComponent, TemplateListRowComponent],
   styles: [`
     .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
     .empty { color: #adb5bd; padding: 32px 0; text-align: center; }
-    .error { color: #b91c1c; padding: 16px 0; }
   `],
   template: `
-    <div class="page-header">
-      <h2 style="margin:0">Assignment Templates</h2>
-      @if (moduleId() != null && curriculumVersionId() != null) {
-        <button mat-flat-button color="primary" type="button" (click)="createTemplate()">
-          <mat-icon>add</mat-icon> New Template
-        </button>
-      }
-    </div>
-
-    @if (loading()) {
-      <p class="empty">Loading…</p>
-    } @else if (error()) {
-      <p class="error">{{ error()!.message }}</p>
-    } @else if (templates().length === 0) {
-      <p class="empty">No assignment templates yet.</p>
+    @if (mode.mode() === 'FULL_OUTAGE') {
+      <app-full-outage-block />
     } @else {
-      @for (t of templates(); track t.id) {
-        <app-template-list-row [template]="t" (open)="openTemplate($event)" />
+      <app-assignment-mode-banner />
+      <div class="page-header">
+        <h2 style="margin:0">Assignment Templates</h2>
+        @if (moduleId() != null && curriculumVersionId() != null) {
+          <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled()" (click)="createTemplate()">
+            <mat-icon>add</mat-icon> New Template
+          </button>
+        }
+      </div>
+
+      @if (loading()) {
+        <p class="empty">Loading…</p>
+      } @else if (error()) {
+        <app-assignment-message [error]="error()" (reload)="load()" (retry)="load()" />
+      } @else if (templates().length === 0) {
+        <p class="empty">No assignment templates yet.</p>
+      } @else {
+        @for (t of templates(); track t.id) {
+          <app-template-list-row [template]="t" (open)="openTemplate($event)" />
+        }
       }
     }
   `
@@ -46,7 +53,7 @@ export class TemplateListComponent implements OnInit {
   private api = inject(AssignmentTemplateApiService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private dialog = inject(MatDialog);
+  mode = inject(ClassroomLiteModeService);
 
   moduleId = signal<number | null>(null);
   curriculumVersionId = signal<number | null>(null);
@@ -76,7 +83,7 @@ export class TemplateListComponent implements OnInit {
   }
 
   createTemplate() {
-    // Only buildable when arriving module-scoped (Manage Assignments entry point, Plan §6),
+    // Only buildable when arriving module-scoped (Manage Assignments entry point),
     // which supplies both moduleId and curriculumVersionId as query params -- the
     // unfiltered sidebar entry point has no module context to create against.
     const moduleId = this.moduleId();
