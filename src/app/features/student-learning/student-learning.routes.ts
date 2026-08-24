@@ -38,8 +38,12 @@ export const STUDENT_LEARNING_ROUTES: Routes = [
     loadComponent: () => import('./lesson-detail/lesson-detail').then(m => m.LessonDetailComponent)
   },
   {
+    // Slice 16: real assignment feature, under its own approved
+    // features/student-assignments/** directory (answer-key isolation
+    // boundary, scripts/check-assignment-import-boundary.mjs) -- replaces
+    // the Slice 12 placeholder that lived at ./assignments/assignment-summary.
     path: 'assignments',
-    loadComponent: () => import('./assignments/assignment-summary').then(m => m.AssignmentSummaryComponent)
+    loadChildren: () => import('../student-assignments/student-assignments.routes').then(m => m.STUDENT_ASSIGNMENTS_ROUTES)
   },
   {
     path: 'classes/:classId/updates',
