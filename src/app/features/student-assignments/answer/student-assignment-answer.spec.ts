@@ -355,6 +355,100 @@ describe('StudentAssignmentAnswerComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('input, textarea').length).toBeGreaterThan(0);
   });
 
+  it('a naturally-completed debounce save does not leave a stale timer entry that re-fires a redundant PUT on navigation', async () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = setup();
+      flushInitialLoad(fixture);
+      const router = TestBed.inject(Router);
+      const navSpy = vi.spyOn(router, 'navigate');
+      const qs = fixture.componentInstance.questionStates()[0];
+      fixture.componentInstance.onTextInput(qs, { target: { value: 'final answer' } } as unknown as Event);
+      vi.advanceTimersByTime(800); // let the debounce fire and complete on its own
+      const req = httpMock.expectOne(`${base}/5001/draft/1`);
+      expect(req.request.body.textResponse).toBe('final answer');
+      req.flush({ questionId: 1, textResponse: 'final answer', selectedOptionIds: [], rowVersion: 0 });
+
+      // Navigating afterward must not re-fire a save for the already-settled question.
+      const navPromise = fixture.componentInstance.goReview();
+      httpMock.expectNone(`${base}/5001/draft/1`);
+      await navPromise;
+      expect(navSpy).toHaveBeenCalledWith(['/my-students', 201, 'assignments', 5001, 'review']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a stale in-flight save response arriving BEFORE Reload completes does not overwrite the freshly reloaded state', () => {
+    const fixture = setup();
+    flushInitialLoad(fixture);
+    const comp = fixture.componentInstance;
+
+    const qA = comp.questionStates()[1]; // SINGLE_CHOICE id 2 -- driven into conflict
+    comp.onSingleChoiceChange(qA, 10);
+    httpMock.expectOne(`${base}/5001/draft/2`).flush({ code: 'DRAFT_SAVE_CONFLICT' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+    expect(comp.questionStates()[1].saveState).toBe('conflict');
+
+    const qB = comp.questionStates()[2]; // MULTIPLE_CHOICE id 3 -- still in flight when Reload starts
+    comp.onMultiChoiceToggle(qB, 20, { target: { checked: true } } as unknown as Event);
+    const bReq = httpMock.expectOne(`${base}/5001/draft/3`);
+
+    comp.load(); // Reload, before B's response arrives
+    const detailReq = httpMock.expectOne(DETAIL_URL);
+
+    bReq.flush({ questionId: 3, textResponse: null, selectedOptionIds: [20], rowVersion: 0 }); // stale response arrives first, before either reload GET has resolved
+
+    detailReq.flush(detailWithQuestions('DRAFT'));
+    httpMock.expectOne(DRAFTS_URL).flush([{ questionId: 3, textResponse: null, selectedOptionIds: [], rowVersion: 9 }]);
+    fixture.detectChanges();
+
+    const freshB = comp.questionStates()[2];
+    expect(freshB.saveState).toBe('idle');
+    expect(freshB.selectedOptionIds).toEqual([]);
+    expect(freshB.rowVersion).toBe(9);
+    httpMock.expectNone(`${base}/5001/draft/3`); // no trailing PUT from the discarded stale response
+
+    comp.onMultiChoiceToggle(comp.questionStates()[2], 21, { target: { checked: true } } as unknown as Event);
+    const req = httpMock.expectOne(`${base}/5001/draft/3`);
+    expect(req.request.body.expectedDraftRowVersion).toBe(9); // next real edit uses the refreshed rowVersion
+    req.flush({ questionId: 3, textResponse: null, selectedOptionIds: [21], rowVersion: 10 });
+  });
+
+  it('a stale in-flight save response arriving AFTER Reload completes does not overwrite the freshly reloaded state', () => {
+    const fixture = setup();
+    flushInitialLoad(fixture);
+    const comp = fixture.componentInstance;
+
+    const qA = comp.questionStates()[1];
+    comp.onSingleChoiceChange(qA, 10);
+    httpMock.expectOne(`${base}/5001/draft/2`).flush({ code: 'DRAFT_SAVE_CONFLICT' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    const qB = comp.questionStates()[2];
+    comp.onMultiChoiceToggle(qB, 20, { target: { checked: true } } as unknown as Event);
+    const bReq = httpMock.expectOne(`${base}/5001/draft/3`);
+
+    comp.load();
+    httpMock.expectOne(DETAIL_URL).flush(detailWithQuestions('DRAFT'));
+    httpMock.expectOne(DRAFTS_URL).flush([{ questionId: 3, textResponse: null, selectedOptionIds: [], rowVersion: 9 }]);
+    fixture.detectChanges();
+
+    bReq.flush({ questionId: 3, textResponse: null, selectedOptionIds: [20], rowVersion: 0 }); // stale response arrives after reload completed
+    fixture.detectChanges();
+
+    const freshB = comp.questionStates()[2];
+    expect(freshB.saveState).toBe('idle');
+    expect(freshB.selectedOptionIds).toEqual([]);
+    expect(freshB.rowVersion).toBe(9);
+    httpMock.expectNone(`${base}/5001/draft/3`);
+
+    comp.onMultiChoiceToggle(comp.questionStates()[2], 21, { target: { checked: true } } as unknown as Event);
+    const req = httpMock.expectOne(`${base}/5001/draft/3`);
+    expect(req.request.body.expectedDraftRowVersion).toBe(9);
+    req.flush({ questionId: 3, textResponse: null, selectedOptionIds: [21], rowVersion: 10 });
+  });
+
   it('answer-key isolation: rendered DOM never contains isCorrect/correctOption for any question type', () => {
     const fixture = setup();
     flushInitialLoad(fixture);

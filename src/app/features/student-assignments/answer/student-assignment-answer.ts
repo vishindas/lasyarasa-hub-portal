@@ -197,6 +197,16 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
 
   private debounceTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
+  /**
+   * Bumped every time load() (initial load or Reload) begins. Each save
+   * captures the generation it started under; a response that resolves
+   * under a later generation (i.e. a Reload happened while it was still in
+   * flight) is discarded outright -- it must never mutate question state,
+   * trigger a trailing resave, or touch inFlight/dirty bookkeeping, since
+   * the freshly reloaded state and rowVersions are authoritative.
+   */
+  private loadGeneration = 0;
+
   ngOnInit() {
     this.studentId.set(Number(this.route.snapshot.paramMap.get('studentId')));
     this.studentAssignmentId.set(Number(this.route.snapshot.paramMap.get('studentAssignmentId')));
@@ -208,6 +218,7 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
   }
 
   load() {
+    this.loadGeneration++;
     this.loading.set(true);
     this.loadError.set(null);
     this.revisionFeedback.set(null);
@@ -215,6 +226,7 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
     this.debounceTimers.clear();
     this.inFlight.clear();
     this.dirty.clear();
+    this.notifySettleWaiters();
     this.api.getDetail(this.studentId(), this.studentAssignmentId()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: d => {
         this.detail.set(d);
@@ -300,7 +312,16 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
     this.replaceState(qs);
     const existing = this.debounceTimers.get(qs.question.id);
     if (existing) clearTimeout(existing);
-    this.debounceTimers.set(qs.question.id, setTimeout(() => this.saveNow(qs), DEBOUNCE_MS));
+    const timer = setTimeout(() => {
+      // Only remove this timer's own entry -- if a newer keystroke already
+      // replaced it (and cleared this one), this stale callback must never
+      // fire at all, but guard anyway so it can never delete a replacement.
+      if (this.debounceTimers.get(qs.question.id) === timer) {
+        this.debounceTimers.delete(qs.question.id);
+      }
+      this.saveNow(qs);
+    }, DEBOUNCE_MS);
+    this.debounceTimers.set(qs.question.id, timer);
   }
 
   retrySave(qs: QuestionAnswerState) {
@@ -335,6 +356,7 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
       this.dirty.add(qs.question.id);
       return;
     }
+    const generation = this.loadGeneration;
     this.inFlight.add(qs.question.id);
     qs.saveState = 'saving';
     this.replaceState(qs);
@@ -345,6 +367,11 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
       expectedDraftRowVersion: qs.rowVersion
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: saved => {
+        // A Reload started (and reset inFlight/dirty) after this save began --
+        // the fresh reloaded state is authoritative; this response must not
+        // mutate it, trigger a trailing resave, or touch bookkeeping that no
+        // longer belongs to this generation.
+        if (generation !== this.loadGeneration) return;
         qs.rowVersion = saved.rowVersion;
         qs.saveState = 'saved';
         this.replaceState(qs);
@@ -353,6 +380,7 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
         this.notifySettleWaiters();
       },
       error: (err: HttpErrorResponse) => {
+        if (generation !== this.loadGeneration) return;
         this.inFlight.delete(qs.question.id);
         this.dirty.delete(qs.question.id);
         const existingTimer = this.debounceTimers.get(qs.question.id);
