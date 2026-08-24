@@ -80,7 +80,7 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
 
     @if (loading()) {
       <mat-spinner diameter="36" />
-    } @else if (detail(); as d) {
+    } @else if (!loadError() && detail(); as d) {
       <h1 tabindex="-1">{{ d.title }}</h1>
 
       @if (unavailable()) {
@@ -232,13 +232,13 @@ export class StudentAssignmentDetailComponent implements OnInit {
     this.api.getDetail(this.studentId(), this.studentAssignmentId()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: d => {
         this.detail.set(d);
-        this.loading.set(false);
-        if (d.instanceStatus === 'WITHDRAWN') return;
-        if (d.status === 'DRAFT') {
+        if (d.instanceStatus === 'WITHDRAWN') {
+          this.loading.set(false);
+          return;
+        }
+        if (d.status === 'DRAFT' || (d.status === 'CLOSED' && d.attemptNumber === 0)) {
           this.loadDrafts();
-        } else if (d.status === 'CLOSED' && d.attemptNumber === 0) {
-          this.loadDrafts();
-        } else if (d.status === 'SUBMITTED' || d.status === 'VALIDATED' || d.status === 'REVISION_REQUESTED' || (d.status === 'CLOSED' && d.attemptNumber > 0)) {
+        } else {
           this.loadAttempts();
         }
       },
@@ -248,15 +248,15 @@ export class StudentAssignmentDetailComponent implements OnInit {
 
   private loadDrafts() {
     this.api.listDrafts(this.studentId(), this.studentAssignmentId()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: rows => this.drafts.set(rows),
-      error: () => this.drafts.set([])
+      next: rows => { this.drafts.set(rows); this.loading.set(false); },
+      error: (err: HttpErrorResponse) => { this.loadError.set(toStudentAssignmentUiError(err)); this.loading.set(false); }
     });
   }
 
   private loadAttempts() {
     this.api.getAttemptHistory(this.studentId(), this.studentAssignmentId()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: rows => this.attempts.set(rows),
-      error: () => this.attempts.set([])
+      next: rows => { this.attempts.set(rows); this.loading.set(false); },
+      error: (err: HttpErrorResponse) => { this.loadError.set(toStudentAssignmentUiError(err)); this.loading.set(false); }
     });
   }
 

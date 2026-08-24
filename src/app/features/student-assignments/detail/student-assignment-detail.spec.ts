@@ -193,6 +193,42 @@ describe('StudentAssignmentDetailComponent', () => {
     expect(text).not.toContain('100');
   });
 
+  it('CLOSED attemptNumber=0 + draft GET failure does not render "never started" -- shows retry instead of a false empty-draft conclusion', () => {
+    const fixture = setup();
+    httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'CLOSED', attemptNumber: 0 }));
+    httpMock.expectOne(DRAFTS_URL).flush({ code: 'UNKNOWN' }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('before you started this assignment');
+    expect(text).not.toContain('Explain?');
+    expect(fixture.nativeElement.querySelector('button')?.textContent?.trim()).toBe('Retry');
+  });
+
+  it('SUBMITTED + attempts GET failure does not render answers as "Not answered" -- shows retry instead of a false empty-history conclusion', () => {
+    const fixture = setup();
+    httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'SUBMITTED', attemptNumber: 1 }));
+    httpMock.expectOne(ATTEMPTS_URL).flush({ code: 'UNKNOWN' }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Not answered');
+    expect(text).not.toContain("awaiting your teacher's review");
+    expect(fixture.nativeElement.querySelector('button')?.textContent?.trim()).toBe('Retry');
+  });
+
+  it('retry after a failed secondary read re-fetches the complete required read set and then renders the correct branch', () => {
+    const fixture = setup();
+    httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'CLOSED', attemptNumber: 0 }));
+    httpMock.expectOne(DRAFTS_URL).flush({ code: 'UNKNOWN' }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    fixture.componentInstance.load();
+    httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'CLOSED', attemptNumber: 0 }));
+    httpMock.expectOne(DRAFTS_URL).flush([{ questionId: 1, textResponse: 'unsubmitted draft answer', selectedOptionIds: [], rowVersion: 0 }]);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('as you left them; they were not reviewed');
+    expect(text).toContain('unsubmitted draft answer');
+  });
+
   it('answer-key isolation: rendered DOM never contains isCorrect/correctOption, even with a fully populated SINGLE_CHOICE question and graded outcome', () => {
     const fixture = setup();
     httpMock.expectOne(DETAIL_URL).flush(detail({
