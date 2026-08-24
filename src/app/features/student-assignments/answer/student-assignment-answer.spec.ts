@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ActivatedRoute, provideRouter, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, Router, provideRouter, convertToParamMap } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { StudentAssignmentAnswerComponent } from './student-assignment-answer';
 import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
@@ -197,6 +197,162 @@ describe('StudentAssignmentAnswerComponent', () => {
     const inputs = Array.from(fixture.nativeElement.querySelectorAll('input, textarea')) as (HTMLInputElement | HTMLTextAreaElement)[];
     expect(inputs.every(i => i.disabled)).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Review answers');
+  });
+
+  it('Review answers flushes a pending debounced save before navigating, using the latest typed value', async () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = setup();
+      flushInitialLoad(fixture);
+      const router = TestBed.inject(Router);
+      const navSpy = vi.spyOn(router, 'navigate');
+      const qs = fixture.componentInstance.questionStates()[0];
+      fixture.componentInstance.onTextInput(qs, { target: { value: 'partial' } } as unknown as Event);
+      vi.advanceTimersByTime(300); // well before the 800ms debounce would otherwise fire
+      const navPromise = fixture.componentInstance.goReview();
+      const req = httpMock.expectOne(`${base}/5001/draft/1`);
+      expect(req.request.body.textResponse).toBe('partial');
+      req.flush({ questionId: 1, textResponse: 'partial', selectedOptionIds: [], rowVersion: 0 });
+      await navPromise;
+      expect(navSpy).toHaveBeenCalledWith(['/my-students', 201, 'assignments', 5001, 'review']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Save and exit flushes a pending debounced save before navigating away -- it genuinely saves before exiting', async () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = setup();
+      flushInitialLoad(fixture);
+      const router = TestBed.inject(Router);
+      const navSpy = vi.spyOn(router, 'navigate');
+      const qs = fixture.componentInstance.questionStates()[0];
+      fixture.componentInstance.onTextInput(qs, { target: { value: 'exit-value' } } as unknown as Event);
+      vi.advanceTimersByTime(200);
+      const navPromise = fixture.componentInstance.onExitClick({ preventDefault: () => {} } as unknown as Event);
+      const req = httpMock.expectOne(`${base}/5001/draft/1`);
+      expect(req.request.body.textResponse).toBe('exit-value');
+      req.flush({ questionId: 1, textResponse: 'exit-value', selectedOptionIds: [], rowVersion: 0 });
+      await navPromise;
+      expect(navSpy).toHaveBeenCalledWith(['/my-students', 201, 'assignments', 5001]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('navigating while a choice save is in flight with a trailing coalesced change waits for BOTH saves to settle, in order, before navigating', async () => {
+    const fixture = setup();
+    flushInitialLoad(fixture);
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate');
+    const qs = fixture.componentInstance.questionStates()[1];
+    fixture.componentInstance.onSingleChoiceChange(qs, 10);
+    // A trailing change arrives while the first save is still in flight.
+    fixture.componentInstance.onSingleChoiceChange(fixture.componentInstance.questionStates()[1], 11);
+    const navPromise = fixture.componentInstance.goReview();
+
+    const first = httpMock.expectOne(`${base}/5001/draft/2`);
+    expect(first.request.body.selectedOptionIds).toEqual([10]);
+    first.flush({ questionId: 2, textResponse: null, selectedOptionIds: [10], rowVersion: 0 });
+    fixture.detectChanges();
+
+    const second = httpMock.expectOne(`${base}/5001/draft/2`);
+    expect(second.request.body.selectedOptionIds).toEqual([11]);
+    expect(second.request.body.expectedDraftRowVersion).toBe(0);
+    expect(navSpy).not.toHaveBeenCalled(); // must not navigate until the trailing save also settles
+    second.flush({ questionId: 2, textResponse: null, selectedOptionIds: [11], rowVersion: 1 });
+
+    await navPromise;
+    expect(navSpy).toHaveBeenCalledWith(['/my-students', 201, 'assignments', 5001, 'review']);
+  });
+
+  it('a failed (non-conflict) save prevents navigation, leaving the existing recovery UI in place', async () => {
+    const fixture = setup();
+    flushInitialLoad(fixture);
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate');
+    const qs = fixture.componentInstance.questionStates()[1];
+    fixture.componentInstance.onSingleChoiceChange(qs, 10);
+    const navPromise = fixture.componentInstance.goReview();
+    httpMock.expectOne(`${base}/5001/draft/2`).flush({ code: 'UNKNOWN' }, { status: 500, statusText: 'Server Error' });
+    await navPromise;
+    fixture.detectChanges();
+    expect(navSpy).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.questionStates()[1].saveState).toBe('error');
+    expect(fixture.componentInstance.navigating()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain("Couldn't save");
+  });
+
+  it('a stale conflict prevents navigation, leaving the existing recovery UI in place', async () => {
+    const fixture = setup();
+    flushInitialLoad(fixture);
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate');
+    const qs = fixture.componentInstance.questionStates()[1];
+    fixture.componentInstance.onSingleChoiceChange(qs, 10);
+    const navPromise = fixture.componentInstance.goReview();
+    httpMock.expectOne(`${base}/5001/draft/2`).flush({ code: 'DRAFT_SAVE_CONFLICT' }, { status: 409, statusText: 'Conflict' });
+    await navPromise;
+    fixture.detectChanges();
+    expect(navSpy).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.questionStates()[1].saveState).toBe('conflict');
+    expect(fixture.componentInstance.navigating()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Reload');
+  });
+
+  it('once a question is in conflict, further edits issue no additional PUTs until Reload succeeds, after which a new edit uses the refreshed rowVersion', () => {
+    const fixture = setup();
+    flushInitialLoad(fixture);
+    const qs = fixture.componentInstance.questionStates()[1];
+    fixture.componentInstance.onSingleChoiceChange(qs, 10);
+    httpMock.expectOne(`${base}/5001/draft/2`).flush({ code: 'DRAFT_SAVE_CONFLICT' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.questionStates()[1].saveState).toBe('conflict');
+
+    // Another change before Reload -- must not issue a new PUT for this question.
+    fixture.componentInstance.onSingleChoiceChange(fixture.componentInstance.questionStates()[1], 11);
+    httpMock.expectNone(`${base}/5001/draft/2`);
+
+    // Reload rebuilds state fresh from the server, clearing the conflict.
+    fixture.componentInstance.load();
+    httpMock.expectOne(DETAIL_URL).flush(detailWithQuestions('DRAFT'));
+    httpMock.expectOne(DRAFTS_URL).flush([{ questionId: 2, textResponse: null, selectedOptionIds: [10], rowVersion: 5 }]);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.questionStates()[1].saveState).toBe('idle');
+
+    // A new change now uses the refreshed rowVersion.
+    fixture.componentInstance.onSingleChoiceChange(fixture.componentInstance.questionStates()[1], 11);
+    const req = httpMock.expectOne(`${base}/5001/draft/2`);
+    expect(req.request.body.expectedDraftRowVersion).toBe(5);
+    req.flush({ questionId: 2, textResponse: null, selectedOptionIds: [11], rowVersion: 6 });
+  });
+
+  it('REVISION_REQUESTED: an attempt-history failure does not silently drop into an editable answer screen with no feedback -- shows retry, never fetches drafts on the failed read', () => {
+    const fixture = setup();
+    const d = detailWithQuestions('REVISION_REQUESTED');
+    httpMock.expectOne(DETAIL_URL).flush(d);
+    httpMock.expectOne(ATTEMPTS_URL).flush({ code: 'UNKNOWN' }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    httpMock.expectNone(DRAFTS_URL);
+    expect(fixture.nativeElement.querySelectorAll('input, textarea').length).toBe(0);
+    expect(fixture.nativeElement.querySelector('button')?.textContent?.trim()).toBe('Retry');
+  });
+
+  it('retrying after a failed attempt-history read (REVISION_REQUESTED) re-fetches the complete required read set and renders normally', () => {
+    const fixture = setup();
+    const d = detailWithQuestions('REVISION_REQUESTED');
+    httpMock.expectOne(DETAIL_URL).flush(d);
+    httpMock.expectOne(ATTEMPTS_URL).flush({ code: 'UNKNOWN' }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    fixture.componentInstance.load();
+    httpMock.expectOne(DETAIL_URL).flush(d);
+    httpMock.expectOne(ATTEMPTS_URL).flush([{ attemptNumber: 1, submittedAt: '2026-01-01T00:00:00', reviewDecision: 'REVISION_REQUESTED', reviewedAt: '2026-01-02T00:00:00', reviewedBy: 9, feedback: 'Please expand.', responses: [] }]);
+    httpMock.expectOne(DRAFTS_URL).flush([]);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Please expand.');
+    expect(fixture.nativeElement.querySelectorAll('input, textarea').length).toBeGreaterThan(0);
   });
 
   it('answer-key isolation: rendered DOM never contains isCorrect/correctOption for any question type', () => {

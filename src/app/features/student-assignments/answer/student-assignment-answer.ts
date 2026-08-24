@@ -1,5 +1,5 @@
 import { Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -50,7 +50,7 @@ const DEBOUNCE_MS = 800;
   selector: 'app-student-assignment-answer',
   standalone: true,
   imports: [
-    RouterLink, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule,
+    FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule,
     StudentAssignmentMessageComponent, StudentAssignmentModeBannerComponent
   ],
   styles: [`
@@ -85,7 +85,8 @@ const DEBOUNCE_MS = 800;
     .frozen-note { font-size: 0.8rem; color: #6B6255; }
   `],
   template: `
-    <a class="back-link" [routerLink]="cancelRoute()">
+    <a class="back-link" role="button" tabindex="0" [attr.aria-disabled]="navigating() || null"
+       (click)="onExitClick($event)" (keydown.enter)="onExitClick($event)" (keydown.space)="onExitClick($event)">
       <mat-icon aria-hidden="true">arrow_back</mat-icon> {{ isRevising() ? 'Cancel revise' : 'Save and exit' }}
     </a>
 
@@ -93,7 +94,7 @@ const DEBOUNCE_MS = 800;
 
     @if (loading()) {
       <mat-spinner diameter="36" />
-    } @else if (detail(); as d) {
+    } @else if (!loadError() && detail(); as d) {
       <h1 tabindex="-1">{{ d.title }}</h1>
       <p class="meta">{{ questionStates().length }} question(s)</p>
 
@@ -118,7 +119,7 @@ const DEBOUNCE_MS = 800;
                     <label class="option-row">
                       <input type="radio" [name]="'q-' + qs.question.id" [value]="o.id"
                              [checked]="qs.selectedOptionIds[0] === o.id"
-                             [disabled]="mode.mutationsDisabled()"
+                             [disabled]="mode.mutationsDisabled() || qs.saveState === 'conflict'"
                              (change)="onSingleChoiceChange(qs, o.id)" />
                       {{ o.optionLabel }}
                     </label>
@@ -132,7 +133,7 @@ const DEBOUNCE_MS = 800;
                     <label class="option-row">
                       <input type="checkbox" [value]="o.id"
                              [checked]="qs.selectedOptionIds.includes(o.id)"
-                             [disabled]="mode.mutationsDisabled() || (!qs.selectedOptionIds.includes(o.id) && qs.selectedOptionIds.length >= (qs.question.maxSelections ?? 0))"
+                             [disabled]="mode.mutationsDisabled() || qs.saveState === 'conflict' || (!qs.selectedOptionIds.includes(o.id) && qs.selectedOptionIds.length >= (qs.question.maxSelections ?? 0))"
                              (change)="onMultiChoiceToggle(qs, o.id, $event)" />
                       {{ o.optionLabel }}
                     </label>
@@ -140,12 +141,12 @@ const DEBOUNCE_MS = 800;
                 </div>
               }
               @case ('SHORT_TEXT') {
-                <input type="text" maxlength="240" [value]="qs.textValue" [disabled]="mode.mutationsDisabled()"
+                <input type="text" maxlength="240" [value]="qs.textValue" [disabled]="mode.mutationsDisabled() || qs.saveState === 'conflict'"
                        (input)="onTextInput(qs, $event)" [attr.aria-label]="qs.question.prompt" />
                 <p class="char-count">{{ qs.textValue.length }} / 240</p>
               }
               @case ('LONG_TEXT') {
-                <textarea rows="5" maxlength="800" [disabled]="mode.mutationsDisabled()"
+                <textarea rows="5" maxlength="800" [disabled]="mode.mutationsDisabled() || qs.saveState === 'conflict'"
                           (input)="onTextInput(qs, $event)" [attr.aria-label]="qs.question.prompt">{{ qs.textValue }}</textarea>
                 <p class="char-count">{{ qs.textValue.length }} / 800</p>
               }
@@ -170,7 +171,7 @@ const DEBOUNCE_MS = 800;
         @if (mode.mutationsDisabled()) {
           <p class="frozen-note">Reading remains available; writing is paused while learning is read-only. Your answers so far are saved as a draft.</p>
         } @else {
-          <button mat-flat-button color="primary" type="button" (click)="goReview()">Review answers</button>
+          <button mat-flat-button color="primary" type="button" [disabled]="navigating()" (click)="goReview()">Review answers</button>
         }
       </div>
     }
@@ -192,6 +193,7 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
   revisionFeedback = signal<string | null>(null);
 
   isRevising = signal(false);
+  navigating = signal(false);
 
   private debounceTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
@@ -208,20 +210,29 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
   load() {
     this.loading.set(true);
     this.loadError.set(null);
+    this.revisionFeedback.set(null);
+    for (const t of this.debounceTimers.values()) clearTimeout(t);
+    this.debounceTimers.clear();
+    this.inFlight.clear();
+    this.dirty.clear();
     this.api.getDetail(this.studentId(), this.studentAssignmentId()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: d => {
         this.detail.set(d);
         this.isRevising.set(d.status === 'REVISION_REQUESTED');
         if (this.isRevising()) {
+          // Feedback is required context for a revision-answering session --
+          // a failed fetch must not silently look like "no feedback."
           this.api.getAttemptHistory(this.studentId(), this.studentAssignmentId()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: attempts => {
               const current = attempts.find(a => a.attemptNumber === d.attemptNumber);
               this.revisionFeedback.set(current?.feedback ?? null);
+              this.loadDraftsAndBuildState(d);
             },
-            error: () => this.revisionFeedback.set(null)
+            error: (err: HttpErrorResponse) => { this.loadError.set(toStudentAssignmentUiError(err)); this.loading.set(false); }
           });
+        } else {
+          this.loadDraftsAndBuildState(d);
         }
-        this.loadDraftsAndBuildState(d);
       },
       error: (err: HttpErrorResponse) => { this.loadError.set(toStudentAssignmentUiError(err)); this.loading.set(false); }
     });
@@ -314,8 +325,12 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
    */
   private inFlight = new Set<number>();
   private dirty = new Set<number>();
+  private settleWaiters: Array<() => void> = [];
 
   private saveNow(qs: QuestionAnswerState) {
+    // Once a question is in conflict, no further write may be issued for it
+    // until an explicit Reload rebuilds its state from the server.
+    if (qs.saveState === 'conflict') return;
     if (this.inFlight.has(qs.question.id)) {
       this.dirty.add(qs.question.id);
       return;
@@ -335,18 +350,80 @@ export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
         this.replaceState(qs);
         this.inFlight.delete(qs.question.id);
         if (this.dirty.delete(qs.question.id)) this.saveNow(qs);
+        this.notifySettleWaiters();
       },
       error: (err: HttpErrorResponse) => {
         this.inFlight.delete(qs.question.id);
         this.dirty.delete(qs.question.id);
+        const existingTimer = this.debounceTimers.get(qs.question.id);
+        if (existingTimer) {
+          clearTimeout(existingTimer);
+          this.debounceTimers.delete(qs.question.id);
+        }
         const mapped = toStudentAssignmentUiError(err);
         qs.saveState = mapped.kind === 'draft-conflict' || mapped.kind === 'stale-version' ? 'conflict' : 'error';
         this.replaceState(qs);
+        this.notifySettleWaiters();
       }
     });
   }
 
-  goReview() {
-    this.router.navigate(['/my-students', this.studentId(), 'assignments', this.studentAssignmentId(), 'review']);
+  private notifySettleWaiters() {
+    if (this.inFlight.size > 0 || this.dirty.size > 0) return;
+    const waiters = this.settleWaiters;
+    this.settleWaiters = [];
+    for (const w of waiters) w();
+  }
+
+  private waitForSaveSettle(): Promise<void> {
+    return new Promise<void>(resolve => {
+      if (this.inFlight.size === 0 && this.dirty.size === 0) {
+        resolve();
+        return;
+      }
+      this.settleWaiters.push(resolve);
+    });
+  }
+
+  /**
+   * The save-and-navigate gate: flush every pending debounce into an
+   * immediate save, then wait for all in-flight/coalesced trailing saves to
+   * fully settle before allowing navigation. Only resolves true once every
+   * question is clear of 'error'/'conflict' -- navigation must never race
+   * ahead of, or rely on, async work surviving this component's destruction.
+   */
+  private flushPendingSavesAndWait(): Promise<boolean> {
+    for (const [questionId, timer] of Array.from(this.debounceTimers.entries())) {
+      clearTimeout(timer);
+      this.debounceTimers.delete(questionId);
+      const qs = this.questionStates().find(s => s.question.id === questionId);
+      if (qs) this.saveNow(qs);
+    }
+    return this.waitForSaveSettle().then(
+      () => !this.questionStates().some(q => q.saveState === 'conflict' || q.saveState === 'error')
+    );
+  }
+
+  async goReview() {
+    if (this.navigating()) return;
+    this.navigating.set(true);
+    const ok = await this.flushPendingSavesAndWait();
+    if (ok) {
+      this.router.navigate(['/my-students', this.studentId(), 'assignments', this.studentAssignmentId(), 'review']);
+    } else {
+      this.navigating.set(false);
+    }
+  }
+
+  async onExitClick(event: Event) {
+    event.preventDefault();
+    if (this.navigating()) return;
+    this.navigating.set(true);
+    const ok = await this.flushPendingSavesAndWait();
+    if (ok) {
+      this.router.navigate(this.cancelRoute());
+    } else {
+      this.navigating.set(false);
+    }
   }
 }
