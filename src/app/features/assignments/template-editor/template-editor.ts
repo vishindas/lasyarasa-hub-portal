@@ -280,7 +280,7 @@ export class TemplateEditorComponent implements OnInit {
       return;
     }
     const ref = this.dialog.open<PublishAttestationAssignmentDialog, unknown, PublishAttestationAssignmentResult | null>(
-      PublishAttestationAssignmentDialog, { data: { templateId: id } }
+      PublishAttestationAssignmentDialog, { data: { templateId: id, versionId: v.id } }
     );
     ref.afterClosed().subscribe(result => {
       if (!result) return;
