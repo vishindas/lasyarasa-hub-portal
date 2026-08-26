@@ -68,6 +68,10 @@ describe('TemplateEditorComponent (T2/T3/T7/T8 + WRITE_FROZEN + real publish gat
 
     fixture.componentInstance.publish();
     expect(dialogOpenSpy).toHaveBeenCalled();
+    // Bug fix regression (production pilot, template 4): the dialog needs the
+    // DRAFT VERSION's id, not just the template id, so it can fetch the
+    // version's rowVersion rather than the template's.
+    expect(dialogOpenSpy.mock.calls[0][1]).toMatchObject({ data: { templateId: 1, versionId: 1000 } });
   });
 
   it('disables every mutation action while ClassroomLiteModeService.mutationsDisabled() is true (WRITE_FROZEN)', () => {
