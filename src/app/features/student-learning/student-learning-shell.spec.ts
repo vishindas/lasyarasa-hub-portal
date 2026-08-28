@@ -1,10 +1,12 @@
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { ActivatedRoute, Router, provideRouter, convertToParamMap } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { StudentAccessLossService } from '../../core/services/student-access-loss.service';
+import { StudentLearningContextService } from '../../core/services/student-learning-context.service';
+import { studentLearningAccessInterceptor } from '../../core/services/student-learning-access.interceptor';
 import { StudentLearningShellComponent } from './student-learning-shell';
 
 /**
@@ -24,7 +26,12 @@ describe('StudentLearningShellComponent -- lost-access isolation', () => {
     TestBed.configureTestingModule({
       imports: [StudentLearningShellComponent],
       providers: [
-        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        // The real studentLearningAccessInterceptor is wired here (not
+        // just provideHttpClient()) so these tests exercise the actual
+        // production interceptor -> StudentAccessLossService pipeline --
+        // this is exactly the piece that was missing from the manual
+        // verify-build bootstrap and made the previous fix look untested.
+        provideHttpClient(withInterceptors([studentLearningAccessInterceptor])), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
         { provide: ActivatedRoute, useValue: { paramMap: { pipe: () => ({ subscribe: (fn: (p: unknown) => void) => fn(convertToParamMap({ studentId: '117' })) }) }, snapshot: { paramMap: convertToParamMap({ studentId: '117' }) } } }
       ]
     });
@@ -98,6 +105,54 @@ describe('StudentLearningShellComponent -- lost-access isolation', () => {
     expect(el.querySelector('app-class-context-bar')).toBeFalsy();
     expect((el.textContent ?? '')).not.toContain('Vidya Rasa');
     expect(el.querySelector('app-lost-access-block')).toBeTruthy();
+  });
+
+  it('parent-shell/context integration: a REAL lost-access HTTP failure (through the real interceptor, not a direct markLost() call) clears the shared context and hides all identity/class UI shell-wide', () => {
+    // This is the test that was missing before: the previous round only
+    // ever called accessLoss.markLost(117) directly, which proved the
+    // template's @if was correct but never proved the real interceptor
+    // pipeline actually reaches it -- which turned out to be broken in the
+    // manual verify-build bootstrap (studentLearningAccessInterceptor was
+    // never wired into main.verify.ts).
+    const fixture = setup();
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
+      { studentId: 117, providerId: 1, studentDisplayName: 'Vidya Rasa', providerDisplayName: 'Dev Dance School', accessType: 'SELF' }
+    ]);
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/classes`).flush([
+      { classId: 11, className: 'Saturday Beginners', schedule: 'Sat 10am' }
+    ]);
+    fixture.detectChanges();
+
+    // Confirm the authorized state is genuinely rendered first.
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-student-switcher')).toBeTruthy();
+    expect(el.querySelector('app-class-context-bar')).toBeTruthy();
+    expect(el.textContent).toContain('Vidya Rasa');
+    expect(el.textContent).toContain('Saturday Beginners');
+    const context = TestBed.inject(StudentLearningContextService);
+    expect(context.classes().length).toBe(1);
+
+    // "The next context request" -- a real HTTP call to the same
+    // learning-scoped path a child screen would make, failing with the
+    // exact shape the real backend returns for a genuinely lost student.
+    TestBed.inject(HttpClient).get(`${environment.apiUrl}/account/students/117/learning/home`).subscribe({ error: () => {} });
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush(
+      { code: 'STUDENT_CONTEXT_UNAVAILABLE', message: 'x', resource: null }, { status: 404, statusText: 'Not Found' }
+    );
+    fixture.detectChanges();
+
+    // The underlying shared state is actually cleared, not just hidden.
+    expect(context.classes()).toEqual([]);
+    expect(context.selectedClassId()).toBeNull();
+    // And the complete rendered shell shows none of it.
+    expect(el.querySelector('app-student-switcher')).toBeFalsy();
+    expect(el.querySelector('app-class-context-bar')).toBeFalsy();
+    expect(el.querySelector('router-outlet')).toBeFalsy();
+    expect(el.querySelector('app-lost-access-block')).toBeTruthy();
+    expect(el.textContent).not.toContain('Vidya Rasa');
+    expect(el.textContent).not.toContain('Saturday Beginners');
+    expect(el.textContent).not.toContain('Dev Dance School');
   });
 
   it('recovery: "Back to My Students" on the lost-access block navigates to /my-students', () => {

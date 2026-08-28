@@ -34,6 +34,21 @@ export class StudentLearningContextService {
     this._selectedClassId.set(classId);
   }
 
+  /**
+   * Security: called by the shell the moment access is lost for the
+   * currently routed student (StudentAccessLossService.lostAccessFor()
+   * matches). Unlike clearForNewStudent(), this never re-fetches -- there
+   * is no student to fetch classes for anymore. Actually clears the
+   * underlying state (not just a rendering suppression in some child), so
+   * no later re-render, re-navigation, or query-param change can surface
+   * the previous student's class name/selection without a fresh,
+   * successful authorization response first.
+   */
+  clearSelection(): void {
+    this._selectedClassId.set(null);
+    this._classes.set([]);
+  }
+
   /** Called whenever the routed studentId changes -- clears the selected class per correction 1's security property, and refetches the new student's classes. No caching across the switch (architect decision 3). */
   clearForNewStudent(studentId: number): void {
     this._selectedClassId.set(null);
