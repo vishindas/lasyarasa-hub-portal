@@ -82,12 +82,35 @@ describe('StudentDashboardOverviewComponent', () => {
     fixture.detectChanges();
 
     httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
-    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false });
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('PILOT Assignment Class: Pilot schedule');
     expect(text).toContain('PILOT Lesson Class: Pilot lesson schedule');
+  });
+
+  it('zero-class empty state: no active classes renders one intentional empty state, never the class-dependent cards', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
+      { studentId: 117, providerId: 1, studentDisplayName: 'Zero Classes Student', providerDisplayName: 'Dev Dance School', accessType: 'SELF' }
+    ]);
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const text = el.textContent ?? '';
+    // Student/school identity is preserved.
+    expect(text).toContain('Zero Classes Student');
+    expect(text).toContain('Dev Dance School');
+    // The intentional empty state renders...
+    expect(text).toContain('No active classes');
+    expect(text).toContain('There are no active classes connected to this student yet.');
+    // ...and none of the class-dependent cards that would imply normal class context.
+    expect(el.querySelector('.grid')).toBeNull();
+    expect(text).not.toContain('No open assignments right now');
+    expect(text).not.toContain('Class schedule');
   });
 
   it('multi-class support: a classId query param (from switching class while staying on Dashboard) fetches Home scoped to that class', () => {

@@ -43,6 +43,9 @@ import { backLabelFor, navigateForRecovery } from '../../student-learning/studen
     .schedule-line { margin: 2px 0; font-size: 0.9rem; color: #1C1A16; }
     .schedule-unavailable { color: #6B6255; font-style: italic; }
     .empty-note { color: #6B6255; font-size: 0.85rem; }
+    .no-classes { border: 1px solid #E3DCC8; padding: 20px; max-width: 480px; }
+    .no-classes h2 { font-family: Fraunces, Georgia, serif; font-size: 1.1rem; color: #1C1A16; margin: 0 0 8px; }
+    .no-classes p { margin: 0; color: #6B6255; font-size: 0.9rem; }
   `],
   template: `
     <h1 tabindex="-1">{{ studentName() || 'Dashboard' }}</h1>
@@ -53,6 +56,15 @@ import { backLabelFor, navigateForRecovery } from '../../student-learning/studen
     } @else if (loading()) {
       <mat-spinner diameter="36" />
     } @else if (home(); as h) {
+      @if (!h.classSelectionRequired && h.selectedClassId == null) {
+        <!-- No class-dependent content (Attention/Continue-learning/Class-schedule cards)
+             is ever rendered here -- all of it implies a normal class context this
+             student doesn't have. -->
+        <div class="no-classes" role="status">
+          <h2>No active classes</h2>
+          <p>There are no active classes connected to this student yet. Please contact the school if you believe a class should appear here.</p>
+        </div>
+      } @else {
       <div class="grid">
         <mat-card class="card">
           <mat-card-content>
@@ -107,6 +119,7 @@ import { backLabelFor, navigateForRecovery } from '../../student-learning/studen
           </mat-card-content>
         </mat-card>
       </div>
+      }
     }
   `
 })
