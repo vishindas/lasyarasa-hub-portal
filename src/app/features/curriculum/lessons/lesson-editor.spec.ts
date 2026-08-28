@@ -77,3 +77,140 @@ describe('LessonEditorComponent -- video-id-in-copy corrections', () => {
     expect(fixture.componentInstance.lesson()?.videoId).toBe('AAAAAAAAAAA');
   });
 });
+
+/**
+ * Regression coverage for the Dev Dance School lesson pilot bug: Save
+ * stayed permanently disabled after switching off the default VIDEO
+ * content type, because the old videoSaveReady computed() read a plain
+ * `form.contentType` field instead of a signal. contentType is now a
+ * signal and Save-readiness is a plain method (saveReady()), re-evaluated
+ * on every change-detection tick rather than cached.
+ */
+describe('LessonEditorComponent -- create-mode Save enablement (content-type switching)', () => {
+  let httpMock: HttpTestingController;
+
+  function setupCreate() {
+    TestBed.configureTestingModule({
+      imports: [LessonEditorComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '101' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonEditorComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  it('default VIDEO stays unsaveable until required YouTube validation succeeds', () => {
+    const fixture = setupCreate();
+    const c = fixture.componentInstance;
+    c.form.title = 'A video lesson';
+    expect(c.contentType()).toBe('VIDEO');
+    expect(c.saveReady()).toBe(false);
+
+    c.onVideoValidated({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://youtu.be/dQw4w9WgXcQ' });
+    expect(c.saveReady()).toBe(true);
+  });
+
+  it('switching VIDEO -> TEXT enables Save once title and lesson text are valid', () => {
+    const fixture = setupCreate();
+    const c = fixture.componentInstance;
+    c.onContentTypeChange('TEXT');
+    expect(c.saveReady()).toBe(false);
+
+    c.form.title = 'A text lesson';
+    expect(c.saveReady()).toBe(false); // text content still blank
+
+    c.form.textContent = 'Some pilot lesson content.';
+    expect(c.saveReady()).toBe(true);
+  });
+
+  it('PDF_LINK enables Save only once its required fields are valid', () => {
+    const fixture = setupCreate();
+    const c = fixture.componentInstance;
+    c.onContentTypeChange('PDF_LINK');
+    c.form.title = 'A PDF lesson';
+    expect(c.saveReady()).toBe(false);
+
+    c.form.externalUrl = 'https://example.com/handout.pdf';
+    expect(c.saveReady()).toBe(false); // label still blank
+
+    c.form.externalLinkLabel = 'Handout';
+    expect(c.saveReady()).toBe(true);
+  });
+
+  it('EXTERNAL_LINK enables Save only once its required fields are valid', () => {
+    const fixture = setupCreate();
+    const c = fixture.componentInstance;
+    c.onContentTypeChange('EXTERNAL_LINK');
+    c.form.title = 'A reference lesson';
+    c.form.externalUrl = 'https://example.com/reference';
+    expect(c.saveReady()).toBe(false); // label still blank
+
+    c.form.externalLinkLabel = 'Reference page';
+    expect(c.saveReady()).toBe(true);
+  });
+
+  it('switching from a validated VIDEO to another type never sends stale video state', () => {
+    const fixture = setupCreate();
+    const c = fixture.componentInstance;
+    c.form.title = 'Switches away';
+    c.onVideoValidated({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://youtu.be/dQw4w9WgXcQ' });
+
+    c.onContentTypeChange('TEXT');
+    c.form.textContent = 'Text after switching away from video.';
+    c.save();
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`);
+    expect(req.request.body.contentType).toBe('TEXT');
+    expect(req.request.body.youtubeUrl).toBeNull();
+    expect(req.request.body.textContent).toBe('Text after switching away from video.');
+    // Flushed as an error, not a success: a success would call goToList()
+    // and navigate, which needs real routes this test doesn't configure.
+    // Only the outgoing request (already asserted above) is under test here.
+    req.flush({ code: 'IGNORED' }, { status: 500, statusText: 'Server Error' });
+  });
+
+  it('switching back to VIDEO requires a fresh validation, never reusing a prior one', () => {
+    const fixture = setupCreate();
+    const c = fixture.componentInstance;
+    c.onVideoValidated({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://youtu.be/dQw4w9WgXcQ' });
+    c.onContentTypeChange('TEXT');
+    c.onContentTypeChange('VIDEO');
+
+    c.form.title = 'Back to video';
+    expect(c.saveReady()).toBe(false); // must re-validate, not reuse the earlier validation
+
+    c.onVideoValidated({ result: 'VALID', videoId: 'newVideoId1', url: 'https://youtu.be/newVideoId1' });
+    expect(c.saveReady()).toBe(true);
+  });
+
+  it('Save sends the correct content type and type-specific payload for PDF_LINK', () => {
+    const fixture = setupCreate();
+    const c = fixture.componentInstance;
+    c.onContentTypeChange('PDF_LINK');
+    c.form.title = 'A PDF lesson';
+    c.form.externalUrl = 'https://example.com/handout.pdf';
+    c.form.externalLinkLabel = 'Handout';
+    c.save();
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`);
+    expect(req.request.body).toEqual(expect.objectContaining({
+      contentType: 'PDF_LINK',
+      externalUrl: 'https://example.com/handout.pdf',
+      externalLinkLabel: 'Handout',
+      youtubeUrl: null,
+      textContent: null
+    }));
+    // Flushed as an error, not a success: a success would call goToList()
+    // and navigate, which needs real routes this test doesn't configure.
+    // Only the outgoing request (already asserted above) is under test here.
+    req.flush({ code: 'IGNORED' }, { status: 500, statusText: 'Server Error' });
+  });
+});

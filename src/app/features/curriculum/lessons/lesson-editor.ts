@@ -105,14 +105,14 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
 
           <div class="field-row">
             <label id="content-type-label" style="font-size:0.82rem;color:#52596b">Content type</label>
-            <mat-button-toggle-group aria-labelledby="content-type-label" [(ngModel)]="form.contentType" [disabled]="isEdit() || !parentDraft() || mode.mutationsDisabled() || saving()">
+            <mat-button-toggle-group aria-labelledby="content-type-label" [ngModel]="contentType()" (ngModelChange)="onContentTypeChange($event)" [disabled]="isEdit() || !parentDraft() || mode.mutationsDisabled() || saving()">
               @for (t of contentTypes; track t.value) {
                 <mat-button-toggle [value]="t.value">{{ t.label }}</mat-button-toggle>
               }
             </mat-button-toggle-group>
           </div>
 
-          @switch (form.contentType) {
+          @switch (contentType()) {
             @case ('VIDEO') {
               @if (needsRepair()) {
                 <div class="repair-banner">
@@ -171,12 +171,12 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
 
           <div class="actions">
             @if (!isEdit()) {
-              <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled() || saving() || !videoSaveReady()" (click)="save()">
+              <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled() || saving() || !saveReady()" (click)="save()">
                 Save as Draft
               </button>
             } @else {
               @if (parentDraft()) {
-                <button mat-stroked-button type="button" [disabled]="mode.mutationsDisabled() || saving() || !videoSaveReady()" (click)="save()">Save</button>
+                <button mat-stroked-button type="button" [disabled]="mode.mutationsDisabled() || saving() || !saveReady()" (click)="save()">Save</button>
               }
               @if (lesson()?.lifecycleStatus === 'DRAFT' && parentDraft()) {
                 <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled() || saving() || !publishReady()" (click)="openPublishDialog()">
@@ -219,10 +219,15 @@ export class LessonEditorComponent implements OnInit {
   loadError = signal<CurriculumUiError | null>(null);
   actionError = signal<CurriculumUiError | null>(null);
 
-  // Signals, not plain fields: videoSaveReady()/repairReady() are computed()
+  // Signals, not plain fields: publishReady()/repairReady() are computed()
   // and only re-evaluate when a signal dependency they read actually
   // changes -- a plain mutable field here would leave those computeds
-  // cached at their first (empty) value forever.
+  // cached at their first (empty) value forever. contentType is a signal
+  // for exactly this reason (bug found in the Dev Dance School lesson
+  // pilot: reading a plain `form.contentType` field inside a computed()
+  // left Save permanently disabled after switching off the default VIDEO
+  // type, since the computed had no tracked dependency to re-run on).
+  contentType = signal<LessonContentType>('VIDEO');
   private validatedVideoId = signal<string | null>(null);
   private repairValidatedUrl: string | null = null;
   private repairValidatedVideoId = signal<string | null>(null);
@@ -235,19 +240,42 @@ export class LessonEditorComponent implements OnInit {
   });
   repairReady = computed(() => !!this.repairValidatedVideoId());
   // Every VIDEO create/update call re-validates the URL server-side (LessonService
-  // never trusts a stored value on update) -- Save must always require a fresh
+  // never trusts a stored value on update) -- Publish must always require a fresh
   // in-session validation, never fall back to the lesson's already-stored videoId.
-  videoSaveReady = computed(() => this.form.contentType !== 'VIDEO' || !!this.validatedVideoId());
-  publishReady = computed(() => this.form.contentType !== 'VIDEO' || !!this.lesson()?.videoId);
+  publishReady = computed(() => this.contentType() !== 'VIDEO' || !!this.lesson()?.videoId);
 
   form = {
     title: '',
-    contentType: 'VIDEO' as LessonContentType,
     textContent: '',
     externalUrl: '',
     externalLinkLabel: '',
     practiceNotes: ''
   };
+
+  /**
+   * Deliberately a plain method, not a computed(): it must react to every
+   * keystroke in title/textContent/externalUrl/externalLinkLabel, which are
+   * plain ngModel-bound fields, not signals. A template-invoked method
+   * re-evaluates on every change-detection tick regardless of whether its
+   * reads are signals, so this needs no caching workaround the way the
+   * contentType-only checks above do.
+   */
+  saveReady(): boolean {
+    if (!this.form.title.trim()) return false;
+    switch (this.contentType()) {
+      case 'VIDEO': return !!this.validatedVideoId();
+      case 'TEXT': return !!this.form.textContent.trim();
+      case 'PDF_LINK':
+      case 'EXTERNAL_LINK': return !!this.form.externalUrl.trim() && !!this.form.externalLinkLabel.trim();
+    }
+  }
+
+  /** Switching type must never leak a prior VIDEO validation into a save under a different type, and switching back to VIDEO must always require a fresh Validate. */
+  onContentTypeChange(next: LessonContentType) {
+    this.contentType.set(next);
+    this.validatedVideoId.set(null);
+    this.lastValidatedUrl = null;
+  }
 
   ngOnInit() {
     this.curriculumId.set(Number(this.route.snapshot.paramMap.get('curriculumId')));
@@ -280,7 +308,7 @@ export class LessonEditorComponent implements OnInit {
         this.lesson.set(found);
         if (found) {
           this.form.title = found.title;
-          this.form.contentType = found.contentType;
+          this.contentType.set(found.contentType);
           this.form.textContent = found.textContent ?? '';
           this.form.externalUrl = found.externalUrl ?? '';
           this.form.externalLinkLabel = found.externalLinkLabel ?? '';
@@ -312,21 +340,23 @@ export class LessonEditorComponent implements OnInit {
   save() {
     const mId = this.moduleId();
     if (mId === null) return;
-    if (this.form.contentType === 'VIDEO' && !this.videoSaveReady()) {
-      this.actionError.set({ kind: 'validation', message: 'Validate the YouTube URL before saving.', resource: 'Lesson' });
+    if (!this.saveReady()) {
+      const message = this.contentType() === 'VIDEO' ? 'Validate the YouTube URL before saving.' : 'Fill in the required fields before saving.';
+      this.actionError.set({ kind: 'validation', message, resource: 'Lesson' });
       return;
     }
     this.saving.set(true);
     this.actionError.set(null);
 
     if (!this.isEdit()) {
+      const type = this.contentType();
       const body: CreateLessonRequest = {
         title: this.form.title.trim(),
-        contentType: this.form.contentType,
-        youtubeUrl: this.form.contentType === 'VIDEO' ? this.currentVideoUrlForCreate() : null,
-        textContent: this.form.contentType === 'TEXT' ? this.form.textContent.trim() : null,
-        externalUrl: (this.form.contentType === 'PDF_LINK' || this.form.contentType === 'EXTERNAL_LINK') ? this.form.externalUrl.trim() : null,
-        externalLinkLabel: (this.form.contentType === 'PDF_LINK' || this.form.contentType === 'EXTERNAL_LINK') ? this.form.externalLinkLabel.trim() : null,
+        contentType: type,
+        youtubeUrl: type === 'VIDEO' ? this.currentVideoUrlForCreate() : null,
+        textContent: type === 'TEXT' ? this.form.textContent.trim() : null,
+        externalUrl: (type === 'PDF_LINK' || type === 'EXTERNAL_LINK') ? this.form.externalUrl.trim() : null,
+        externalLinkLabel: (type === 'PDF_LINK' || type === 'EXTERNAL_LINK') ? this.form.externalLinkLabel.trim() : null,
         practiceNotes: this.form.practiceNotes.trim() || null,
         lessonOrder: 1
       };
