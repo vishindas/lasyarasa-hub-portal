@@ -20,12 +20,11 @@ import { ModuleSummaryRowComponent } from '../learning-path/module-summary-row';
  * summary (reusing ModuleSummaryRowComponent unchanged -- same
  * chips/navigation/accessibility contract as the Learning Path screen).
  *
- * No dance style or age group field exists on any CLIENT-safe endpoint --
- * confirmed by reading every field ClassInfoDTO/StudentClassDTO/
- * LearningPathDTO actually return (student-learning.model.ts), not
- * assumed. Per "curriculum name/version where CLIENT-safe data already
- * provides it," those two are simply never rendered here, not
- * synthesized or requested from a new endpoint.
+ * Dance style and age group (danceStyleName/ageGroupName) are the D2
+ * backend companion's addition to classInfo() -- both are display-only
+ * labels, absent (never rendered, matching the existing Curriculum-row
+ * pattern) whenever the class has no such value set. No internal id
+ * (danceStyleId/ageGroupId) is ever present on the DTO to begin with.
  *
  * The two API calls are independent, not forkJoin'd: a classInfo()
  * failure is the full-page error (the class's own name IS this page's
@@ -61,6 +60,12 @@ import { ModuleSummaryRowComponent } from '../learning-path/module-summary-row';
       @if (i.providerDisplayName) { <p class="subtitle">{{ i.providerDisplayName }}</p> }
 
       <dl>
+        @if (i.danceStyleName) {
+          <dt>Dance Style</dt><dd>{{ i.danceStyleName }}</dd>
+        }
+        @if (i.ageGroupName) {
+          <dt>Age Group</dt><dd>{{ i.ageGroupName }}</dd>
+        }
         <dt>Schedule</dt><dd>{{ i.schedule || 'Not available' }}</dd>
         @if (i.curriculumTitle) {
           <dt>Curriculum</dt><dd>{{ i.curriculumTitle }}@if (i.level) { &nbsp;·&nbsp;{{ i.level }} }</dd>

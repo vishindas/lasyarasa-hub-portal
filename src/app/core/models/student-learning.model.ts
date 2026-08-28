@@ -99,6 +99,10 @@ export interface ClassInfoDTO {
   curriculumTitle?: string;
   level?: string;
   providerDisplayName?: string;
+  /** D2 backend companion: display-only, absent when the class has no dance style set. */
+  danceStyleName?: string;
+  /** D2 backend companion: display-only, absent when the class has no age group set. */
+  ageGroupName?: string;
 }
 
 /** The one existing endpoint this feature reuses, not one Slice 11 adds. */

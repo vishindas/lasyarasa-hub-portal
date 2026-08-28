@@ -62,16 +62,35 @@ describe('ClassInfoComponent (D2 Class Details)', () => {
     expect(text).toContain('Dev Dance School');
   });
 
-  it('missing-detail: no curriculum assigned yet omits the Curriculum row entirely rather than showing blank fields', () => {
+  it('D2 backend companion: renders Dance Style and Age Group clearly when classInfo() provides them', () => {
+    const fixture = setup();
+    httpMock.expectOne(infoUrl).flush({
+      className: 'PILOT Assignment Class', schedule: 'Sat 10am', danceStyleName: 'Kuchipudi', ageGroupName: 'Under 12'
+    });
+    httpMock.expectOne(pathUrl).flush({ curriculumTitle: '', level: null, modules: [] });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const dts = Array.from(el.querySelectorAll('dt')).map(d => d.textContent);
+    expect(dts).toContain('Dance Style');
+    expect(dts).toContain('Age Group');
+    expect(el.textContent).toContain('Kuchipudi');
+    expect(el.textContent).toContain('Under 12');
+  });
+
+  it('missing-detail: no curriculum, dance style, or age group omits all three rows entirely rather than showing blank fields', () => {
     const fixture = setup();
     httpMock.expectOne(infoUrl).flush({ className: 'PILOT Assignment Class', schedule: null });
     httpMock.expectOne(pathUrl).flush({ curriculumTitle: '', level: null, modules: [] });
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).not.toContain('Curriculum');
-    expect(text).toContain('Not available'); // schedule fallback
-    expect(text).toContain('No modules have been released yet.');
+    const el = fixture.nativeElement as HTMLElement;
+    const dts = Array.from(el.querySelectorAll('dt')).map(d => d.textContent);
+    expect(dts).not.toContain('Curriculum');
+    expect(dts).not.toContain('Dance Style');
+    expect(dts).not.toContain('Age Group');
+    expect(el.textContent).toContain('Not available'); // schedule fallback
+    expect(el.textContent).toContain('No modules have been released yet.');
   });
 
   it('renders the released-module summary using the existing ModuleSummaryRowComponent (reused, not duplicated)', () => {

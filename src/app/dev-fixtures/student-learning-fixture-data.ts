@@ -140,7 +140,15 @@ export const FIXTURE_LESSON_DETAIL: Record<number, StudentLessonDetailDTO> = {
 };
 
 export const FIXTURE_CLASS_INFO: Record<number, ClassInfoDTO> = {
-  301: { className: 'Saturday Beginners', schedule: 'Sat 10:00 AM', curriculumTitle: 'Bharatanatyam Foundations', level: 'Beginner', providerDisplayName: 'LasyaRasa Dance Academy' },
-  302: { className: 'Weekday Technique Intensive', schedule: 'Tue/Thu 5:00 PM', curriculumTitle: 'Bharatanatyam Technique', level: 'Intermediate', providerDisplayName: 'LasyaRasa Dance Academy' },
+  301: {
+    className: 'Saturday Beginners', schedule: 'Sat 10:00 AM', curriculumTitle: 'Bharatanatyam Foundations', level: 'Beginner',
+    providerDisplayName: 'LasyaRasa Dance Academy', danceStyleName: 'Bharatanatyam', ageGroupName: 'Ages 8-12'
+  },
+  // Dance style present, age group absent -- exercises one-set-one-missing.
+  302: {
+    className: 'Weekday Technique Intensive', schedule: 'Tue/Thu 5:00 PM', curriculumTitle: 'Bharatanatyam Technique', level: 'Intermediate',
+    providerDisplayName: 'LasyaRasa Dance Academy', danceStyleName: 'Bharatanatyam'
+  },
+  // Neither set -- continues to exercise the missing-value state alongside the existing missing-curriculum/partial-error case.
   303: { className: 'Sunday Foundation', schedule: 'Sun 11:00 AM', providerDisplayName: 'LasyaRasa Dance Academy' }
 };
