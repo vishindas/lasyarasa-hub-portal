@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { StudentLearningApiService } from '../../../core/services/student-learning-api.service';
+import { StudentLearningContextService } from '../../../core/services/student-learning-context.service';
 import { ClassInfoDTO, LearningPathDTO } from '../../../core/models/student-learning.model';
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
@@ -32,6 +33,20 @@ import { ModuleSummaryRowComponent } from '../learning-path/module-summary-row';
  * learningPath() failure degrades only the module-summary section,
  * matching Class Picker's established "one failure never blanks the
  * whole screen" precedent.
+ *
+ * D2 correction: the shell's class-context bar reads
+ * StudentLearningContextService.selectedClassId(), which this screen
+ * never used to touch -- so a direct URL (or a route the bar's own
+ * switcher didn't drive) left the bar showing "Choose a class" even
+ * though the H1 and route both name a specific one. Fixed the same way
+ * Dashboard/Home already do it (student-dashboard-overview.ts,
+ * student-learning-home.ts): sync context.selectClass() only inside
+ * classInfo()'s SUCCESS handler, using the route's own classId. Success
+ * here already proves authorization (getClassInfo() fails closed --
+ * ClassContextUnavailableException/StudentContextUnavailableException
+ * -- for any classId not genuinely one of this student's own active
+ * classes), so this never exposes an unauthorized or invalid classId to
+ * the shell; an error response leaves the context/bar untouched.
  */
 @Component({
   selector: 'app-class-info',
@@ -93,6 +108,7 @@ export class ClassInfoComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private api = inject(StudentLearningApiService);
+  private context = inject(StudentLearningContextService);
   private destroyRef = inject(DestroyRef);
 
   studentId = signal<number>(0);
@@ -112,7 +128,13 @@ export class ClassInfoComponent implements OnInit {
     this.classId.set(classId);
 
     this.api.classInfo(studentId, classId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: i => { this.loading.set(false); this.info.set(i); },
+      next: i => {
+        this.loading.set(false);
+        this.info.set(i);
+        // Success proves classId is genuinely one of this student's own
+        // active classes (see class-level doc comment) -- safe to sync.
+        this.context.selectClass(classId);
+      },
       error: (err: HttpErrorResponse) => { this.loading.set(false); this.loadError.set(toCurriculumUiError(err)); }
     });
 

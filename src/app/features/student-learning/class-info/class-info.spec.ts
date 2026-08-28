@@ -4,6 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { ActivatedRoute, provideRouter, convertToParamMap } from '@angular/router';
 import { environment } from '../../../../environments/environment';
+import { StudentLearningContextService } from '../../../core/services/student-learning-context.service';
 import { ClassInfoComponent } from './class-info';
 
 function activatedRouteStub(params: Record<string, string>) {
@@ -137,5 +138,51 @@ describe('ClassInfoComponent (D2 Class Details)', () => {
     expect(text).toContain('Sat 10am');
     expect(text).toContain("Module details aren't available right now.");
     expect(fixture.componentInstance.loadError()).toBeNull();
+  });
+
+  // ---------- D2 correction: shell class-context synchronization ----------
+
+  it('direct authorized class-info URL synchronizes the shell\'s selected class', () => {
+    const fixture = setup();
+    const context = TestBed.inject(StudentLearningContextService);
+    expect(context.selectedClassId()).toBeNull(); // nothing exposed before authorization succeeds
+
+    httpMock.expectOne(infoUrl).flush({ className: 'PILOT Assignment Class', schedule: 'Sat 10am' });
+    httpMock.expectOne(pathUrl).flush({ curriculumTitle: '', level: null, modules: [] });
+    fixture.detectChanges();
+
+    expect(context.selectedClassId()).toBe(11);
+  });
+
+  it('unauthorized/invalid classId never syncs the shell context -- it never exposes the routed class name', () => {
+    const fixture = setup();
+    const context = TestBed.inject(StudentLearningContextService);
+
+    httpMock.expectOne(infoUrl).flush(
+      { code: 'CLASS_CONTEXT_UNAVAILABLE', message: 'x', resource: null }, { status: 404, statusText: 'Not Found' }
+    );
+    httpMock.expectOne(pathUrl).flush({ curriculumTitle: '', level: null, modules: [] });
+    fixture.detectChanges();
+
+    expect(context.selectedClassId()).toBeNull();
+  });
+
+  it('switching class updates both the shell context and the details -- not just first-load initialization', () => {
+    // Simulates arriving at this class-info route while the shell context
+    // still names a PREVIOUSLY selected, different class (11's own route
+    // param is 11, established by activatedRouteStub in setup()) --
+    // proves the sync genuinely switches the value, not only sets it once
+    // from null.
+    const fixture = setup();
+    const context = TestBed.inject(StudentLearningContextService);
+    context.selectClass(999);
+    expect(context.selectedClassId()).toBe(999);
+
+    httpMock.expectOne(infoUrl).flush({ className: 'PILOT Assignment Class', schedule: 'Sat 10am' });
+    httpMock.expectOne(pathUrl).flush({ curriculumTitle: '', level: null, modules: [] });
+    fixture.detectChanges();
+
+    expect(context.selectedClassId()).toBe(11);
+    expect((fixture.nativeElement as HTMLElement).querySelector('h1')?.textContent).toBe('PILOT Assignment Class');
   });
 });
