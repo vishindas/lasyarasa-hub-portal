@@ -22,6 +22,14 @@ export const STUDENT_LEARNING_ROUTES: Routes = [
     loadComponent: () => import('./home/student-learning-home').then(m => m.StudentLearningHomeComponent)
   },
   {
+    // Student Dashboard D1 foundation: nested here (not a standalone route)
+    // so it inherits this shell's student switcher, class-context bar, and
+    // FULL_OUTAGE/offline/lost-access handling for free -- no second
+    // shell/authorization layer.
+    path: 'dashboard',
+    loadComponent: () => import('../student-dashboard/overview/student-dashboard-overview').then(m => m.StudentDashboardOverviewComponent)
+  },
+  {
     path: 'classes',
     loadComponent: () => import('./class-picker/class-picker').then(m => m.ClassPickerComponent)
   },

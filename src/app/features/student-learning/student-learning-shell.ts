@@ -1,4 +1,4 @@
-import { Component, DestroyRef, Injector, OnInit, afterNextRender, inject, signal } from '@angular/core';
+import { Component, DestroyRef, Injector, OnInit, afterNextRender, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -18,12 +18,26 @@ import { LostAccessBlockComponent } from './lost-access-block';
  * state-precedence exactly per Part III.1: FULL_OUTAGE/offline first
  * (suppress everything, including the header -- "no partial/stale content
  * shown underneath"), then lost-student-access scoped to the *currently
- * routed* studentId (header/switcher stay, since "Back to My Students" and
- * switching to a still-accessible student are both valid escapes), then
- * ordinary route content. Also owns the one-time-per-student classes fetch
- * (avoids every child screen independently re-requesting the same list)
- * and the route-change H1-focus mechanism the verified v1.1.2 contract
- * requires after every switcher selection.
+ * routed* studentId, then ordinary route content. Also owns the
+ * one-time-per-student classes fetch (avoids every child screen
+ * independently re-requesting the same list) and the route-change
+ * H1-focus mechanism the verified v1.1.2 contract requires after every
+ * switcher selection.
+ *
+ * Security correction (found via manual review): lost access must hide
+ * EVERYTHING student-derived, including the switcher itself -- it shows
+ * the routed student's own name, so "header/switcher stay as a valid
+ * escape" was wrong; "Back to My Students" is the only escape now. There
+ * is no separate authenticated-account-identity menu in this header only
+ * `auth` (AuthService) is injected and it renders nothing on its own --
+ * if one is ever added, it must show the signed-in account's own
+ * identity, never anything student-derived, and so is exempt from this
+ * suppression; until then there is nothing else here to preserve.
+ * The effect() below actively clears StudentLearningContextService's
+ * selection (not just suppresses rendering) the moment access is lost,
+ * so no later re-render, re-navigation, or query-param change can surface
+ * the previous student's class name without a fresh, successful
+ * authorization response first.
  */
 @Component({
   selector: 'app-student-learning-shell',
@@ -45,7 +59,16 @@ import { LostAccessBlockComponent } from './lost-access-block';
     } @else {
       <header class="header">
         <span class="brand">LasyaRasa</span>
-        <app-student-switcher [currentStudentId]="studentId()" />
+        <!-- Security fix: the switcher (and everything below it) must never
+             render while access is lost for the currently routed student --
+             it must not show that student's name, and "pick a different
+             student instead" is what "Back to My Students" is for. Moved
+             inside the same branch as the class-context bar/router-outlet
+             so all three disappear together, leaving only the bare brand
+             plus the generic lost-access block. -->
+        @if (accessLoss.lostAccessFor() !== studentId()) {
+          <app-student-switcher [currentStudentId]="studentId()" />
+        }
       </header>
       @if (accessLoss.lostAccessFor() === studentId()) {
         <app-lost-access-block (backToMyStudents)="backToMyStudents()" />
@@ -81,6 +104,16 @@ export class StudentLearningShellComponent implements OnInit {
     ).subscribe(() => {
       afterNextRender(() => this.focusPageHeading(), { injector: this.injector });
     });
+
+    // Security: actively clears the shared class-selection state (not just
+    // a template-level rendering suppression) the instant access is lost
+    // for the currently routed student. Purely synchronous -- no HTTP call
+    // is started here, so this is safe to run as a constructor effect.
+    effect(() => {
+      if (this.accessLoss.lostAccessFor() === this.studentId()) {
+        this.context.clearSelection();
+      }
+    });
   }
 
   ngOnInit() {
@@ -104,6 +137,18 @@ export class StudentLearningShellComponent implements OnInit {
 
   onClassSelected(classId: number) {
     this.context.selectClass(classId);
+    // D1 addition: switching class while already on the Dashboard stays on
+    // the Dashboard rather than jumping to Learning Path -- every other
+    // existing screen keeps its unchanged behavior below. The classId
+    // query param makes this a genuinely different navigation (Angular
+    // reuses the same component instance for a same-route, query-only
+    // navigation and emits a fresh queryParamMap value rather than
+    // rerunning ngOnInit) so Dashboard can react to it without needing the
+    // router to destroy/recreate the component.
+    if (this.router.url.includes('/dashboard')) {
+      this.router.navigate(['/my-students', this.studentId(), 'dashboard'], { queryParams: { classId } });
+      return;
+    }
     this.router.navigate(['/my-students', this.studentId(), 'classes', classId, 'path']);
   }
 

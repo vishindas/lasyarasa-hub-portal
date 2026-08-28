@@ -17,6 +17,7 @@ import { curriculumFixtureInterceptor } from './app/dev-fixtures/curriculum-fixt
 import { assignmentFixtureInterceptor } from './app/dev-fixtures/assignment-fixture.interceptor';
 import { studentAssignmentFixtureInterceptor } from './app/dev-fixtures/student-assignment-fixture.interceptor';
 import { curriculumModeInterceptor } from './app/core/services/curriculum-mode.interceptor';
+import { studentLearningAccessInterceptor } from './app/core/services/student-learning-access.interceptor';
 import { environment } from './environments/environment';
 
 // Seed a fake, obviously-fake session so the route guards pass without ever
@@ -76,7 +77,19 @@ bootstrapApplication(App, {
     // was silently answered by that catch-all instead of ever reaching the
     // real fixture. Caught during Slice 15's own manual verify-build pass
     // (Plan v2.1.2 §14) -- see that slice's implementation report.
-    provideHttpClient(withInterceptors([curriculumModeInterceptor, assignmentFixtureInterceptor, studentAssignmentFixtureInterceptor, curriculumFixtureInterceptor])),
+    //
+    // studentLearningAccessInterceptor is also the real, shipped
+    // interceptor -- it was missing here entirely, which meant the whole
+    // StudentAccessLossService/lost-access mechanism could never fire
+    // during manual verification no matter what fixtureScenario was set,
+    // even though its copy/behavior looked plausible for other reasons.
+    // Found while investigating why a shell-level lost-access fix didn't
+    // visibly take effect under manual verification. Must come before
+    // curriculumFixtureInterceptor for the same reason as the two above --
+    // it needs to observe the fixture's thrown STUDENT_CONTEXT_UNAVAILABLE
+    // response, which only reaches it if it wraps (comes before) the
+    // fixture in this array.
+    provideHttpClient(withInterceptors([curriculumModeInterceptor, studentLearningAccessInterceptor, assignmentFixtureInterceptor, studentAssignmentFixtureInterceptor, curriculumFixtureInterceptor])),
     provideAnimationsAsync(),
     provideNativeDateAdapter()
   ]
