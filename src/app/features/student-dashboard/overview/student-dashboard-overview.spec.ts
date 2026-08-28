@@ -71,6 +71,30 @@ describe('StudentDashboardOverviewComponent', () => {
     expect(link?.textContent).toContain('PILOT Lesson Module');
   });
 
+  it('D2: shows a Class details link to the selected class once a class is genuinely selected', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({
+      classSelectionRequired: false, selectedClassId: 11
+    });
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector('a[href*="class-info"]') as HTMLAnchorElement;
+    expect(link).toBeTruthy();
+    expect(link.getAttribute('href')).toContain('/my-students/117/classes/11/class-info');
+  });
+
+  it('D2: does NOT show a Class details link while the class is still ambiguous (classSelectionRequired)', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: true });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('a[href*="class-info"]')).toBeNull();
+  });
+
   it('renders the schedule for every active class from the shared context service (multi-class support)', () => {
     const fixture = setup();
     const context = TestBed.inject(StudentLearningContextService);

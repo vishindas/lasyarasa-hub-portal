@@ -106,6 +106,15 @@ import { backLabelFor, navigateForRecovery } from '../../student-learning/studen
           }
         }
 
+        @if (!h.classSelectionRequired && h.selectedClassId != null) {
+          <mat-card class="card">
+            <mat-card-content>
+              <p class="card-title">Class details</p>
+              <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes', h.selectedClassId, 'class-info']">View class details</a>
+            </mat-card-content>
+          </mat-card>
+        }
+
         <mat-card class="card">
           <mat-card-content>
             <p class="card-title">Class schedule</p>
