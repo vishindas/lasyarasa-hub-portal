@@ -45,7 +45,16 @@ import { LostAccessBlockComponent } from './lost-access-block';
     } @else {
       <header class="header">
         <span class="brand">LasyaRasa</span>
-        <app-student-switcher [currentStudentId]="studentId()" />
+        <!-- Security fix: the switcher (and everything below it) must never
+             render while access is lost for the currently routed student --
+             it must not show that student's name, and "pick a different
+             student instead" is what "Back to My Students" is for. Moved
+             inside the same branch as the class-context bar/router-outlet
+             so all three disappear together, leaving only the bare brand
+             plus the generic lost-access block. -->
+        @if (accessLoss.lostAccessFor() !== studentId()) {
+          <app-student-switcher [currentStudentId]="studentId()" />
+        }
       </header>
       @if (accessLoss.lostAccessFor() === studentId()) {
         <app-lost-access-block (backToMyStudents)="backToMyStudents()" />

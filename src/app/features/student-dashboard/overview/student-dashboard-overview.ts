@@ -161,6 +161,12 @@ export class StudentDashboardOverviewComponent implements OnInit {
   private loadHeader(studentId: number) {
     this.accessApi.list().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: list => {
+        // Security: never let a late-arriving success response repopulate
+        // identity after the main content call already failed for this
+        // student (e.g. STUDENT_CONTEXT_UNAVAILABLE) -- these two calls are
+        // independent/unordered, and the account-level list can legitimately
+        // still succeed even when the specific per-student check just failed.
+        if (this.loadError()) return;
         const mine = list.find(s => s.studentId === studentId);
         this.studentName.set(mine?.studentDisplayName ?? null);
         this.schoolName.set(mine?.providerDisplayName ?? null);
@@ -182,6 +188,14 @@ export class StudentDashboardOverviewComponent implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
+        this.home.set(null);
+        // Security: clear any identity already shown (e.g. from a faster-
+        // resolving loadHeader() call, or a previously-authorized render of
+        // this same component instance) the moment the main content call
+        // fails -- never leave student/school name displayed alongside an
+        // error/lost-access state.
+        this.studentName.set(null);
+        this.schoolName.set(null);
         this.loadError.set(toCurriculumUiError(err));
       }
     });

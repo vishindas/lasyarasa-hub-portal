@@ -143,4 +143,48 @@ describe('StudentDashboardOverviewComponent', () => {
     expect(fixture.componentInstance.home()).toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('.grid')).toBeNull();
   });
+
+  it('security: identity already shown is cleared the moment the main content call fails -- never left displayed alongside the error', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    // loadHeader() succeeds first, genuinely showing identity (this is the
+    // exact "already loaded, then loses access" shape of the bug found).
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
+      { studentId: 117, providerId: 1, studentDisplayName: 'Vidya Rasa', providerDisplayName: 'Dev Dance School', accessType: 'SELF' }
+    ]);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Vidya Rasa');
+
+    // The main content call then fails.
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush(
+      { code: 'STUDENT_CONTEXT_UNAVAILABLE', message: 'x', resource: null }, { status: 404, statusText: 'Not Found' }
+    );
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Vidya Rasa');
+    expect(text).not.toContain('Dev Dance School');
+    expect(fixture.componentInstance.studentName()).toBeNull();
+    expect(fixture.componentInstance.schoolName()).toBeNull();
+  });
+
+  it('security: a late-arriving loadHeader() success cannot resurrect identity after the content call already failed', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    // Content call fails FIRST this time (loadHeader()'s response is still in flight).
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush(
+      { code: 'STUDENT_CONTEXT_UNAVAILABLE', message: 'x', resource: null }, { status: 404, statusText: 'Not Found' }
+    );
+    fixture.detectChanges();
+
+    // loadHeader()'s call resolves late, after the error already landed.
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
+      { studentId: 117, providerId: 1, studentDisplayName: 'Vidya Rasa', providerDisplayName: 'Dev Dance School', accessType: 'SELF' }
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.studentName()).toBeNull();
+    expect(fixture.componentInstance.schoolName()).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Vidya Rasa');
+  });
 });
