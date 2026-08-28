@@ -10,6 +10,14 @@ import { ModuleSummaryDTO } from '../../../core/models/student-learning.model';
  * ever navigates into Module Detail. Tap/focus on a non-navigable row
  * shows an inline note in place (per Part II.2's "Module tap target" row)
  * rather than doing nothing silently, so the reason is legible.
+ *
+ * D2 correction: COMPLETED reads "Completed for class," never plain
+ * "Completed" -- the deployed model only records class-level module
+ * completion (ClassModuleState), with no per-student lesson-progress
+ * state at all. Plain "Completed" would misleadingly imply personal
+ * progress that doesn't exist. This is the only student-facing chip
+ * text for module status (reused unchanged by both Learning Path and
+ * Class Details), so fixing it here fixes it everywhere.
  */
 @Component({
   selector: 'app-module-summary-row',
@@ -84,7 +92,7 @@ export class ModuleSummaryRowComponent {
 
   chipText(): string {
     const s = this.module().status;
-    if (s === 'COMPLETED') return 'Completed';
+    if (s === 'COMPLETED') return 'Completed for class';
     if (s === 'WITHDRAWN') return 'Withdrawn';
     if (s === 'LOCKED') return 'Coming soon';
     return this.isCurrent() ? 'Current' : 'Available';

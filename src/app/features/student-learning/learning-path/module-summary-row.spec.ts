@@ -69,4 +69,20 @@ describe('ModuleSummaryRowComponent', () => {
     fixture.componentInstance.onActivate();
     expect(navSpy).toHaveBeenCalledWith(['/my-students', 1, 'classes', 2, 'modules', 4]);
   });
+
+  /**
+   * D2 correction: the deployed model only records class-level module
+   * completion (ClassModuleState) -- there is no per-student
+   * lesson-progress state at all. Plain "Completed" would falsely imply
+   * personal progress, so this must always read "Completed for class".
+   */
+  it('COMPLETED renders "Completed for class", never plain "Completed"', () => {
+    const fixture = setup({ moduleId: 4, title: 'Namaskaram', moduleOrder: 2, status: 'COMPLETED', objectives: 'x', publishedLessonCount: 1 });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Completed for class');
+    expect(fixture.componentInstance.chipText()).toBe('Completed for class');
+    expect(fixture.componentInstance.chipText()).not.toBe('Completed');
+  });
 });
