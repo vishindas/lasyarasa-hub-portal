@@ -104,6 +104,18 @@ export class StudentLearningShellComponent implements OnInit {
 
   onClassSelected(classId: number) {
     this.context.selectClass(classId);
+    // D1 addition: switching class while already on the Dashboard stays on
+    // the Dashboard rather than jumping to Learning Path -- every other
+    // existing screen keeps its unchanged behavior below. The classId
+    // query param makes this a genuinely different navigation (Angular
+    // reuses the same component instance for a same-route, query-only
+    // navigation and emits a fresh queryParamMap value rather than
+    // rerunning ngOnInit) so Dashboard can react to it without needing the
+    // router to destroy/recreate the component.
+    if (this.router.url.includes('/dashboard')) {
+      this.router.navigate(['/my-students', this.studentId(), 'dashboard'], { queryParams: { classId } });
+      return;
+    }
     this.router.navigate(['/my-students', this.studentId(), 'classes', classId, 'path']);
   }
 

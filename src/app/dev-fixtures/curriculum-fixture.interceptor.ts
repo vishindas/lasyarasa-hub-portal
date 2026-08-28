@@ -95,7 +95,12 @@ export const curriculumFixtureInterceptor: HttpInterceptorFn = (req: HttpRequest
     }
 
     if (sub.startsWith('/home')) {
-      const classIdParam = req.params.get('classId');
+      // StudentLearningApiService.home() embeds ?classId= directly in the
+      // URL string rather than passing Angular's `params` option, so
+      // req.params is always empty here regardless of what's in the URL --
+      // parse it out of `sub` (which still carries the query string) to
+      // accurately emulate what the real backend actually receives.
+      const classIdParam = new URLSearchParams(sub.split('?')[1] ?? '').get('classId') ?? req.params.get('classId');
       const classes = FIXTURE_CLASSES[studentId] ?? [];
       if (classIdParam == null && classes.length > 1) {
         return ok({ classSelectionRequired: true, classChoices: classes });

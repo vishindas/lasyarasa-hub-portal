@@ -1,0 +1,184 @@
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { StudentLearningApiService } from '../../../core/services/student-learning-api.service';
+import { StudentLearningContextService } from '../../../core/services/student-learning-context.service';
+import { StudentAccessApiService } from '../../../core/services/student-access-api.service';
+import { StudentLearningHomeDTO } from '../../../core/models/student-learning.model';
+import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
+import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
+import { backLabelFor, navigateForRecovery } from '../../student-learning/student-learning-recovery.util';
+
+/**
+ * D1 foundation: the Student Dashboard's Overview section. Nested inside
+ * the existing StudentLearningShellComponent (route `dashboard` alongside
+ * the existing `home`/`classes`/`assignments`/lesson routes) so it inherits
+ * the shell's student switcher, class-context bar, and FULL_OUTAGE/offline/
+ * lost-access handling for free -- no second authorization layer is added
+ * here. Data comes entirely from the already-deployed
+ * StudentLearningApiService.home() (Slice 11) and StudentAccessApiService
+ * (for the header's student/school name) -- no new endpoint.
+ *
+ * Deliberately does not claim lesson progress/completion anywhere (no such
+ * backend model exists) and does not embed assignments/lessons yet (D4/D5).
+ */
+@Component({
+  selector: 'app-student-dashboard-overview',
+  standalone: true,
+  imports: [RouterLink, MatCardModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, CurriculumMessageComponent],
+  styles: [`
+    :host { display: block; max-width: 880px; margin: 0 auto; padding: 24px 20px 48px; }
+    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.6rem; color: #1C1A16; margin: 0 0 4px; }
+    .school-name { margin: 0 0 20px; color: #6B6255; font-size: 0.9rem; }
+    .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 640px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card { border-radius: 0 !important; border: 1px solid #E3DCC8 !important; }
+    .card a, .card button { min-height: 44px; }
+    .card-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #A3762C; font-weight: 700; margin: 0 0 6px; }
+    .schedule-line { margin: 2px 0; font-size: 0.9rem; color: #1C1A16; }
+    .schedule-unavailable { color: #6B6255; font-style: italic; }
+    .empty-note { color: #6B6255; font-size: 0.85rem; }
+  `],
+  template: `
+    <h1 tabindex="-1">{{ studentName() || 'Dashboard' }}</h1>
+    @if (schoolName()) { <p class="school-name">{{ schoolName() }}</p> }
+
+    @if (loadError(); as e) {
+      <app-curriculum-message [error]="e" [backLabel]="recoveryLabel(e.kind)" (back)="onBack(e.kind)" />
+    } @else if (loading()) {
+      <mat-spinner diameter="36" />
+    } @else if (home(); as h) {
+      <div class="grid">
+        <mat-card class="card">
+          <mat-card-content>
+            <p class="card-title">Attention</p>
+            <p class="empty-note">No open assignments right now.</p>
+          </mat-card-content>
+        </mat-card>
+
+        @if (h.classSelectionRequired) {
+          <mat-card class="card">
+            <mat-card-content>
+              <p class="card-title">Continue learning</p>
+              <p class="empty-note">This student has more than one active class.</p>
+              <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes']">Choose a class</a>
+            </mat-card-content>
+          </mat-card>
+        } @else if (h.selectedClassId != null) {
+          @if (h.currentModule) {
+            <mat-card class="card">
+              <mat-card-content>
+                <p class="card-title">Continue learning</p>
+                <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes', h.selectedClassId, 'modules', h.currentModule.moduleId]">{{ h.currentModule.title }}</a>
+              </mat-card-content>
+            </mat-card>
+          } @else if (h.learningPath) {
+            <mat-card class="card">
+              <mat-card-content>
+                <p class="card-title">Learning path</p>
+                <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes', h.selectedClassId, 'path']">{{ h.learningPath.curriculumTitle }}@if (h.learningPath.level) { &nbsp;·&nbsp;{{ h.learningPath.level }} }</a>
+              </mat-card-content>
+            </mat-card>
+          } @else {
+            <mat-card class="card">
+              <mat-card-content>
+                <p class="card-title">Learning path</p>
+                <p class="empty-note">No curriculum assigned yet for this class.</p>
+              </mat-card-content>
+            </mat-card>
+          }
+        }
+
+        <mat-card class="card">
+          <mat-card-content>
+            <p class="card-title">Class schedule</p>
+            @for (c of classes(); track c.classId) {
+              @if (c.schedule) {
+                <p class="schedule-line">{{ c.className }}: {{ c.schedule }}</p>
+              } @else {
+                <p class="schedule-line schedule-unavailable">{{ c.className }}: schedule unavailable</p>
+              }
+            }
+          </mat-card-content>
+        </mat-card>
+      </div>
+    }
+  `
+})
+export class StudentDashboardOverviewComponent implements OnInit {
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private api = inject(StudentLearningApiService);
+  private accessApi = inject(StudentAccessApiService);
+  private destroyRef = inject(DestroyRef);
+  context = inject(StudentLearningContextService);
+
+  studentId = signal<number>(0);
+  home = signal<StudentLearningHomeDTO | null>(null);
+  loading = signal(true);
+  loadError = signal<CurriculumUiError | null>(null);
+  studentName = signal<string | null>(null);
+  schoolName = signal<string | null>(null);
+
+  classes = computed(() => this.context.classes());
+
+  ngOnInit() {
+    const studentId = Number(this.route.snapshot.paramMap.get('studentId'));
+    this.studentId.set(studentId);
+    this.loadHeader(studentId);
+
+    // Subscribes to queryParamMap (not snapshot) so a class-switch that
+    // navigates back to this same route (the shell stays on Dashboard
+    // rather than jumping to Learning Path) re-fetches instead of leaving
+    // stale content on screen -- Angular reuses this component instance
+    // for a same-route, query-param-only navigation and only emits a new
+    // queryParamMap value, it does not rerun ngOnInit.
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      const classIdParam = params.get('classId');
+      const classId = classIdParam != null ? Number(classIdParam) : (this.context.selectedClassId() ?? undefined);
+      this.load(studentId, classId);
+    });
+  }
+
+  private loadHeader(studentId: number) {
+    this.accessApi.list().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: list => {
+        const mine = list.find(s => s.studentId === studentId);
+        this.studentName.set(mine?.studentDisplayName ?? null);
+        this.schoolName.set(mine?.providerDisplayName ?? null);
+      },
+      error: () => { /* header enrichment only -- never blocks the overview itself */ }
+    });
+  }
+
+  private load(studentId: number, classId: number | undefined) {
+    this.loading.set(true);
+    this.loadError.set(null);
+    this.api.home(studentId, classId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: h => {
+        this.loading.set(false);
+        this.home.set(h);
+        if (h.selectedClassId != null && h.selectedClassId !== this.context.selectedClassId()) {
+          this.context.selectClass(h.selectedClassId);
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        this.loading.set(false);
+        this.loadError.set(toCurriculumUiError(err));
+      }
+    });
+  }
+
+  recoveryLabel(kind: CurriculumUiError['kind']): string | null {
+    return backLabelFor(kind);
+  }
+
+  onBack(kind: CurriculumUiError['kind']) {
+    navigateForRecovery(this.router, kind, this.studentId());
+  }
+}

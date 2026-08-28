@@ -20,6 +20,16 @@ export const routes: Routes = [
     canActivate: [authGuard, clientGuard]
   },
   {
+    // Student Dashboard D1: new entry point, reachable only by direct URL
+    // while studentLearningEntryEnabled is false -- no nav link points here
+    // yet, same dormant-deployment pattern as /my-students/:studentId
+    // below. Same guards; the backend's own flags/access checks fail
+    // safely if reached without authorization.
+    path: 'student-dashboard',
+    loadComponent: () => import('./features/student-dashboard/entry/student-dashboard-entry').then(m => m.StudentDashboardEntryComponent),
+    canActivate: [authGuard, clientGuard]
+  },
+  {
     // Slice 12: exists in the compiled bundle regardless of
     // studentLearningEntryEnabled -- the dormant-deployment gate (architect
     // decision 4) controls whether My Students exposes a normal entry
