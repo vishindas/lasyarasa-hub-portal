@@ -69,7 +69,7 @@ import { environment } from '../../../../environments/environment';
     <div class="content">
       <h1 tabindex="-1">My Students</h1>
       @if (loadError(); as e) {
-        <app-curriculum-message [error]="e" [backLabel]="null" />
+        <app-curriculum-message [error]="e" [backLabel]="null" (retry)="load()" />
       } @else if (loading()) {
         <mat-spinner diameter="36" />
       } @else if (students().length === 0) {
@@ -117,6 +117,13 @@ export class StudentDashboardEntryComponent implements OnInit {
   students = signal<StudentAccessDTO[]>([]);
 
   ngOnInit() {
+    this.load();
+  }
+
+  /** Named so the load-failure state's Retry action (bound in the template) can re-run the exact same list fetch, not a duplicate of it. */
+  load() {
+    this.loading.set(true);
+    this.loadError.set(null);
     this.api.list().subscribe({
       next: list => {
         this.loading.set(false);

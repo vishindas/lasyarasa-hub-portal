@@ -150,5 +150,46 @@ describe('StudentDashboardEntryComponent', () => {
       expect(fixture.componentInstance.loadError()).toBeTruthy();
       expect(router.navigate).not.toHaveBeenCalled();
     });
+
+    it('clicking the rendered Retry control reloads the student list and recovers to a normal, usable state -- regression coverage for the retry button that previously did nothing', () => {
+      const fixture = setup();
+      setEntryEnabled(fixture, true);
+      fixture.detectChanges();
+
+      // Initial load fails.
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush(
+        { code: 'UNKNOWN', message: 'x', resource: null }, { status: 500, statusText: 'Server Error' }
+      );
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('Something went wrong');
+
+      // The real rendered control, found and activated the same way a user would --
+      // not a direct method call, so this actually proves the template wiring works.
+      const retryBtn = Array.from(el.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Retry');
+      expect(retryBtn).toBeTruthy();
+      retryBtn!.click();
+      fixture.detectChanges();
+
+      // Retry genuinely re-requests the list -- exactly one new request, not zero, not two.
+      const retryReq = httpMock.expectOne(`${environment.apiUrl}/account/students`);
+      retryReq.flush([
+        { studentId: 118, providerId: 1, studentDisplayName: 'Second Child', providerDisplayName: 'Dev Dance School', accessType: 'GUARDIAN' },
+        { studentId: 119, providerId: 1, studentDisplayName: 'Third Child', providerDisplayName: 'Dev Dance School', accessType: 'GUARDIAN' }
+      ]);
+      fixture.detectChanges();
+
+      // The failure state is gone and the student list renders normally -- the user can continue.
+      expect(fixture.componentInstance.loadError()).toBeNull();
+      expect(el.textContent).not.toContain('Something went wrong');
+      expect(el.textContent).toContain('Second Child');
+      expect(el.textContent).toContain('Third Child');
+      const cards = el.querySelectorAll('.student-card');
+      expect(cards.length).toBe(2);
+
+      // httpMock.verify() in afterEach additionally proves no duplicate/leaked
+      // request was left outstanding beyond this one intentional retry.
+    });
   });
 });
