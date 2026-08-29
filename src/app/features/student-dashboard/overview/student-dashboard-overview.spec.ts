@@ -95,6 +95,18 @@ describe('StudentDashboardOverviewComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('a[href*="class-info"]')).toBeNull();
   });
 
+  it('D3: shows a Fees link regardless of class-selection state -- fees span all of the student\'s classes', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: true });
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector('a[href*="/fees"]') as HTMLAnchorElement;
+    expect(link).toBeTruthy();
+    expect(link.getAttribute('href')).toBe('/my-students/117/fees');
+  });
+
   it('renders the schedule for every active class from the shared context service (multi-class support)', () => {
     const fixture = setup();
     const context = TestBed.inject(StudentLearningContextService);
