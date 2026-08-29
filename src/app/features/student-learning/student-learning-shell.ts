@@ -12,6 +12,7 @@ import { ClassContextBarComponent } from './class-context-bar';
 import { FullOutageBlockComponent } from '../../shared/curriculum/full-outage-block';
 import { OfflineBlockComponent } from './offline-block';
 import { LostAccessBlockComponent } from './lost-access-block';
+import { AccountMenuComponent } from '../../shared/account-menu/account-menu';
 
 /**
  * Route-level wrapper for every /my-students/:studentId/... screen. Owns
@@ -38,11 +39,17 @@ import { LostAccessBlockComponent } from './lost-access-block';
  * so no later re-render, re-navigation, or query-param change can surface
  * the previous student's class name without a fresh, successful
  * authorization response first.
+ *
+ * D6: AccountMenuComponent (email/change-password/sign-out) fills the
+ * "separate authenticated-account-identity menu" this comment already
+ * anticipated -- it shows only the signed-in account's own identity, never
+ * anything student-derived, so it is deliberately placed outside the
+ * lost-access suppression below, unlike the switcher.
  */
 @Component({
   selector: 'app-student-learning-shell',
   standalone: true,
-  imports: [RouterOutlet, StudentSwitcherComponent, ClassContextBarComponent, FullOutageBlockComponent, OfflineBlockComponent, LostAccessBlockComponent],
+  imports: [RouterOutlet, StudentSwitcherComponent, ClassContextBarComponent, FullOutageBlockComponent, OfflineBlockComponent, LostAccessBlockComponent, AccountMenuComponent],
   styles: [`
     :host { display: block; min-height: 100vh; background: #FBF7EC; }
     .header {
@@ -50,6 +57,7 @@ import { LostAccessBlockComponent } from './lost-access-block';
       padding: 10px 16px; background: #1C1A16; color: #FAF6EC;
     }
     .brand { font-family: Fraunces, Georgia, serif; font-weight: 700; }
+    .header-actions { display: flex; align-items: center; gap: 2px; }
   `],
   template: `
     @if (mode.mode() === 'FULL_OUTAGE') {
@@ -59,16 +67,18 @@ import { LostAccessBlockComponent } from './lost-access-block';
     } @else {
       <header class="header">
         <span class="brand">LasyaRasa</span>
-        <!-- Security fix: the switcher (and everything below it) must never
-             render while access is lost for the currently routed student --
-             it must not show that student's name, and "pick a different
-             student instead" is what "Back to My Students" is for. Moved
-             inside the same branch as the class-context bar/router-outlet
-             so all three disappear together, leaving only the bare brand
-             plus the generic lost-access block. -->
-        @if (accessLoss.lostAccessFor() !== studentId()) {
-          <app-student-switcher [currentStudentId]="studentId()" />
-        }
+        <div class="header-actions">
+          <!-- Security fix: the switcher must never render while access is
+               lost for the currently routed student -- it must not show
+               that student's name, and "pick a different student instead"
+               is what "Back to My Students" is for. -->
+          @if (accessLoss.lostAccessFor() !== studentId()) {
+            <app-student-switcher [currentStudentId]="studentId()" />
+          }
+          <!-- D6: the signed-in account's own identity, never student-
+               derived, so it stays visible even during lost-access. -->
+          <app-account-menu />
+        </div>
       </header>
       @if (accessLoss.lostAccessFor() === studentId()) {
         <app-lost-access-block (backToMyStudents)="backToMyStudents()" />

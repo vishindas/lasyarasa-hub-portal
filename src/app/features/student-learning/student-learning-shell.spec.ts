@@ -56,6 +56,7 @@ describe('StudentLearningShellComponent -- lost-access isolation', () => {
     expect(el.querySelector('app-student-switcher')).toBeTruthy();
     expect(el.querySelector('app-class-context-bar')).toBeTruthy();
     expect(el.querySelector('app-lost-access-block')).toBeFalsy();
+    expect(el.querySelector('app-account-menu')).toBeTruthy();
   });
 
   it('lost-access state: switcher, class-context bar, and routed content are ALL structurally absent -- only the generic block renders, no leaked identity', () => {
@@ -78,6 +79,10 @@ describe('StudentLearningShellComponent -- lost-access isolation', () => {
     expect(el.querySelector('router-outlet')).toBeFalsy();
     expect(el.querySelector('app-lost-access-block')).toBeTruthy();
     expect((el.textContent ?? '')).not.toContain('Vidya Rasa');
+    // D6: the account menu shows only the signed-in account's own identity
+    // (email), never anything student-derived -- deliberately exempt from
+    // this suppression, unlike the switcher.
+    expect(el.querySelector('app-account-menu')).toBeTruthy();
   });
 
   it('navigating from an already-authorized, already-rendered dashboard to a lost-access state clears the switcher/class-bar immediately -- no flash of stale data', () => {
