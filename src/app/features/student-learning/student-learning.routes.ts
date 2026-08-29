@@ -61,5 +61,13 @@ export const STUDENT_LEARNING_ROUTES: Routes = [
     path: 'classes/:classId/class-info',
     loadComponent: () => import('./class-info/class-info').then(m => m.ClassInfoComponent)
   },
+  {
+    // D3: student-scoped, not class-scoped -- fees span all of the
+    // student's classes regardless of which one is currently selected via
+    // the switcher, so this is a sibling of dashboard/classes rather than
+    // nested under classes/:classId.
+    path: 'fees',
+    loadComponent: () => import('../student-fees/student-fees').then(m => m.StudentFeesComponent)
+  },
   { path: '', redirectTo: 'home', pathMatch: 'full' }
 ];
