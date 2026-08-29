@@ -8,8 +8,12 @@ import { StudentDashboardEntryComponent } from './student-dashboard-entry';
 
 function setEntryEnabled(fixture: ReturnType<typeof TestBed.createComponent<StudentDashboardEntryComponent>>, value: boolean) {
   // entryEnabled is `readonly` only at compile time -- overridden directly here,
-  // the same technique the retired MyStudentsComponent's own spec used, since
-  // the test environment's real committed environment.ts value is false.
+  // the same technique the retired MyStudentsComponent's own spec used. Since
+  // the D6 go-live, the real committed environment.ts value is true, so this
+  // helper is what the "inert/dormant-mode" tests below use to explicitly
+  // force false and prove that contract still holds -- it is no longer the
+  // real committed default, but the behavior itself (e.g. for a future
+  // rollback, or a future per-provider gate) is still worth guarding.
   (fixture.componentInstance as unknown as { entryEnabled: boolean }).entryEnabled = value;
 }
 
@@ -30,13 +34,16 @@ describe('StudentDashboardEntryComponent', () => {
 
   afterEach(() => httpMock?.verify());
 
-  describe('D6 dormant gate: studentLearningEntryEnabled is false (the real committed default in every environment)', () => {
-    it('sanity: this suite exercises the real committed default, not an assumption', () => {
-      expect(environment.studentLearningEntryEnabled).toBe(false);
+  describe('D6 go-live: studentLearningEntryEnabled is true (the real committed default, post-activation)', () => {
+    it('sanity: this suite exercises the real committed post-activation default, not an assumption', () => {
+      expect(environment.studentLearningEntryEnabled).toBe(true);
     });
+  });
 
+  describe('inert-mode contract (explicit override -- no longer the real default since the D6 go-live, but still guarded here in case of a future rollback or per-provider gate)', () => {
     it('lists students but never auto-redirects, even with exactly one accessible student', () => {
       const fixture = setup();
+      setEntryEnabled(fixture, false);
       fixture.detectChanges();
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
         { studentId: 117, providerId: 1, studentDisplayName: 'Vidya Rasa', providerDisplayName: 'Dev Dance School', accessType: 'SELF' }
@@ -51,6 +58,7 @@ describe('StudentDashboardEntryComponent', () => {
 
     it('renders student cards as plain, non-interactive mat-card -- no role, no tabindex, clicking does nothing', () => {
       const fixture = setup();
+      setEntryEnabled(fixture, false);
       fixture.detectChanges();
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
         { studentId: 117, providerId: 1, studentDisplayName: 'Vidya Rasa', providerDisplayName: 'Dev Dance School', accessType: 'SELF' },
@@ -68,6 +76,7 @@ describe('StudentDashboardEntryComponent', () => {
 
     it('the account menu is present even before any student is chosen', () => {
       const fixture = setup();
+      setEntryEnabled(fixture, false);
       fixture.detectChanges();
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
       fixture.detectChanges();
@@ -75,8 +84,9 @@ describe('StudentDashboardEntryComponent', () => {
       expect((fixture.nativeElement as HTMLElement).querySelector('app-account-menu')).toBeTruthy();
     });
 
-    it('zero/error states are unaffected by the dormant gate', () => {
+    it('zero/error states are unaffected by the inert-mode override', () => {
       const fixture = setup();
+      setEntryEnabled(fixture, false);
       fixture.detectChanges();
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
       fixture.detectChanges();
@@ -84,8 +94,9 @@ describe('StudentDashboardEntryComponent', () => {
       expect((fixture.nativeElement as HTMLElement).querySelector('h1')?.textContent).toBe('My Students');
     });
 
-    it('title correction applies even while dormant: two or more listed students still read "Choose a student"', () => {
+    it('title correction applies even while inert: two or more listed students still read "Choose a student"', () => {
       const fixture = setup();
+      setEntryEnabled(fixture, false);
       fixture.detectChanges();
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
         { studentId: 117, providerId: 1, studentDisplayName: 'Vidya Rasa', providerDisplayName: 'Dev Dance School', accessType: 'SELF' },
@@ -94,7 +105,7 @@ describe('StudentDashboardEntryComponent', () => {
       fixture.detectChanges();
 
       expect((fixture.nativeElement as HTMLElement).querySelector('h1')?.textContent).toBe('Choose a student');
-      // Still dormant: still no navigation, matching the existing non-interactive-card test above.
+      // Still inert: still no navigation, matching the existing non-interactive-card test above.
       expect(router.navigate).not.toHaveBeenCalled();
     });
   });
