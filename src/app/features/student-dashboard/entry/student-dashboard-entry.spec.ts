@@ -45,6 +45,8 @@ describe('StudentDashboardEntryComponent', () => {
 
       expect(router.navigate).not.toHaveBeenCalled();
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('Vidya Rasa');
+      // Exactly one card is not a "choice" -- title stays neutral, unlike the 2+ case.
+      expect((fixture.nativeElement as HTMLElement).querySelector('h1')?.textContent).toBe('My Students');
     });
 
     it('renders student cards as plain, non-interactive mat-card -- no role, no tabindex, clicking does nothing', () => {
@@ -79,6 +81,21 @@ describe('StudentDashboardEntryComponent', () => {
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('No students are linked to this account yet.');
+      expect((fixture.nativeElement as HTMLElement).querySelector('h1')?.textContent).toBe('My Students');
+    });
+
+    it('title correction applies even while dormant: two or more listed students still read "Choose a student"', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
+        { studentId: 117, providerId: 1, studentDisplayName: 'Vidya Rasa', providerDisplayName: 'Dev Dance School', accessType: 'SELF' },
+        { studentId: 118, providerId: 1, studentDisplayName: 'Second Child', providerDisplayName: 'Dev Dance School', accessType: 'GUARDIAN' }
+      ]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('h1')?.textContent).toBe('Choose a student');
+      // Still dormant: still no navigation, matching the existing non-interactive-card test above.
+      expect(router.navigate).not.toHaveBeenCalled();
     });
   });
 
@@ -105,8 +122,14 @@ describe('StudentDashboardEntryComponent', () => {
       fixture.detectChanges();
 
       expect(router.navigate).not.toHaveBeenCalled();
-      const cards = (fixture.nativeElement as HTMLElement).querySelectorAll('.student-card');
+      const el = fixture.nativeElement as HTMLElement;
+      const cards = el.querySelectorAll('.student-card');
       expect(cards.length).toBe(2);
+      // The one real selection screen -- titled distinctly from the neutral default.
+      const h1 = el.querySelector('h1');
+      expect(h1?.textContent).toBe('Choose a student');
+      // Focus-management convention (route-change H1 auto-focus) is unaffected by the retitle.
+      expect(h1?.getAttribute('tabindex')).toBe('-1');
     });
 
     it('clicking a student card navigates to that student\'s dashboard, as a real role="button" with tabindex', () => {
@@ -134,8 +157,10 @@ describe('StudentDashboardEntryComponent', () => {
       fixture.detectChanges();
 
       expect(router.navigate).not.toHaveBeenCalled();
-      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      const el = fixture.nativeElement as HTMLElement;
+      const text = el.textContent ?? '';
       expect(text).toContain('No students are linked to this account yet.');
+      expect(el.querySelector('h1')?.textContent).toBe('My Students');
     });
 
     it('a list-load failure shows the error state, never silently proceeds', () => {
