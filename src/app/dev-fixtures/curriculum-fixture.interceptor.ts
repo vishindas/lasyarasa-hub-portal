@@ -20,6 +20,7 @@ import {
   FIXTURE_STUDENTS, FIXTURE_CLASSES, FIXTURE_HOME, FIXTURE_LEARNING_PATH,
   FIXTURE_MODULE_DETAIL, FIXTURE_LESSON_DETAIL, FIXTURE_CLASS_INFO
 } from './student-learning-fixture-data';
+import { FIXTURE_STUDENT_FEES } from './student-fee-fixture-data';
 import { CurriculumErrorResponse } from '../core/models/curriculum.model';
 
 type Scenario =
@@ -78,6 +79,18 @@ export const curriculumFixtureInterceptor: HttpInterceptorFn = (req: HttpRequest
   // ClassroomLiteWebConfig scoping comment on this exact point).
   if (path === '/account/students' && req.method === 'GET') {
     return ok(FIXTURE_STUDENTS);
+  }
+
+  // D3: GET /account/students/{id}/fees -- deliberately NOT under
+  // /learning/**, mirroring the real backend's own exemption from the
+  // classroom-lite gate (same as the My Students list above).
+  const feesMatch = path.match(/^\/account\/students\/(\d+)\/fees$/);
+  if (feesMatch && req.method === 'GET') {
+    const studentId = Number(feesMatch[1]);
+    if (s === 'studentContextUnavailable') {
+      return errorResponse(404, 'STUDENT_CONTEXT_UNAVAILABLE', 'Student context is unavailable.', 'Student', req.url);
+    }
+    return ok(FIXTURE_STUDENT_FEES[studentId] ?? []);
   }
 
   const learningMatch = path.match(/^\/account\/students\/(\d+)\/learning(\/.*)?$/);
