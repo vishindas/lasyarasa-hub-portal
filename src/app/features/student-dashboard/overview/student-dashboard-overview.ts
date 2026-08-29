@@ -38,6 +38,16 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
  * flag, or provider-level assignments flag; deliberately never
  * distinguished, see StudentAssignmentReadService) never blocks or clears
  * the rest of the dashboard -- it only affects this one card.
+ *
+ * D5: Continue Learning and Learning Path now render as independent cards
+ * (see the template) rather than an if/else-if chain, matching
+ * StudentLearningHomeComponent's own established behavior for this same
+ * StudentLearningHomeDTO -- no new call, no new field, no reimplementation
+ * of "current module" (still exactly `home().currentModule`, derived
+ * server-side from class-level release state, never per-student progress).
+ * Product note carried forward for D6: "Continue learning" is itself a
+ * label that slightly overstates what's actually tracked (a class-wide
+ * current module, not personal progress) -- out of scope to rename here.
  */
 @Component({
   selector: 'app-student-dashboard-overview',
@@ -111,6 +121,14 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
             </mat-card-content>
           </mat-card>
         } @else if (h.selectedClassId != null) {
+          <!-- D5: Continue Learning and Learning Path are independent @if blocks, not an
+               @if/@else-if chain -- both render together whenever both are present, matching
+               StudentLearningHomeComponent's own established behavior for this identical DTO.
+               The previous mutually-exclusive chain silently hid the Learning Path link (the
+               Dashboard's only path into the full module list) whenever a current module
+               existed, which is the common case -- inconsistent with Home for the same
+               backend state. No new data, no new endpoint: both blocks read fields the
+               existing StudentLearningHomeDTO already carries. -->
           @if (h.currentModule) {
             <mat-card class="card">
               <mat-card-content>
@@ -118,14 +136,16 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
                 <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes', h.selectedClassId, 'modules', h.currentModule.moduleId]">{{ h.currentModule.title }}</a>
               </mat-card-content>
             </mat-card>
-          } @else if (h.learningPath) {
+          }
+          @if (h.learningPath) {
             <mat-card class="card">
               <mat-card-content>
                 <p class="card-title">Learning path</p>
                 <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes', h.selectedClassId, 'path']">{{ h.learningPath.curriculumTitle }}@if (h.learningPath.level) { &nbsp;·&nbsp;{{ h.learningPath.level }} }</a>
               </mat-card-content>
             </mat-card>
-          } @else {
+          }
+          @if (!h.currentModule && !h.learningPath) {
             <mat-card class="card">
               <mat-card-content>
                 <p class="card-title">Learning path</p>

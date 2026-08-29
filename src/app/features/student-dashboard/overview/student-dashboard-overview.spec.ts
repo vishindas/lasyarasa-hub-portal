@@ -399,4 +399,110 @@ describe('StudentDashboardOverviewComponent', () => {
       expect((fixture.nativeElement as HTMLElement).querySelector('.grid')).not.toBeNull();
     });
   });
+
+  describe('D5: Continue Learning + Learning Path (independent, not mutually exclusive)', () => {
+    it('renders both Continue Learning and Learning Path cards together when both are present -- matches Home\'s own behavior for the same DTO', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({
+        classSelectionRequired: false, selectedClassId: 11,
+        currentModule: { moduleId: 5, title: 'PILOT Lesson Module', moduleOrder: 1, status: 'RELEASED' },
+        learningPath: { curriculumTitle: 'Bharatanatyam Foundations', level: 'Beginner' }
+      });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('PILOT Lesson Module');
+      expect(text).toContain('Bharatanatyam Foundations');
+      // Two distinct cards, not one absorbing the other's content.
+      const titles = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.card-title')).map(e => e.textContent);
+      expect(titles).toContain('Continue learning');
+      expect(titles).toContain('Learning path');
+    });
+
+    it('current module absent but learning path present: shows only the Learning Path card, not the "no curriculum" empty state', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({
+        classSelectionRequired: false, selectedClassId: 11,
+        learningPath: { curriculumTitle: 'Bharatanatyam Foundations', level: 'Beginner' }
+      });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('Bharatanatyam Foundations');
+      expect(el.textContent).not.toContain('No curriculum assigned yet for this class.');
+      const titles = Array.from(el.querySelectorAll('.card-title')).map(e => e.textContent);
+      expect(titles).not.toContain('Continue learning');
+    });
+
+    it('no curriculum assigned (neither current module nor learning path): shows the honest empty state, not a blank card', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({
+        classSelectionRequired: false, selectedClassId: 11
+      });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('No curriculum assigned yet for this class.');
+    });
+
+    it('multiple-class selection unchanged: neither Continue Learning nor Learning Path renders while a class is still ambiguous', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: true });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('more than one active class');
+      const titles = Array.from(el.querySelectorAll('.card-title')).map(e => e.textContent);
+      expect(titles).not.toContain('Learning path');
+      // The existing class-picker link is untouched by this change.
+      const link = el.querySelector('a[href*="/classes"]') as HTMLAnchorElement;
+      expect(link).toBeTruthy();
+      expect(link.getAttribute('href')).toBe('/my-students/117/classes');
+    });
+
+    it('Learning Path card links to the full learning path for the selected class, as a real anchor', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({
+        classSelectionRequired: false, selectedClassId: 11,
+        currentModule: { moduleId: 5, title: 'PILOT Lesson Module', moduleOrder: 1, status: 'RELEASED' },
+        learningPath: { curriculumTitle: 'Bharatanatyam Foundations', level: 'Beginner' }
+      });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a[href*="/path"]') as HTMLAnchorElement;
+      expect(link).toBeTruthy();
+      expect(link.tagName).toBe('A');
+      expect(link.getAttribute('href')).toBe('/my-students/117/classes/11/path');
+    });
+
+    it('never implies personal progress: no percentage, "completed", or "last viewed" language appears anywhere on the dashboard', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({
+        classSelectionRequired: false, selectedClassId: 11,
+        currentModule: { moduleId: 5, title: 'PILOT Lesson Module', moduleOrder: 1, status: 'RELEASED' },
+        learningPath: { curriculumTitle: 'Bharatanatyam Foundations', level: 'Beginner' }
+      });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).not.toMatch(/%|percent|completed|last viewed|progress/i);
+    });
+  });
 });
