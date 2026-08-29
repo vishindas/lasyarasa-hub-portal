@@ -21,9 +21,14 @@ import { environment } from '../../../../environments/environment';
  * a student had no way to sign out either.
  *
  * Behavior: exactly one accessible student -> redirect straight to that
- * student's dashboard overview (SELF-single direct entry). More than one ->
- * render clickable student-selection cards. Zero -> honest empty state,
- * never a fake/sample student.
+ * student's dashboard overview (SELF-single direct entry), never lingering
+ * on this screen. Two or more -> a genuine selection screen, titled "Choose
+ * a student" (D6 correction -- distinct from the neutral "My Students"
+ * title used for the loading/zero/error states, since only 2+ is an actual
+ * choice the student/parent has to make), with no automatic selection --
+ * the student must explicitly pick one, which then goes straight to that
+ * student's dashboard. Zero -> honest empty state, never a fake/sample
+ * student.
  *
  * D6 dormant gate: this real, working behavior is deliberately still
  * gated by `entryEnabled` (the existing, unrenamed
@@ -67,7 +72,11 @@ import { environment } from '../../../../environments/environment';
       <app-account-menu />
     </header>
     <div class="content">
-      <h1 tabindex="-1">My Students</h1>
+      <!-- D6 correction: exactly one student never lingers here long enough for the
+           title to matter (auto-redirects); zero/loading/error keep the neutral
+           "My Students" title; two or more (the only real selection screen) reads
+           "Choose a student", per the approved UX decision. -->
+      <h1 tabindex="-1">{{ students().length >= 2 ? 'Choose a student' : 'My Students' }}</h1>
       @if (loadError(); as e) {
         <app-curriculum-message [error]="e" [backLabel]="null" (retry)="load()" />
       } @else if (loading()) {
