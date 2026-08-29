@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, QueryList, ViewChildren, inject, input, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, QueryList, ViewChildren, computed, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatButtonModule } from '@angular/material/button';
@@ -91,6 +91,12 @@ export class StudentSwitcherComponent implements OnInit {
   selectedName(): string | null {
     return this.students().find(s => s.studentId === this.currentStudentId())?.studentDisplayName ?? null;
   }
+
+  // UX-01: exposes the already-derived selected entry (name + accessType) so
+  // the new persistent shell can render an unambiguous "Viewing: {name}
+  // ({relationship})" line without a second fetch or any new selection
+  // logic -- purely a read of state this component already computes.
+  selectedEntry = computed(() => this.students().find(s => s.studentId === this.currentStudentId()) ?? null);
 
   select(s: StudentAccessDTO): void {
     if (s.studentId === this.currentStudentId()) return;

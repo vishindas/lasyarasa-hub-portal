@@ -62,4 +62,34 @@ describe('AccountMenuComponent', () => {
 
     expect(openSpy).toHaveBeenCalledWith(ChangePasswordComponent, expect.objectContaining({ width: '480px' }));
   });
+
+  // UX-01: the `expanded` input is a new, opt-in trigger presentation for the
+  // persistent shell's rail -- these two tests prove it's additive only: the
+  // default (no input set) renders byte-identical to every test above, and
+  // the same underlying menu (email/change password/sign out) opens either way.
+  describe('expanded rail variant (UX-01)', () => {
+    it('defaults to the original compact, icon-only trigger when `expanded` is not set', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('.trigger.expanded')).toBeFalsy();
+      expect(el.querySelector('.trigger .label')).toBeFalsy();
+    });
+
+    it('shows a full-width "Account" labeled row when `expanded` is true, opening the same menu', () => {
+      const fixture = setup();
+      fixture.componentRef.setInput('expanded', true);
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const trigger = el.querySelector('.trigger.expanded') as HTMLButtonElement;
+      expect(trigger).toBeTruthy();
+      expect(trigger.textContent).toContain('Account');
+      expect(trigger.getAttribute('aria-label')).toBe('Account menu');
+
+      trigger.click();
+      fixture.detectChanges();
+      expect(document.body.textContent).toContain('vidyarasa79@gmail.com');
+    });
+  });
 });

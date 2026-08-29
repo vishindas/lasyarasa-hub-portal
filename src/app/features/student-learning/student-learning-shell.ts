@@ -1,5 +1,7 @@
 import { Component, DestroyRef, Injector, OnInit, afterNextRender, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { MatIconModule } from '@angular/material/icon';
 import { filter } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/auth/auth.service';
@@ -7,12 +9,11 @@ import { StudentLearningContextService } from '../../core/services/student-learn
 import { StudentAccessLossService } from '../../core/services/student-access-loss.service';
 import { OfflineDetectionService } from '../../core/services/offline-detection.service';
 import { ClassroomLiteModeService } from '../../core/services/classroom-lite-mode.service';
-import { StudentSwitcherComponent } from './student-switcher';
 import { ClassContextBarComponent } from './class-context-bar';
 import { FullOutageBlockComponent } from '../../shared/curriculum/full-outage-block';
 import { OfflineBlockComponent } from './offline-block';
 import { LostAccessBlockComponent } from './lost-access-block';
-import { AccountMenuComponent } from '../../shared/account-menu/account-menu';
+import { StudentShellNavComponent } from './shell-nav/student-shell-nav';
 
 /**
  * Route-level wrapper for every /my-students/:studentId/... screen. Owns
@@ -49,15 +50,54 @@ import { AccountMenuComponent } from '../../shared/account-menu/account-menu';
 @Component({
   selector: 'app-student-learning-shell',
   standalone: true,
-  imports: [RouterOutlet, StudentSwitcherComponent, ClassContextBarComponent, FullOutageBlockComponent, OfflineBlockComponent, LostAccessBlockComponent, AccountMenuComponent],
+  imports: [RouterOutlet, MatIconModule, ClassContextBarComponent, FullOutageBlockComponent, OfflineBlockComponent, LostAccessBlockComponent, StudentShellNavComponent],
   styles: [`
     :host { display: block; min-height: 100vh; background: #FBF7EC; }
-    .header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 16px; background: #1C1A16; color: #FAF6EC;
+
+    .skip-link {
+      position: absolute; left: -9999px; top: 0; z-index: 100;
+      background: #1C1A16; color: #FAF6EC; padding: 10px 16px; border-radius: 0 0 8px 0;
+      text-decoration: none; font-size: 0.9rem;
     }
-    .brand { font-family: Fraunces, Georgia, serif; font-weight: 700; }
-    .header-actions { display: flex; align-items: center; gap: 2px; }
+    .skip-link:focus { left: 0; }
+
+    .shell { display: flex; min-height: 100vh; }
+
+    .rail {
+      width: 264px; flex: none; background: #FBF7EC; border-right: 1px solid #E3DCC8;
+    }
+
+    .scrim { position: fixed; inset: 0; background: rgba(28, 26, 22, 0.4); z-index: 5; }
+
+    .shell-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+    .topbar {
+      display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+      background: #1C1A16; color: #FAF6EC; position: sticky; top: 0; z-index: 2;
+    }
+    .menu-toggle {
+      min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;
+      background: none; border: none; color: inherit; cursor: pointer; border-radius: 8px; padding: 0;
+    }
+    .menu-toggle:focus-visible { outline: 2px solid #A3762C; outline-offset: 2px; }
+    .topbar-brand { font-family: Fraunces, Georgia, serif; font-weight: 700; }
+
+    main { flex: 1; }
+    main:focus-visible { outline: none; }
+
+    @media (max-width: 860px) {
+      .rail {
+        position: fixed; top: 0; left: 0; bottom: 0; z-index: 10;
+        width: 280px; max-width: 84vw;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+        box-shadow: 2px 0 16px rgba(0, 0, 0, 0.14);
+      }
+      .rail.open { transform: translateX(0); }
+    }
+    @media (max-width: 860px) and (prefers-reduced-motion: reduce) {
+      .rail { transition: none; }
+    }
   `],
   template: `
     @if (mode.mode() === 'FULL_OUTAGE') {
@@ -65,33 +105,48 @@ import { AccountMenuComponent } from '../../shared/account-menu/account-menu';
     } @else if (offline.offline()) {
       <app-offline-block (retry)="reload()" />
     } @else {
-      <header class="header">
-        <span class="brand">LasyaRasa</span>
-        <div class="header-actions">
-          <!-- Security fix: the switcher must never render while access is
-               lost for the currently routed student -- it must not show
-               that student's name, and "pick a different student instead"
-               is what "Back to My Students" is for. -->
-          @if (accessLoss.lostAccessFor() !== studentId()) {
-            <app-student-switcher [currentStudentId]="studentId()" />
+      <a class="skip-link" href="#main-content">Skip to main content</a>
+      <div class="shell">
+        <nav id="student-shell-rail" class="rail" [class.open]="mobileNavOpen()" aria-label="Student portal">
+          <!-- Security fix (unchanged from before this slice): the switcher
+               and nav links must never render while access is lost for the
+               currently routed student -- StudentShellNavComponent hides
+               them itself via its lostAccess input. The account menu
+               shows only the signed-in account's own identity, never
+               anything student-derived, so it stays visible regardless. -->
+          <app-student-shell-nav [studentId]="studentId()" [lostAccess]="accessLoss.lostAccessFor() === studentId()" />
+        </nav>
+        @if (isMobile() && mobileNavOpen()) {
+          <div class="scrim" (click)="closeMobileNav()"></div>
+        }
+        <div class="shell-main">
+          @if (isMobile()) {
+            <header class="topbar">
+              <button
+                class="menu-toggle" type="button" (click)="toggleMobileNav()"
+                [attr.aria-expanded]="mobileNavOpen()" aria-controls="student-shell-rail" aria-label="Open navigation">
+                <mat-icon aria-hidden="true">menu</mat-icon>
+              </button>
+              <span class="topbar-brand">LasyaRasa</span>
+            </header>
           }
-          <!-- D6: the signed-in account's own identity, never student-
-               derived, so it stays visible even during lost-access. -->
-          <app-account-menu />
+          @if (accessLoss.lostAccessFor() === studentId()) {
+            <app-lost-access-block (backToMyStudents)="backToMyStudents()" />
+          } @else {
+            <app-class-context-bar [classes]="context.classes()" [selectedClassId]="context.selectedClassId()" (classSelected)="onClassSelected($event)" />
+            <main id="main-content" tabindex="-1">
+              <router-outlet />
+            </main>
+          }
         </div>
-      </header>
-      @if (accessLoss.lostAccessFor() === studentId()) {
-        <app-lost-access-block (backToMyStudents)="backToMyStudents()" />
-      } @else {
-        <app-class-context-bar [classes]="context.classes()" [selectedClassId]="context.selectedClassId()" (classSelected)="onClassSelected($event)" />
-        <router-outlet />
-      }
+      </div>
     }
   `
 })
 export class StudentLearningShellComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private breakpoint = inject(BreakpointObserver);
   auth = inject(AuthService);
   context = inject(StudentLearningContextService);
   accessLoss = inject(StudentAccessLossService);
@@ -101,6 +156,8 @@ export class StudentLearningShellComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
 
   studentId = signal<number>(0);
+  isMobile = signal(false);
+  mobileNavOpen = signal(false);
 
   constructor() {
     // v1.1.2 verified contract: selecting a switcher option moves focus to
@@ -108,10 +165,13 @@ export class StudentLearningShellComponent implements OnInit {
     // duplicated per screen -- applies to every navigation within this
     // shell, not just switcher-driven ones, which is the correct general
     // SPA route-change focus behavior the design also asks for.
+    // UX-01: also closes the mobile drawer after every navigation, matching
+    // the admin shell's own established close-on-navigate behavior.
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
       takeUntilDestroyed()
     ).subscribe(() => {
+      if (this.isMobile()) this.mobileNavOpen.set(false);
       afterNextRender(() => this.focusPageHeading(), { injector: this.injector });
     });
 
@@ -135,6 +195,23 @@ export class StudentLearningShellComponent implements OnInit {
         this.context.clearForNewStudent(id);
       }
     });
+
+    // UX-01: the persistent rail becomes a slide-over drawer below 860px --
+    // wide enough for the rail's labeled nav items + student-switcher name
+    // + relationship caption to stay on one line without wrapping before
+    // the drawer collapse kicks in.
+    this.breakpoint.observe(['(max-width: 860px)']).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(result => {
+      this.isMobile.set(result.matches);
+      if (!result.matches) this.mobileNavOpen.set(false);
+    });
+  }
+
+  toggleMobileNav() {
+    this.mobileNavOpen.update(v => !v);
+  }
+
+  closeMobileNav() {
+    this.mobileNavOpen.set(false);
   }
 
   private focusPageHeading() {
