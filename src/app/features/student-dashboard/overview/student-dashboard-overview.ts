@@ -13,6 +13,7 @@ import { StudentLearningHomeDTO } from '../../../core/models/student-learning.mo
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
 import { backLabelFor, navigateForRecovery } from '../../student-learning/student-learning-recovery.util';
+import { StudentAssignmentApiService } from '../../student-assignments/data-access/student-assignment-api.service';
 
 /**
  * D1 foundation: the Student Dashboard's Overview section. Nested inside
@@ -24,8 +25,19 @@ import { backLabelFor, navigateForRecovery } from '../../student-learning/studen
  * StudentLearningApiService.home() (Slice 11) and StudentAccessApiService
  * (for the header's student/school name) -- no new endpoint.
  *
- * Deliberately does not claim lesson progress/completion anywhere (no such
- * backend model exists) and does not embed assignments/lessons yet (D4/D5).
+ * D4: the Attention card now calls the existing
+ * StudentAssignmentApiService.list() (the same endpoint the Assignments
+ * page itself uses) to surface a count of DRAFT ("to do") +
+ * REVISION_REQUESTED assignments. This call is deliberately independent of
+ * loadHeader()/load() -- its own loading/error signals, fired once in
+ * ngOnInit() and never re-fired on a class-context query-param change,
+ * since assignments are student/provider-scoped, not class-scoped (same
+ * scoping as the Fees card). A failure here (including the shared
+ * LEARNING_CONTENT_NOT_FOUND code produced by any of the three assignment
+ * feature-gate layers -- global student-learning flag, global assignments
+ * flag, or provider-level assignments flag; deliberately never
+ * distinguished, see StudentAssignmentReadService) never blocks or clears
+ * the rest of the dashboard -- it only affects this one card.
  */
 @Component({
   selector: 'app-student-dashboard-overview',
@@ -69,7 +81,17 @@ import { backLabelFor, navigateForRecovery } from '../../student-learning/studen
         <mat-card class="card">
           <mat-card-content>
             <p class="card-title">Attention</p>
-            <p class="empty-note">No open assignments right now.</p>
+            @if (assignmentsLoading()) {
+              <mat-spinner diameter="24" />
+            } @else if (assignmentsError()) {
+              <p class="empty-note">Assignments aren't available right now.</p>
+              <button mat-stroked-button type="button" (click)="loadAssignments()">Retry</button>
+            } @else if (assignmentsAttentionCount() === 0) {
+              <p class="empty-note">No open assignments right now.</p>
+            } @else {
+              <p class="empty-note">{{ assignmentsAttentionLabel() }}</p>
+              <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'assignments']">View assignments</a>
+            }
           </mat-card-content>
         </mat-card>
 
@@ -144,6 +166,7 @@ export class StudentDashboardOverviewComponent implements OnInit {
   private router = inject(Router);
   private api = inject(StudentLearningApiService);
   private accessApi = inject(StudentAccessApiService);
+  private assignmentApi = inject(StudentAssignmentApiService);
   private destroyRef = inject(DestroyRef);
   context = inject(StudentLearningContextService);
 
@@ -154,12 +177,21 @@ export class StudentDashboardOverviewComponent implements OnInit {
   studentName = signal<string | null>(null);
   schoolName = signal<string | null>(null);
 
+  assignmentsLoading = signal(true);
+  assignmentsError = signal(false);
+  assignmentsAttentionCount = signal(0);
+  assignmentsAttentionLabel = computed(() => {
+    const n = this.assignmentsAttentionCount();
+    return n === 1 ? '1 assignment needs your attention.' : `${n} assignments need your attention.`;
+  });
+
   classes = computed(() => this.context.classes());
 
   ngOnInit() {
     const studentId = Number(this.route.snapshot.paramMap.get('studentId'));
     this.studentId.set(studentId);
     this.loadHeader(studentId);
+    this.loadAssignments();
 
     // Subscribes to queryParamMap (not snapshot) so a class-switch that
     // navigates back to this same route (the shell stays on Dashboard
@@ -188,6 +220,30 @@ export class StudentDashboardOverviewComponent implements OnInit {
         this.schoolName.set(mine?.providerDisplayName ?? null);
       },
       error: () => { /* header enrichment only -- never blocks the overview itself */ }
+    });
+  }
+
+  /**
+   * Independent of loadHeader()/load(): assignments are student/provider-
+   * scoped (same as Fees), not class-scoped, so this never re-fires on a
+   * class-context change and never blocks or is blocked by the other cards.
+   * Any failure (including the shared LEARNING_CONTENT_NOT_FOUND produced
+   * by any of the three assignment feature-gate layers) is deliberately
+   * treated as one undifferentiated "unavailable" state here -- the caller
+   * cannot and should not try to tell those layers apart.
+   */
+  loadAssignments() {
+    this.assignmentsLoading.set(true);
+    this.assignmentsError.set(false);
+    this.assignmentApi.list(this.studentId()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: rows => {
+        this.assignmentsAttentionCount.set(rows.filter(a => a.status === 'DRAFT' || a.status === 'REVISION_REQUESTED').length);
+        this.assignmentsLoading.set(false);
+      },
+      error: () => {
+        this.assignmentsError.set(true);
+        this.assignmentsLoading.set(false);
+      }
     });
   }
 

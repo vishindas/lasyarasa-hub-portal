@@ -15,6 +15,8 @@ function activatedRouteStub(params: Record<string, string>, queryParams: Record<
   };
 }
 
+const ASSIGNMENTS_URL = `${environment.apiUrl}/account/students/117/learning/assignments`;
+
 describe('StudentDashboardOverviewComponent', () => {
   let httpMock: HttpTestingController;
 
@@ -39,6 +41,7 @@ describe('StudentDashboardOverviewComponent', () => {
       { studentId: 117, providerId: 1, studentDisplayName: 'Vidya Rasa', providerDisplayName: 'Dev Dance School', accessType: 'SELF' }
     ]);
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -51,6 +54,7 @@ describe('StudentDashboardOverviewComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: true });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -65,6 +69,7 @@ describe('StudentDashboardOverviewComponent', () => {
       classSelectionRequired: false, selectedClassId: 11,
       currentModule: { moduleId: 5, title: 'PILOT Lesson Module', moduleOrder: 1, status: 'RELEASED' }
     });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     const link = (fixture.nativeElement as HTMLElement).querySelector('a[href*="modules"]');
@@ -78,6 +83,7 @@ describe('StudentDashboardOverviewComponent', () => {
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({
       classSelectionRequired: false, selectedClassId: 11
     });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     const link = (fixture.nativeElement as HTMLElement).querySelector('a[href*="class-info"]') as HTMLAnchorElement;
@@ -90,6 +96,7 @@ describe('StudentDashboardOverviewComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: true });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).querySelector('a[href*="class-info"]')).toBeNull();
@@ -100,6 +107,7 @@ describe('StudentDashboardOverviewComponent', () => {
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: true });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     const link = (fixture.nativeElement as HTMLElement).querySelector('a[href*="/fees"]') as HTMLAnchorElement;
@@ -119,6 +127,7 @@ describe('StudentDashboardOverviewComponent', () => {
 
     httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -133,6 +142,13 @@ describe('StudentDashboardOverviewComponent', () => {
       { studentId: 117, providerId: 1, studentDisplayName: 'Zero Classes Student', providerDisplayName: 'Dev Dance School', accessType: 'SELF' }
     ]);
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false });
+    // D4: the assignments call still fires unconditionally (it is
+    // student/provider-scoped, not class-scoped) even though the Attention
+    // card that would consume it never renders in this state -- must still
+    // be flushed or httpMock.verify() fails on an outstanding request.
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([
+      { id: 1, instanceId: 1, title: 'Should never appear', dueAt: '2026-12-01T00:00:00', status: 'DRAFT', attemptNumber: 0 }
+    ]);
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
@@ -143,9 +159,11 @@ describe('StudentDashboardOverviewComponent', () => {
     // The intentional empty state renders...
     expect(text).toContain('No active classes');
     expect(text).toContain('There are no active classes connected to this student yet.');
-    // ...and none of the class-dependent cards that would imply normal class context.
+    // ...and none of the class-dependent cards that would imply normal class context,
+    // even though the assignments data itself loaded successfully (and non-emptily).
     expect(el.querySelector('.grid')).toBeNull();
     expect(text).not.toContain('No open assignments right now');
+    expect(text).not.toContain('needs your attention');
     expect(text).not.toContain('Class schedule');
   });
 
@@ -160,6 +178,7 @@ describe('StudentDashboardOverviewComponent', () => {
       classSelectionRequired: false, selectedClassId: 12,
       currentModule: { moduleId: 9, title: 'Second Class Module', moduleOrder: 1, status: 'RELEASED' }
     });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -173,6 +192,7 @@ describe('StudentDashboardOverviewComponent', () => {
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush(
       { code: 'STUDENT_CONTEXT_UNAVAILABLE', message: 'x', resource: null }, { status: 403, statusText: 'Forbidden' }
     );
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     expect(fixture.componentInstance.loadError()).toBeTruthy();
@@ -195,6 +215,7 @@ describe('StudentDashboardOverviewComponent', () => {
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush(
       { code: 'STUDENT_CONTEXT_UNAVAILABLE', message: 'x', resource: null }, { status: 404, statusText: 'Not Found' }
     );
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -211,6 +232,7 @@ describe('StudentDashboardOverviewComponent', () => {
     httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush(
       { code: 'STUDENT_CONTEXT_UNAVAILABLE', message: 'x', resource: null }, { status: 404, statusText: 'Not Found' }
     );
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     // loadHeader()'s call resolves late, after the error already landed.
@@ -222,5 +244,159 @@ describe('StudentDashboardOverviewComponent', () => {
     expect(fixture.componentInstance.studentName()).toBeNull();
     expect(fixture.componentInstance.schoolName()).toBeNull();
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Vidya Rasa');
+  });
+
+  describe('D4: Attention card (assignments)', () => {
+    it('shows a loading indicator while the assignments call is in flight, independent of the other cards', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      // Neither of the other two calls has resolved yet, and the assignments
+      // call hasn't either -- proves the loading signal starts true and
+      // isn't derived from anything else.
+      expect(fixture.componentInstance.assignmentsLoading()).toBe(true);
+
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.assignmentsLoading()).toBe(false);
+    });
+
+    it('is independent/non-blocking: resolves and renders before the other cards\' data has arrived', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      // Assignments resolves FIRST, while home()/loadHeader() are both still pending.
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([
+        { id: 1, instanceId: 1, title: 'Early', dueAt: '2026-12-01T00:00:00', status: 'DRAFT', attemptNumber: 0 }
+      ]);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.assignmentsLoading()).toBe(false);
+      expect(fixture.componentInstance.assignmentsAttentionCount()).toBe(1);
+      // The overall page is still on its own loading spinner -- the Attention
+      // card's own state isn't gated behind (or gating) home()'s.
+      expect(fixture.componentInstance.loading()).toBe(true);
+
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      fixture.detectChanges();
+    });
+
+    it('empty state: renders the honest "No open assignments right now." copy when nothing is open', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([
+        { id: 1, instanceId: 1, title: 'Already validated', dueAt: '2026-12-01T00:00:00', status: 'VALIDATED', attemptNumber: 1 }
+      ]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('No open assignments right now.');
+    });
+
+    it('populated state: counts only DRAFT + REVISION_REQUESTED, ignoring SUBMITTED/VALIDATED/CLOSED', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([
+        { id: 1, instanceId: 1, title: 'A', dueAt: '2026-12-01T00:00:00', status: 'DRAFT', attemptNumber: 0 },
+        { id: 2, instanceId: 2, title: 'B', dueAt: '2026-12-01T00:00:00', status: 'REVISION_REQUESTED', attemptNumber: 1 },
+        { id: 3, instanceId: 3, title: 'C', dueAt: '2026-12-01T00:00:00', status: 'SUBMITTED', attemptNumber: 1 },
+        { id: 4, instanceId: 4, title: 'D', dueAt: '2026-12-01T00:00:00', status: 'VALIDATED', attemptNumber: 1 },
+        { id: 5, instanceId: 5, title: 'E', dueAt: '2026-12-01T00:00:00', status: 'CLOSED', attemptNumber: 1 }
+      ]);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.assignmentsAttentionCount()).toBe(2);
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('2 assignments need your attention.');
+    });
+
+    it('singular count reads naturally ("1 assignment needs...", not "1 assignments need...")', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([
+        { id: 1, instanceId: 1, title: 'A', dueAt: '2026-12-01T00:00:00', status: 'DRAFT', attemptNumber: 0 }
+      ]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 assignment needs your attention.');
+    });
+
+    it('links to the existing Assignments route only when there is something to show, as a real anchor', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([
+        { id: 1, instanceId: 1, title: 'A', dueAt: '2026-12-01T00:00:00', status: 'DRAFT', attemptNumber: 0 }
+      ]);
+      fixture.detectChanges();
+
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a[href*="/assignments"]') as HTMLAnchorElement;
+      expect(link).toBeTruthy();
+      expect(link.tagName).toBe('A'); // a real, keyboard-focusable anchor, not a click handler on a div
+      expect(link.getAttribute('href')).toBe('/my-students/117/assignments');
+    });
+
+    it('does not render an Assignments link in the empty state', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('a[href*="/assignments"]')).toBeNull();
+    });
+
+    it('feature-unavailable/load-failure: shows an undifferentiated unavailable message with a working Retry -- never a dead end', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      // Any of the three assignment feature-gate layers produces this same
+      // code -- deliberately not distinguished here, matching the audit.
+      httpMock.expectOne(ASSIGNMENTS_URL).flush({ code: 'LEARNING_CONTENT_NOT_FOUND' }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain("Assignments aren't available right now.");
+      expect(el.textContent).not.toContain('No open assignments right now.');
+
+      // Unlike StudentAssignmentMessageComponent's back button (only shown
+      // given a backLabel), Retry here is always present -- no dead end.
+      const retryBtn = Array.from(el.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Retry');
+      expect(retryBtn).toBeTruthy();
+
+      retryBtn!.click();
+      expect(fixture.componentInstance.assignmentsLoading()).toBe(true);
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.assignmentsError()).toBe(false);
+      expect(el.textContent).toContain('No open assignments right now.');
+    });
+
+    it('an assignments-call failure never blocks or clears the rest of the dashboard', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([
+        { studentId: 117, providerId: 1, studentDisplayName: 'Vidya Rasa', providerDisplayName: 'Dev Dance School', accessType: 'SELF' }
+      ]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush({ code: 'LEARNING_CONTENT_NOT_FOUND' }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Vidya Rasa');
+      expect(text).toContain('Dev Dance School');
+      expect(fixture.componentInstance.loadError()).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.grid')).not.toBeNull();
+    });
   });
 });
