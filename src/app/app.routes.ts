@@ -15,19 +15,23 @@ export const routes: Routes = [
     loadComponent: () => import('./features/accept-invitation/accept-invitation').then(m => m.AcceptInvitationComponent)
   },
   {
+    // D6: /my-students now loads the promoted StudentDashboardEntryComponent
+    // (previously only reachable via the separate, unlinked /student-dashboard
+    // direct URL) -- same URL as before, so login.ts's CLIENT redirect and
+    // nonClientGuard's CLIENT redirect both keep working unchanged. The
+    // retired MyStudentsComponent's dormant-gate contract (inert cards while
+    // studentLearningEntryEnabled is false) is preserved inside the promoted
+    // component itself, not lost in this swap -- see its own doc comment.
     path: 'my-students',
-    loadComponent: () => import('./features/my-students/my-students').then(m => m.MyStudentsComponent),
+    loadComponent: () => import('./features/student-dashboard/entry/student-dashboard-entry').then(m => m.StudentDashboardEntryComponent),
     canActivate: [authGuard, clientGuard]
   },
   {
-    // Student Dashboard D1: new entry point, reachable only by direct URL
-    // while studentLearningEntryEnabled is false -- no nav link points here
-    // yet, same dormant-deployment pattern as /my-students/:studentId
-    // below. Same guards; the backend's own flags/access checks fail
-    // safely if reached without authorization.
+    // D6: retired as its own URL now that its component is promoted to
+    // /my-students directly -- kept as a redirect only in case anything
+    // still has this direct URL bookmarked from the D1-D5 pilot period.
     path: 'student-dashboard',
-    loadComponent: () => import('./features/student-dashboard/entry/student-dashboard-entry').then(m => m.StudentDashboardEntryComponent),
-    canActivate: [authGuard, clientGuard]
+    redirectTo: 'my-students'
   },
   {
     // Slice 12: exists in the compiled bundle regardless of

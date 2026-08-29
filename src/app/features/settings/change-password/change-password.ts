@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialogRef } from '@angular/material/dialog';
 import { AuthService } from '../../../core/auth/auth.service';
 
 const MAX_PASSWORD_UTF8_BYTES = 72;
@@ -36,6 +37,11 @@ function maxUtf8Bytes(maxBytes: number) {
         <h2>Change Password</h2>
         <p class="page-subtitle">Update your login password</p>
       </div>
+      @if (dialogRef) {
+        <button mat-icon-button type="button" aria-label="Close" (click)="dialogRef.close()">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
     </div>
 
     <mat-card style="max-width:480px">
@@ -124,6 +130,8 @@ export class ChangePasswordComponent {
   private authService = inject(AuthService);
   private snack = inject(MatSnackBar);
   private fb = inject(FormBuilder);
+  /** Present only when opened as a dialog (e.g. the CLIENT account menu) -- absent for the existing routed staff settings page, which renders this unchanged. */
+  dialogRef = inject(MatDialogRef<ChangePasswordComponent>, { optional: true });
 
   showCurrent = signal(false);
   showNew = signal(false);
@@ -151,6 +159,7 @@ export class ChangePasswordComponent {
         this.snack.open('Password updated successfully', 'OK', { duration: 3000 });
         this.form.reset();
         this.saving.set(false);
+        this.dialogRef?.close();
       },
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
