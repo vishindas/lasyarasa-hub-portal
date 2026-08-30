@@ -50,7 +50,7 @@ import { backLabelFor, navigateForRecovery } from '../student-learning/student-l
     .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #A3762C; font-weight: 700; margin: 28px 0 10px; }
     .section-title:first-of-type { margin-top: 0; }
     .fee-list { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0; padding: 0; }
-    .fee-row { border: 1px solid #E3DCC8; background: #fff; padding: 14px 16px; min-height: 44px; }
+    .fee-row { border: 1px solid #E3DCC8; border-radius: 8px; background: #fff; padding: 14px 16px; min-height: 44px; }
     .class-line { margin: 0 0 4px; font-size: 0.8rem; color: #6B6255; }
     .fee-row-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .fee-amount { font-weight: 600; color: #1C1A16; font-size: 1.05rem; }

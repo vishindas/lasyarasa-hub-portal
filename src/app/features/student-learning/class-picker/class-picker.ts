@@ -48,7 +48,7 @@ interface ClassPickerCard {
     :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
     h1 { font-family: Fraunces, Georgia, serif; font-size: 1.5rem; color: #1C1A16; margin: 0 0 20px; }
     .cards { display: grid; gap: 12px; }
-    .class-card { border-radius: 0 !important; border: 1px solid #E3DCC8 !important; min-height: 44px; cursor: pointer; }
+    .class-card { border-radius: 8px !important; border: 1px solid #E3DCC8 !important; min-height: 44px; cursor: pointer; }
     .class-card:focus-visible, .class-card:hover { outline: 2px solid #7A5419; outline-offset: 2px; }
     .class-name { margin: 0 0 4px; font-weight: 700; color: #1C1A16; }
     .schedule { margin: 0 0 6px; font-size: 0.85rem; color: #6B6255; }
