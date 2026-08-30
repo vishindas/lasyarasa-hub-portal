@@ -350,6 +350,11 @@ export class LessonEditorComponent implements OnInit {
 
     if (!this.isEdit()) {
       const type = this.contentType();
+      // CURR-FUNC-02: no lessonOrder here -- the backend assigns it
+      // atomically (see CreateLessonRequest's own doc comment). This was
+      // previously hardcoded to 1 for every create, which collided with
+      // any lesson already at order 1 in the same module and was
+      // misreported as a stale-version conflict.
       const body: CreateLessonRequest = {
         title: this.form.title.trim(),
         contentType: type,
@@ -357,8 +362,7 @@ export class LessonEditorComponent implements OnInit {
         textContent: type === 'TEXT' ? this.form.textContent.trim() : null,
         externalUrl: (type === 'PDF_LINK' || type === 'EXTERNAL_LINK') ? this.form.externalUrl.trim() : null,
         externalLinkLabel: (type === 'PDF_LINK' || type === 'EXTERNAL_LINK') ? this.form.externalLinkLabel.trim() : null,
-        practiceNotes: this.form.practiceNotes.trim() || null,
-        lessonOrder: 1
+        practiceNotes: this.form.practiceNotes.trim() || null
       };
       this.lessonApi.create(mId, body).subscribe({
         next: created => { this.saving.set(false); this.snack.open('Saved.', 'OK', { duration: 2000 }); this.goToList(); },
