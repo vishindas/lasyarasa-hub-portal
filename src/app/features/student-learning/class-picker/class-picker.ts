@@ -43,7 +43,9 @@ interface ClassPickerCard {
   standalone: true,
   imports: [MatCardModule, MatProgressSpinnerModule, CurriculumMessageComponent],
   styles: [`
-    :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; }
+    /* UX-01 refinement: widened from 720px -- container only, the card list
+       itself is unchanged ahead of its own future redesign slice. */
+    :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
     h1 { font-family: Fraunces, Georgia, serif; font-size: 1.5rem; color: #1C1A16; margin: 0 0 20px; }
     .cards { display: grid; gap: 12px; }
     .class-card { border-radius: 0 !important; border: 1px solid #E3DCC8 !important; min-height: 44px; cursor: pointer; }

@@ -54,7 +54,11 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
   standalone: true,
   imports: [RouterLink, MatCardModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, CurriculumMessageComponent],
   styles: [`
-    :host { display: block; max-width: 880px; margin: 0 auto; padding: 24px 20px 48px; }
+    /* UX-01 refinement: widened from 880px so the shell's new, wider
+       application workspace isn't wasted -- this is a container-only
+       change; the card grid itself is untouched (still 1/2 columns) ahead
+       of its own future redesign slice. */
+    :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
     h1 { font-family: Fraunces, Georgia, serif; font-size: 1.6rem; color: #1C1A16; margin: 0 0 4px; }
     .school-name { margin: 0 0 20px; color: #6B6255; font-size: 0.9rem; }
     .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }

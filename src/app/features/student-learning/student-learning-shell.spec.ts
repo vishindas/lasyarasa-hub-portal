@@ -288,6 +288,19 @@ describe('StudentLearningShellComponent -- UX-01 persistent shell', () => {
     expect(skip.getAttribute('href')).toBe('#main-content');
   });
 
+  it('UX-01 refinement: the shell no longer imposes a narrow content width on main -- it fills the space beside the rail up to a generous application-wide ceiling, not a small centered column', () => {
+    const fixture = setup();
+    flushAuthorized(fixture);
+
+    const main = (fixture.nativeElement as HTMLElement).querySelector('main#main-content') as HTMLElement;
+    const style = getComputedStyle(main);
+    expect(style.flex).toContain('1');
+    // A generous outer ceiling (not "the old 720/880px page widths", and not
+    // an unbounded width:100% either) -- individual pages still layer their
+    // own, page-specific inner max-width on top of this.
+    expect(parseInt(style.maxWidth, 10)).toBeGreaterThanOrEqual(1400);
+  });
+
   it('the rail renders the four primary nav destinations, each pointing at the routed studentId', () => {
     const fixture = setup();
     flushAuthorized(fixture);

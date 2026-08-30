@@ -23,7 +23,8 @@ import { StudentAccessDTO } from '../../core/models/student-learning.model';
  * watching the ViewChildren QueryList directly, which can observe a
  * transient state before the overlay finishes attaching) and meaningful.
  *
- * Selecting a student always returns to that student's Home and clears the
+ * Selecting a student always returns to that student's Dashboard (see
+ * select() below for the UX-01 rationale for this target) and clears the
  * class-context service (StudentLearningContextService), per Part II.6's
  * security property: no cached screen state from one student may render
  * while the header names another. The resulting page's H1 receiving focus
@@ -101,12 +102,31 @@ export class StudentSwitcherComponent implements OnInit {
   select(s: StudentAccessDTO): void {
     if (s.studentId === this.currentStudentId()) return;
     // Correction 1's security property: switching students always returns
-    // to Home and clears every downstream context. Navigating to a
-    // different :studentId root naturally tears down and recreates the
-    // whole parameterized route subtree, which is what actually clears
-    // module/lesson/assignment-tab state -- there is nothing else to reset
-    // here beyond the class-context service (cleared by the shell on
-    // studentId change, not here, so this component stays a dumb list).
-    this.router.navigate(['/my-students', s.studentId, 'home']);
+    // to a fresh, unambiguous screen and clears every downstream context.
+    // Navigating to a different :studentId root naturally tears down and
+    // recreates the whole parameterized route subtree, which is what
+    // actually clears module/lesson/assignment-tab state -- there is
+    // nothing else to reset here beyond the class-context service (cleared
+    // by the shell on studentId change, not here, so this component stays
+    // a dumb list).
+    //
+    // UX-01: retargeted from the legacy `home` route to `dashboard` --
+    // now that a persistent rail exists, `home` has no corresponding nav
+    // item, so switching left the user on a screen the shell's own
+    // navigation couldn't show as active. `home`'s Home/Continue-learning/
+    // Learning-path/Class-schedule content is a strict subset of
+    // Dashboard's (StudentDashboardOverviewComponent calls the exact same
+    // StudentLearningApiService.home(studentId, classId) with no classId,
+    // handling zero/one/many-active-class students identically) plus
+    // Dashboard adds a real Attention card where Home only ever showed a
+    // permanently-empty placeholder -- there is no loss of function, and
+    // `dashboard` is the real target the shell's own "Dashboard" link
+    // points to. The bare `/my-students/:studentId` redirect and the
+    // separate CLASS_CONTEXT_UNAVAILABLE/LEARNING_CONTENT_NOT_FOUND
+    // recovery fallback (student-learning-recovery.util.ts, its own
+    // architect-reviewed behavior with its own tests) still target `home`
+    // unchanged -- this is a narrower, deliberately-scoped fix to this one
+    // call site only.
+    this.router.navigate(['/my-students', s.studentId, 'dashboard']);
   }
 }

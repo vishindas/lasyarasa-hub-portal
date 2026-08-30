@@ -82,7 +82,16 @@ import { StudentShellNavComponent } from './shell-nav/student-shell-nav';
     .menu-toggle:focus-visible { outline: 2px solid #A3762C; outline-offset: 2px; }
     .topbar-brand { font-family: Fraunces, Georgia, serif; font-weight: 700; }
 
-    main { flex: 1; }
+    /* UX-01 refinement: the shell no longer imposes any narrow width of its
+       own -- main fills the entire area beside the rail. This is the outer
+       "application workspace" bound (requirement #8's "sensible application
+       max-width"); it exists as a hygiene ceiling for very wide monitors,
+       not as the thing that was making pages feel cramped -- that was each
+       page's own :host max-width (720-880px), fixed at the source in this
+       same change. A page that wants a narrower reading width (lesson/module
+       content) still sets its own smaller max-width, which wins over this
+       outer bound automatically since width constraints only ever shrink. */
+    main { flex: 1; min-width: 0; max-width: 1600px; width: 100%; margin: 0 auto; }
     main:focus-visible { outline: none; }
 
     @media (max-width: 860px) {

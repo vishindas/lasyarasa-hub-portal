@@ -51,7 +51,9 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
   standalone: true,
   imports: [RouterLink, MatTabsModule, MatIconModule, MatButtonModule, MatProgressSpinnerModule, StudentAssignmentMessageComponent],
   styles: [`
-    :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; }
+    /* UX-01 refinement: widened from 720px -- container only, the tab/list
+       layout itself is unchanged ahead of its own future redesign slice. */
+    :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
     h1 { font-family: Fraunces, Georgia, serif; font-size: 1.5rem; color: #1C1A16; margin: 0 0 16px; }
     .tab-body { padding: 20px 4px; }
     .empty-note { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: #6B6255; padding: 40px 16px; }
