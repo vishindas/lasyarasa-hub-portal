@@ -59,8 +59,14 @@ describe('YouTubeUrlValidatorComponent', () => {
     expect(text).toContain('This video is private, removed, restricted, or currently unavailable.');
   });
 
-  /** CURR-FUNC-04: a pre-seeded video (the Lesson Editor's ordinary edit path) shows its URL and is treated as already confirmed -- no network call, but the caller is still notified via the normal validated event. */
-  it('pre-seeding with initialUrl/initialVideoId shows the URL and emits validated on init, with no HTTP call', () => {
+  /**
+   * PR #24 review correction (CURR-FUNC-04): a pre-seeded, already-stored
+   * video is a display fact, not a validation event -- it must never emit
+   * `validated`, make an HTTP call, or claim "validated successfully" for a
+   * value nobody just checked. It gets its own distinct, neutral banner
+   * copy instead.
+   */
+  it('pre-seeding with initialUrl/initialVideoId shows the URL and the retained banner, emits no validated event and makes no HTTP call', () => {
     TestBed.configureTestingModule({
       imports: [YouTubeUrlValidatorComponent],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync()]
@@ -69,14 +75,39 @@ describe('YouTubeUrlValidatorComponent', () => {
     const fixture = TestBed.createComponent(YouTubeUrlValidatorComponent);
     fixture.componentRef.setInput('initialUrl', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     fixture.componentRef.setInput('initialVideoId', 'dQw4w9WgXcQ');
-    let emitted: { result: string; videoId: string | null; url: string } | undefined;
+    let emitted: unknown;
     fixture.componentInstance.validated.subscribe(e => (emitted = e));
 
     fixture.detectChanges(); // runs ngOnInit
 
     expect(fixture.componentInstance.url).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-    expect(emitted).toEqual({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' });
+    expect(fixture.componentInstance.retained()).toBe(true);
+    expect(emitted).toBeUndefined(); // no `validated` emission for a merely-retained video
     httpMock.verify(); // no outstanding requests -- pre-seeding never calls the validation API
+
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Current linked video.');
+    expect(text).not.toContain('Video validated successfully.');
+    expect(text).not.toContain('dQw4w9WgXcQ');
+  });
+
+  /** A real Validate & Preview, by contrast, does emit `validated` and shows the fresh-validation banner, not the retained one. */
+  it('a real Validate & Preview emits validated and shows the fresh-validation banner, not the retained one', () => {
+    const fixture = setup();
+    let emitted: { result: string; videoId: string | null; url: string } | undefined;
+    fixture.componentInstance.validated.subscribe(e => (emitted = e));
+    fixture.componentInstance.url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+    fixture.componentInstance.validate();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/lessons/validate-youtube-url`)
+      .flush({ result: 'VALID', videoId: 'dQw4w9WgXcQ' });
+    fixture.detectChanges();
+
+    expect(emitted).toEqual({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' });
+    expect(fixture.componentInstance.retained()).toBe(false);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Video validated successfully.');
+    expect(text).not.toContain('Current linked video.');
   });
 
   /** CURR-FUNC-04: editing the url away from whatever was last confirmed (pre-seeded or validated) must clear that confirmation and tell the caller. */

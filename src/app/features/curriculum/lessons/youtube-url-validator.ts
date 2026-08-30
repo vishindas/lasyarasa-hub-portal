@@ -28,21 +28,25 @@ export interface YouTubeValidatedEvent {
  * LessonService.validationFailureMessage() on the backend.
  *
  * <p>CURR-FUNC-04: {@code initialUrl}/{@code initialVideoId} let a caller
- * pre-seed an already-confirmed video (the ordinary Lesson Editor edit path
+ * pre-seed an already-stored video (the ordinary Lesson Editor edit path
  * uses this to show an existing lesson's linked video without forcing a
- * re-validation). On init, a pre-seeded video is treated exactly like a
- * fresh validation -- it emits {@code validated} with {@code result: 'VALID'}
- * -- so the caller's single {@code (validated)} handler covers both cases
- * uniformly; distinguishing "retained" from "freshly replaced" is left
- * entirely to the caller (compare the emitted url against its own original
- * baseline), not this component's concern. What this component does own:
- * the moment the user edits the url field away from whatever was last
- * confirmed (whether that's the pre-seeded value or a previous real
- * validation), the confirmed state is cleared and {@code cleared} is
- * emitted -- the caller must not go on treating a modified, unvalidated url
- * as still valid. The repair-video flow deliberately never passes these
- * two inputs: repair always needs a genuinely new url for a known-broken
- * video, never the old one.
+ * re-validation). Pre-seeding is a display-only fact, never a validation
+ * event: it makes no network call, and it deliberately does NOT emit
+ * {@code validated} -- a retained, already-stored video is not the same
+ * thing as a video this component just confirmed live, and this component
+ * must never misrepresent one as the other. The banner reflects this too
+ * ({@link #retained}'s distinct "Current linked video" copy, never "Video
+ * validated successfully" for a value nobody just checked). {@code
+ * validated} fires only when a real Validate & Preview call actually
+ * succeeds. Ownership of the retained-existing-video Save-readiness state
+ * belongs entirely to the caller (it already knows the lesson's stored
+ * videoId) -- this component's only two responsibilities toward that state
+ * are showing it and clearing it: the moment the user edits the url field
+ * away from whatever was last confirmed (the pre-seeded value or a prior
+ * real validation), {@code cleared} is emitted so the caller knows that
+ * state -- retained or freshly validated -- no longer holds. The repair-
+ * video flow deliberately never passes these two inputs: repair always
+ * needs a genuinely new url for a known-broken video, never the old one.
  */
 @Component({
   selector: 'app-youtube-url-validator',
@@ -77,7 +81,7 @@ export interface YouTubeValidatedEvent {
       @if (r.result === 'VALID') {
         <div class="banner valid">
           <mat-icon aria-hidden="true">check_circle</mat-icon>
-          Video validated successfully.
+          {{ retained() ? 'Current linked video.' : 'Video validated successfully.' }}
         </div>
       } @else {
         <div class="banner {{ r.result.toLowerCase() }}">
@@ -104,6 +108,8 @@ export class YouTubeUrlValidatorComponent implements OnInit {
   validating = signal(false);
   result = signal<{ result: YouTubeValidationResultKind; videoId: string | null } | null>(null);
   requestError = signal<CurriculumUiError | null>(null);
+  /** CURR-FUNC-04: true only for the pre-seeded, already-stored video -- distinct from a value this component just validated live. Drives the banner copy only; the caller owns its own Save-readiness decision regardless. */
+  retained = signal(false);
 
   /** The url string that {@link #result} (when non-null) actually corresponds to -- either the pre-seeded initial value or the last successfully validated one. */
   private lastConfirmedUrl: string | null = null;
@@ -111,16 +117,18 @@ export class YouTubeUrlValidatorComponent implements OnInit {
   ngOnInit() {
     this.url = this.initialUrl();
     if (this.initialVideoId()) {
+      // Display-only: shows the already-stored video without claiming a live validation just happened. No network call, no `validated` emission.
       this.result.set({ result: 'VALID', videoId: this.initialVideoId() });
       this.lastConfirmedUrl = this.initialUrl();
-      this.validated.emit({ result: 'VALID', videoId: this.initialVideoId(), url: this.initialUrl() });
+      this.retained.set(true);
     }
   }
 
-  /** CURR-FUNC-04: any edit away from the last confirmed url invalidates that confirmation -- never let a modified, unvalidated url silently keep looking valid. */
+  /** CURR-FUNC-04: any edit away from the last confirmed url invalidates that confirmation -- never let a modified, unvalidated url silently keep looking valid, retained or freshly validated alike. */
   onUrlEdited() {
     if (this.result() !== null && this.url.trim() !== this.lastConfirmedUrl) {
       this.result.set(null);
+      this.retained.set(false);
       this.lastConfirmedUrl = null;
       this.cleared.emit();
     }
@@ -131,6 +139,7 @@ export class YouTubeUrlValidatorComponent implements OnInit {
     if (!trimmed) return;
     this.validating.set(true);
     this.result.set(null);
+    this.retained.set(false);
     this.requestError.set(null);
     this.api.validate(trimmed).subscribe({
       next: res => {
