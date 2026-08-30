@@ -57,7 +57,8 @@ describe('LessonEditorComponent -- video-id-in-copy corrections', () => {
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('A YouTube video is currently linked. Re-enter and validate a YouTube URL to replace it or save video changes.');
+    expect(text).toContain('A YouTube video is currently linked. You can save title/practice-note changes as-is, or enter a different YouTube URL and validate it to replace the video.');
+    // The raw id itself is never rendered as visible text -- it only ever appears inside the reconstructed URL bound to the input's value property, which textContent does not include.
     expect(text).not.toContain('dQw4w9WgXcQ');
     // The id must still be available internally to drive the repair/embed payload.
     expect(fixture.componentInstance.lesson()?.videoId).toBe('dQw4w9WgXcQ');
@@ -212,5 +213,142 @@ describe('LessonEditorComponent -- create-mode Save enablement (content-type swi
     // and navigate, which needs real routes this test doesn't configure.
     // Only the outgoing request (already asserted above) is under test here.
     req.flush({ code: 'IGNORED' }, { status: 500, statusText: 'Server Error' });
+  });
+});
+
+/**
+ * CURR-FUNC-04: editing an existing VIDEO lesson must show the currently
+ * linked video and allow a title/practice-notes-only save without any
+ * manual "Validate & Preview" click -- but the moment the URL field is
+ * actually changed, that retained state must be invalidated until a fresh
+ * validation succeeds.
+ */
+describe('LessonEditorComponent -- CURR-FUNC-04 existing-video edit behavior', () => {
+  let httpMock: HttpTestingController;
+
+  function setupEdit() {
+    TestBed.configureTestingModule({
+      imports: [LessonEditorComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '101', lessonId: '301' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonEditorComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush([AVAILABLE_VIDEO_LESSON]);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  /** Requirements 1 and 2: the reconstructed canonical URL and the stored videoId both initialize from the loaded lesson. */
+  it('initializes the reconstructed current URL and videoId from the loaded lesson', () => {
+    const fixture = setupEdit();
+    const c = fixture.componentInstance;
+
+    expect(c.initialVideoUrlForForm).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    expect(c.initialVideoIdForForm).toBe('dQw4w9WgXcQ');
+  });
+
+  /** Requirement 3: a title-only change enables Save with no manual Validate & Preview call at all. */
+  it('title-only edit enables Save without pressing Validate & Preview', () => {
+    const fixture = setupEdit();
+    const c = fixture.componentInstance;
+
+    expect(c.saveReady()).toBe(true); // already true on load -- the existing video is implicitly retained
+    c.form.title = 'A renamed video lesson';
+    expect(c.saveReady()).toBe(true);
+  });
+
+  /** Requirement 4: same for a practice-notes-only change. */
+  it('practice-notes-only edit enables Save without pressing Validate & Preview', () => {
+    const fixture = setupEdit();
+    const c = fixture.componentInstance;
+
+    c.form.practiceNotes = 'Some new practice guidance.';
+    expect(c.saveReady()).toBe(true);
+  });
+
+  /** Requirements 3/4/title-only Save payload: the request must send youtubeUrl: null (keep existing), never re-sending the reconstructed URL as if it were a fresh replacement. */
+  it('title-only Save sends youtubeUrl: null -- the backend keeps the existing video, no revalidation', () => {
+    const fixture = setupEdit();
+    const c = fixture.componentInstance;
+    c.form.title = 'A renamed video lesson';
+    c.save();
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/lessons/301`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body.title).toBe('A renamed video lesson');
+    expect(req.request.body.youtubeUrl).toBeNull();
+    req.flush({ ...AVAILABLE_VIDEO_LESSON, title: 'A renamed video lesson' });
+  });
+
+  /** Requirement 5: editing the URL field away from the retained value clears the confirmed state -- Save must become disabled again. */
+  it('changing the URL invalidates the retained-video state and disables Save', () => {
+    const fixture = setupEdit();
+    const c = fixture.componentInstance;
+    expect(c.saveReady()).toBe(true);
+
+    c.onVideoCleared(); // the child emits this the instant its url field diverges from the retained value
+    expect(c.saveReady()).toBe(false);
+  });
+
+  /** Requirement 6: once cleared, Save stays disabled until a fresh validation actually succeeds. */
+  it('a changed URL cannot Save until it is successfully validated', () => {
+    const fixture = setupEdit();
+    const c = fixture.componentInstance;
+    c.onVideoCleared();
+    expect(c.saveReady()).toBe(false);
+
+    c.onVideoValidated({ result: 'INVALID', videoId: null, url: 'https://example.com/not-youtube' });
+    expect(c.saveReady()).toBe(false);
+  });
+
+  /** Requirement 7: a successfully validated replacement URL both enables Save and is sent as the real youtubeUrl (not null, not the old one). */
+  it('a successfully validated replacement URL enables Save and sends the new URL', () => {
+    const fixture = setupEdit();
+    const c = fixture.componentInstance;
+    c.onVideoCleared();
+    c.onVideoValidated({ result: 'VALID', videoId: 'newVideoId1', url: 'https://youtu.be/newVideoId1' });
+    expect(c.saveReady()).toBe(true);
+
+    c.save();
+    const req = httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/lessons/301`);
+    expect(req.request.body.youtubeUrl).toBe('https://youtu.be/newVideoId1');
+    req.flush({ ...AVAILABLE_VIDEO_LESSON, videoId: 'newVideoId1' });
+  });
+
+  /** Requirement 8: Publish readiness still depends only on the lesson's stored videoId, exactly as before -- untouched by the retained/validated distinction. */
+  it('Publish readiness is unaffected by the retained-video state', () => {
+    const fixture = setupEdit();
+    const c = fixture.componentInstance;
+    expect(c.publishReady()).toBe(true); // stored videoId present, independent of validatedVideoId/lastValidatedUrl bookkeeping
+
+    c.onVideoCleared(); // even after the retained state is cleared (mid-edit, unsaved), the lesson's own stored videoId is what gates Publish
+    expect(c.publishReady()).toBe(true);
+  });
+
+  /** Requirement 9: the repair-video flow's validator never receives initialUrl/initialVideoId -- repair must always require a fresh URL, never the old (unavailable) one. */
+  it('repair flow never pre-seeds the validator with the existing (unavailable) video', () => {
+    TestBed.configureTestingModule({
+      imports: [LessonEditorComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '2', versionId: '20', moduleId: '201', lessonId: '306' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonEditorComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/2/versions/20`).flush(ACTIVE_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/201/lessons`).flush([UNAVAILABLE_VIDEO_LESSON]);
+    fixture.detectChanges();
+
+    const c = fixture.componentInstance;
+    expect(c.repairReady()).toBe(false); // no repair validation performed yet -- must not fall back to the old, broken video
   });
 });

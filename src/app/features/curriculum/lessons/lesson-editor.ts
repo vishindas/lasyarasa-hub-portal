@@ -128,12 +128,15 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
               } @else {
                 @if (isEdit()) {
                   <p class="readonly-note">
-                    A YouTube video is currently linked. Re-enter and validate a YouTube URL to replace it or save video changes.
+                    A YouTube video is currently linked. You can save title/practice-note changes as-is, or enter a different YouTube URL and validate it to replace the video.
                   </p>
                 }
                 <app-youtube-url-validator
                   [disabled]="!parentDraft() || mode.mutationsDisabled() || saving()"
-                  (validated)="onVideoValidated($event)" />
+                  [initialUrl]="initialVideoUrlForForm"
+                  [initialVideoId]="initialVideoIdForForm"
+                  (validated)="onVideoValidated($event)"
+                  (cleared)="onVideoCleared()" />
               }
             }
             @case ('TEXT') {
@@ -232,6 +235,15 @@ export class LessonEditorComponent implements OnInit {
   private repairValidatedUrl: string | null = null;
   private repairValidatedVideoId = signal<string | null>(null);
 
+  // CURR-FUNC-04: the existing lesson's video, reconstructed for display and
+  // pre-seeding <app-youtube-url-validator> (edit mode only -- stays blank
+  // for create). currentVideoUrlForUpdate() compares lastValidatedUrl
+  // against this exact baseline to decide whether Save means "keep the
+  // existing video" (send null, no backend revalidation) or "replace it"
+  // (send the newly validated url).
+  initialVideoUrlForForm = '';
+  initialVideoIdForForm: string | null = null;
+
   isEdit = computed(() => this.lessonId() !== null);
   parentDraft = computed(() => this.version()?.status === 'DRAFT');
   needsRepair = computed(() => {
@@ -313,6 +325,17 @@ export class LessonEditorComponent implements OnInit {
           this.form.externalUrl = found.externalUrl ?? '';
           this.form.externalLinkLabel = found.externalLinkLabel ?? '';
           this.form.practiceNotes = found.practiceNotes ?? '';
+          if (found.contentType === 'VIDEO' && found.videoId) {
+            // Reconstructed for display only -- video_id is the only thing actually persisted (CURR-FUNC-04 investigation).
+            const url = `https://www.youtube.com/watch?v=${found.videoId}`;
+            this.initialVideoUrlForForm = url;
+            this.initialVideoIdForForm = found.videoId;
+            this.validatedVideoId.set(found.videoId);
+            this.lastValidatedUrl = url;
+          } else {
+            this.initialVideoUrlForForm = '';
+            this.initialVideoIdForForm = null;
+          }
         } else {
           this.loadError.set({ kind: 'not-found', message: 'This lesson is unavailable.', resource: 'Lesson' });
         }
@@ -325,6 +348,12 @@ export class LessonEditorComponent implements OnInit {
   onVideoValidated(e: YouTubeValidatedEvent) {
     this.validatedVideoId.set(e.result === 'VALID' ? e.videoId : null);
     this.lastValidatedUrl = e.result === 'VALID' ? e.url : null;
+  }
+
+  /** CURR-FUNC-04: the child cleared its confirmed state because the url field was edited away from it (whether that was the retained existing video or a prior validation) -- Save must require a fresh Validate & Preview again. */
+  onVideoCleared() {
+    this.validatedVideoId.set(null);
+    this.lastValidatedUrl = null;
   }
 
   onRepairValidated(e: YouTubeValidatedEvent) {
@@ -383,7 +412,17 @@ export class LessonEditorComponent implements OnInit {
       expectedRowVersion: l.rowVersion
     };
     this.lessonApi.update(l.id, body).subscribe({
-      next: updated => { this.saving.set(false); this.lesson.set(updated); this.snack.open('Saved.', 'OK', { duration: 2000 }); },
+      next: updated => {
+        this.saving.set(false);
+        this.lesson.set(updated);
+        if (updated.contentType === 'VIDEO' && updated.videoId) {
+          // Re-baseline so a further save in this same session doesn't treat the just-persisted video as "changed" again.
+          this.initialVideoUrlForForm = `https://www.youtube.com/watch?v=${updated.videoId}`;
+          this.initialVideoIdForForm = updated.videoId;
+          this.lastValidatedUrl = this.initialVideoUrlForForm;
+        }
+        this.snack.open('Saved.', 'OK', { duration: 2000 });
+      },
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
         const e = toCurriculumUiError(err);
@@ -400,8 +439,17 @@ export class LessonEditorComponent implements OnInit {
     return this.validatedVideoId() ? this.lastValidatedUrl : null;
   }
 
+  /**
+   * CURR-FUNC-04: null means "keep the existing video, don't revalidate"
+   * (backend contract) -- returned when the confirmed url is exactly the
+   * original, untouched baseline. Any other confirmed url is a real
+   * replacement the admin validated, sent through as-is so the backend
+   * revalidates and persists it.
+   */
   private currentVideoUrlForUpdate(): string | null {
-    return this.validatedVideoId() ? this.lastValidatedUrl : null;
+    if (!this.validatedVideoId()) return null;
+    if (this.lastValidatedUrl === this.initialVideoUrlForForm) return null;
+    return this.lastValidatedUrl;
   }
 
   private lastValidatedUrl: string | null = null;
