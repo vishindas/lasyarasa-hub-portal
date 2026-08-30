@@ -25,9 +25,11 @@ import { ModuleSummaryDTO } from '../../../core/models/student-learning.model';
   imports: [MatIconModule],
   styles: [`
     :host { display: block; }
+    /* UX-01 second refinement: 8px is now the standard student-portal card
+       radius (architect-approved) -- content/semantics unchanged. */
     .row {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      min-height: 44px; padding: 12px 14px; border: 1px solid #E3DCC8; background: #fff;
+      min-height: 44px; padding: 12px 14px; border: 1px solid #E3DCC8; border-radius: 8px; background: #fff;
     }
     .row.navigable { cursor: pointer; }
     .row.navigable:hover, .row.navigable:focus-visible { outline: 2px solid #7A5419; outline-offset: -2px; }

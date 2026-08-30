@@ -54,18 +54,26 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
   standalone: true,
   imports: [RouterLink, MatCardModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, CurriculumMessageComponent],
   styles: [`
-    :host { display: block; max-width: 880px; margin: 0 auto; padding: 24px 20px 48px; }
+    /* UX-01 refinement: widened from 880px so the shell's new, wider
+       application workspace isn't wasted -- container-only, the card
+       content itself is unchanged ahead of its own future redesign slice. */
+    :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
     h1 { font-family: Fraunces, Georgia, serif; font-size: 1.6rem; color: #1C1A16; margin: 0 0 4px; }
     .school-name { margin: 0 0 20px; color: #6B6255; font-size: 0.9rem; }
-    .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
-    @media (min-width: 640px) { .grid { grid-template-columns: 1fr 1fr; } }
-    .card { border-radius: 0 !important; border: 1px solid #E3DCC8 !important; }
+    /* Second UX-01 refinement: a rigid "always exactly 2 columns" grid left
+       each card wide but sparse at this container's new width, reading as
+       "small cluster, mostly empty" rather than "using the space" -- a
+       card-count-aware, auto-fit responsive grid replaces the fixed
+       1-then-2-column breakpoint so column count scales with the actual
+       available width instead of a hardcoded number. */
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .card { border-radius: 8px !important; border: 1px solid #E3DCC8 !important; }
     .card a, .card button { min-height: 44px; }
     .card-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #A3762C; font-weight: 700; margin: 0 0 6px; }
     .schedule-line { margin: 2px 0; font-size: 0.9rem; color: #1C1A16; }
     .schedule-unavailable { color: #6B6255; font-style: italic; }
     .empty-note { color: #6B6255; font-size: 0.85rem; }
-    .no-classes { border: 1px solid #E3DCC8; padding: 20px; max-width: 480px; }
+    .no-classes { border: 1px solid #E3DCC8; border-radius: 8px; padding: 20px; max-width: 480px; }
     .no-classes h2 { font-family: Fraunces, Georgia, serif; font-size: 1.1rem; color: #1C1A16; margin: 0 0 8px; }
     .no-classes p { margin: 0; color: #6B6255; font-size: 0.9rem; }
   `],

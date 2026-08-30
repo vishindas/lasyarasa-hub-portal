@@ -505,4 +505,34 @@ describe('StudentDashboardOverviewComponent', () => {
       expect(text).not.toMatch(/%|percent|completed|last viewed|progress/i);
     });
   });
+
+  describe('UX-01 second refinement: responsive card grid + 8px card radius', () => {
+    it('the grid is an auto-fit/minmax responsive layout, not a hardcoded 1-then-2-column breakpoint -- column count scales with available width instead of a fixed number', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      const grid = (fixture.nativeElement as HTMLElement).querySelector('.grid') as HTMLElement;
+      expect(grid).toBeTruthy();
+      const columns = getComputedStyle(grid).gridTemplateColumns;
+      expect(columns).toContain('auto-fit');
+      expect(columns).toContain('minmax');
+    });
+
+    it('renders cards with the standard 8px student-portal card radius, not the old square (0px) corners', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      const card = (fixture.nativeElement as HTMLElement).querySelector('.card') as HTMLElement;
+      expect(card).toBeTruthy();
+      expect(getComputedStyle(card).borderRadius).toBe('8px');
+    });
+  });
 });
