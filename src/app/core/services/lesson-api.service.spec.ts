@@ -25,7 +25,7 @@ describe('LessonApiService', () => {
   });
 
   it('create() -> POST /modules/:moduleId/lessons with body', () => {
-    const body = { title: 't', contentType: 'TEXT' as const, youtubeUrl: null, textContent: 'x', externalUrl: null, externalLinkLabel: null, practiceNotes: null, lessonOrder: 1 };
+    const body = { title: 't', contentType: 'TEXT' as const, youtubeUrl: null, textContent: 'x', externalUrl: null, externalLinkLabel: null, practiceNotes: null };
     service.create(10, body).subscribe();
     const req = httpMock.expectOne(`${base}/10/lessons`);
     expect(req.request.method).toBe('POST');

@@ -274,10 +274,17 @@ export const curriculumFixtureInterceptor: HttpInterceptorFn = (req: HttpRequest
     if (s === 'staleConflict') return errorResponse(409, 'ILLEGAL_TRANSITION', 'Lessons can only be added while the curriculum version is DRAFT.', 'Lesson', req.url);
     if (s === 'validationFailed') return errorResponse(400, 'VALIDATION_FAILED', 'Title is required.', 'Lesson', req.url);
     const moduleId = Number(lessonListMatch[1]);
-    const body = req.body as { title: string; contentType: string; youtubeUrl: string | null; textContent: string | null; externalUrl: string | null; externalLinkLabel: string | null; practiceNotes: string | null; lessonOrder: number };
+    const body = req.body as { title: string; contentType: string; youtubeUrl: string | null; textContent: string | null; externalUrl: string | null; externalLinkLabel: string | null; practiceNotes: string | null };
+    // CURR-FUNC-02: mirrors the real backend -- lessonOrder is no longer part
+    // of the request (nor trusted from it); computed here the same way
+    // LessonService.create() now does, so local verification actually
+    // exercises the fixed behavior (a second lesson in the same module gets
+    // order 2, not a repeated 1).
+    const existingOrders = FIXTURE_LESSONS.filter(l => l.moduleId === moduleId).map(l => l.lessonOrder);
+    const nextOrder = existingOrders.length === 0 ? 1 : Math.max(...existingOrders) + 1;
     return ok({
       id: 900 + Math.floor(Math.random() * 90), moduleId, title: body.title, contentType: body.contentType,
-      lessonOrder: body.lessonOrder, lifecycleStatus: 'DRAFT',
+      lessonOrder: nextOrder, lifecycleStatus: 'DRAFT',
       videoId: body.contentType === 'VIDEO' ? 'dQw4w9WgXcQ' : null, videoAvailability: body.contentType === 'VIDEO' ? 'AVAILABLE' : null,
       textContent: body.textContent, externalUrl: body.externalUrl, externalLinkLabel: body.externalLinkLabel, practiceNotes: body.practiceNotes,
       rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null, attestedAt: null, attestedBy: null

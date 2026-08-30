@@ -206,7 +206,16 @@ export interface Lesson {
   attestedBy: number | null;
 }
 
-/** Create-only -- no expectedRowVersion. Exactly one of youtubeUrl/textContent/(externalUrl+externalLinkLabel) is populated, per contentType. */
+/**
+ * Create-only -- no expectedRowVersion. Exactly one of youtubeUrl/textContent/(externalUrl+externalLinkLabel) is populated, per contentType.
+ *
+ * CURR-FUNC-02: no lessonOrder field. It used to be here, client-supplied
+ * and hardcoded to 1 by the editor for every create regardless of how many
+ * lessons already existed in the module -- guaranteeing a uq_lsn_module_order
+ * collision (surfaced as a confusing "stale version" error) for the
+ * second-or-later lesson in any module. lesson_order is now assigned
+ * atomically, server-side, by LessonService.create() itself.
+ */
 export interface CreateLessonRequest {
   title: string;
   contentType: LessonContentType;
@@ -215,7 +224,6 @@ export interface CreateLessonRequest {
   externalUrl: string | null;
   externalLinkLabel: string | null;
   practiceNotes: string | null;
-  lessonOrder: number;
 }
 
 /** contentType is immutable after create -- not part of an update. */
