@@ -150,48 +150,88 @@ export class LessonListComponent implements OnInit {
     this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'modules', mId, 'lessons', ...segments]);
   }
 
+  /**
+   * CURR-FUNC-05 review correction: dragging a non-archived lesson across an
+   * archived one previously shifted the archived lesson's own array index
+   * (and therefore its computed lessonOrder), which the backend correctly
+   * rejects -- but that meant a perfectly valid reorder of the surrounding
+   * active lessons could fail outright. ARCHIVED lessons are now fixed
+   * positional anchors: CDK is still allowed to report whatever raw
+   * previousIndex/currentIndex it wants over the full visual list (including
+   * the archived row, which simply can't be picked up itself -- see
+   * cdkDragDisabled below), but the archived row's position in that raw,
+   * intermediate array is never trusted. Only the *relative order of the
+   * active lessons* within it reflects the user's real intent; buildFixedAnchorEntries()
+   * then reassigns that relative order onto the module's remaining
+   * (non-archived) position slots, leaving every archived lesson's own
+   * lessonOrder completely untouched and never named in the request.
+   */
   onDrop(event: CdkDragDrop<Lesson[]>) {
     if (event.previousIndex === event.currentIndex) return;
-    const reordered = [...this.lessons()];
-    moveItemInArray(reordered, event.previousIndex, event.currentIndex);
-    this.applyReorder(reordered, event.currentIndex);
+    const movedLesson = this.lessons()[event.previousIndex];
+    const fullReordered = [...this.lessons()];
+    moveItemInArray(fullReordered, event.previousIndex, event.currentIndex);
+    const newActiveOrder = fullReordered.filter(l => l.lifecycleStatus !== 'ARCHIVED');
+    this.applyFixedAnchorReorder(newActiveOrder, movedLesson.title);
   }
 
   /**
-   * CURR-FUNC-05: an archived row has no drag handle or move buttons of its
-   * own (see the template's per-row [disabled] binding), but a NON-archived
-   * neighbor's own moveUp/moveDown could still try to swap across it -- this
-   * guard refuses that swap outright rather than sending a request the
-   * backend would reject anyway.
+   * i indexes the full lessons() array (matching the template's $index).
+   * Moves this lesson one step earlier among the ACTIVE lessons only --
+   * skipping over any archived lesson in between, exactly like moving it
+   * past a fixed obstacle, rather than refusing the move outright.
    */
   moveUp(i: number) {
-    if (i === 0) return;
-    const current = this.lessons();
-    if (current[i - 1].lifecycleStatus === 'ARCHIVED') return;
-    const reordered = [...current];
-    [reordered[i - 1], reordered[i]] = [reordered[i], reordered[i - 1]];
-    this.applyReorder(reordered, i - 1);
+    const all = this.lessons();
+    const lesson = all[i];
+    if (lesson.lifecycleStatus === 'ARCHIVED') return; // defensive -- archived rows render no move button anyway
+    const active = all.filter(l => l.lifecycleStatus !== 'ARCHIVED');
+    const activeIdx = active.findIndex(l => l.id === lesson.id);
+    if (activeIdx <= 0) return; // already first among active lessons -- nothing to do
+    const reorderedActive = [...active];
+    [reorderedActive[activeIdx - 1], reorderedActive[activeIdx]] = [reorderedActive[activeIdx], reorderedActive[activeIdx - 1]];
+    this.applyFixedAnchorReorder(reorderedActive, lesson.title);
   }
 
   moveDown(i: number) {
-    if (i === this.lessons().length - 1) return;
-    const current = this.lessons();
-    if (current[i + 1].lifecycleStatus === 'ARCHIVED') return;
-    const reordered = [...current];
-    [reordered[i], reordered[i + 1]] = [reordered[i + 1], reordered[i]];
-    this.applyReorder(reordered, i + 1);
+    const all = this.lessons();
+    const lesson = all[i];
+    if (lesson.lifecycleStatus === 'ARCHIVED') return;
+    const active = all.filter(l => l.lifecycleStatus !== 'ARCHIVED');
+    const activeIdx = active.findIndex(l => l.id === lesson.id);
+    if (activeIdx === -1 || activeIdx >= active.length - 1) return; // already last among active lessons
+    const reorderedActive = [...active];
+    [reorderedActive[activeIdx], reorderedActive[activeIdx + 1]] = [reorderedActive[activeIdx + 1], reorderedActive[activeIdx]];
+    this.applyFixedAnchorReorder(reorderedActive, lesson.title);
   }
 
-  private applyReorder(reordered: Lesson[], movedToIndex: number) {
+  /**
+   * Archived lessons keep their exact current lessonOrder (the module's
+   * "fixed anchor" positions). The given active lessons -- in their new
+   * desired relative order -- are assigned to the remaining position slots,
+   * in order. Only entries whose position actually changed are returned;
+   * an archived lesson can never appear here, since this only ever iterates
+   * over the active subset.
+   */
+  private buildFixedAnchorEntries(newActiveOrder: Lesson[]): ReorderLessonEntry[] {
+    const all = this.lessons();
+    const archivedPositions = new Set(all.filter(l => l.lifecycleStatus === 'ARCHIVED').map(l => l.lessonOrder));
+    const availablePositions = Array.from({ length: all.length }, (_, idx) => idx + 1)
+      .filter(pos => !archivedPositions.has(pos));
+
+    const entries: ReorderLessonEntry[] = [];
+    newActiveOrder.forEach((lesson, idx) => {
+      const newOrder = availablePositions[idx];
+      if (lesson.lessonOrder !== newOrder) entries.push({ lessonId: lesson.id, expectedRowVersion: lesson.rowVersion, newOrder });
+    });
+    return entries;
+  }
+
+  private applyFixedAnchorReorder(newActiveOrder: Lesson[], movedTitle: string) {
     const mId = this.moduleId();
     if (mId === null) return;
-    const entries: ReorderLessonEntry[] = [];
-    reordered.forEach((l, idx) => {
-      const newOrder = idx + 1;
-      if (l.lessonOrder !== newOrder) entries.push({ lessonId: l.id, expectedRowVersion: l.rowVersion, newOrder });
-    });
-    if (entries.length === 0) return;
-    const movedTitle = reordered[movedToIndex].title;
+    const entries = this.buildFixedAnchorEntries(newActiveOrder);
+    if (entries.length === 0) return; // no-op or an impossible move (e.g. already first/last) -- nothing to send
     this.lessonApi.reorder(mId, { entries }).subscribe({
       next: lessons => {
         const sorted = [...lessons].sort((a, b) => a.lessonOrder - b.lessonOrder);
