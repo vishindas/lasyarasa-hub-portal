@@ -92,7 +92,9 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
         <div class="panel">
           <app-curriculum-message [error]="actionError()" (reload)="load()" />
 
-          @if (!parentDraft() && needsRepair()) {
+          @if (isArchived()) {
+            <p class="readonly-note">Archived lesson — this lesson is read-only.</p>
+          } @else if (!parentDraft() && needsRepair()) {
             <p class="readonly-note">The parent curriculum version is no longer DRAFT — structural edits require a new cloned draft. Only video repair remains available for this lesson.</p>
           } @else if (!parentDraft()) {
             <p class="readonly-note">The parent curriculum version is no longer DRAFT — structural edits require a new cloned draft.</p>
@@ -100,12 +102,12 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
 
           <mat-form-field appearance="outline">
             <mat-label>Title</mat-label>
-            <input matInput [(ngModel)]="form.title" maxlength="120" [disabled]="!parentDraft() || mode.mutationsDisabled() || saving()" />
+            <input matInput [(ngModel)]="form.title" maxlength="120" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
           </mat-form-field>
 
           <div class="field-row">
             <label id="content-type-label" style="font-size:0.82rem;color:#52596b">Content type</label>
-            <mat-button-toggle-group aria-labelledby="content-type-label" [ngModel]="contentType()" (ngModelChange)="onContentTypeChange($event)" [disabled]="isEdit() || !parentDraft() || mode.mutationsDisabled() || saving()">
+            <mat-button-toggle-group aria-labelledby="content-type-label" [ngModel]="contentType()" (ngModelChange)="onContentTypeChange($event)" [disabled]="isEdit() || readOnly() || mode.mutationsDisabled() || saving()">
               @for (t of contentTypes; track t.value) {
                 <mat-button-toggle [value]="t.value">{{ t.label }}</mat-button-toggle>
               }
@@ -126,13 +128,13 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
                   </button>
                 </div>
               } @else {
-                @if (isEdit()) {
+                @if (isEdit() && !isArchived()) {
                   <p class="readonly-note">
                     A YouTube video is currently linked. You can save title/practice-note changes as-is, or enter a different YouTube URL and validate it to replace the video.
                   </p>
                 }
                 <app-youtube-url-validator
-                  [disabled]="!parentDraft() || mode.mutationsDisabled() || saving()"
+                  [disabled]="readOnly() || mode.mutationsDisabled() || saving()"
                   [initialUrl]="initialVideoUrlForForm"
                   [initialVideoId]="initialVideoIdForForm"
                   (validated)="onVideoValidated($event)"
@@ -142,34 +144,34 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
             @case ('TEXT') {
               <mat-form-field appearance="outline">
                 <mat-label>Lesson text</mat-label>
-                <textarea matInput rows="6" [(ngModel)]="form.textContent" placeholder="Write the lesson content students will read" [disabled]="!parentDraft() || mode.mutationsDisabled() || saving()"></textarea>
+                <textarea matInput rows="6" [(ngModel)]="form.textContent" placeholder="Write the lesson content students will read" [disabled]="readOnly() || mode.mutationsDisabled() || saving()"></textarea>
               </mat-form-field>
             }
             @case ('PDF_LINK') {
               <mat-form-field appearance="outline">
                 <mat-label>PDF URL</mat-label>
-                <input matInput [(ngModel)]="form.externalUrl" placeholder="Link to a PDF your students can open" [disabled]="!parentDraft() || mode.mutationsDisabled() || saving()" />
+                <input matInput [(ngModel)]="form.externalUrl" placeholder="Link to a PDF your students can open" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
               </mat-form-field>
               <mat-form-field appearance="outline">
                 <mat-label>Label</mat-label>
-                <input matInput [(ngModel)]="form.externalLinkLabel" placeholder="Label shown to students" [disabled]="!parentDraft() || mode.mutationsDisabled() || saving()" />
+                <input matInput [(ngModel)]="form.externalLinkLabel" placeholder="Label shown to students" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
               </mat-form-field>
             }
             @case ('EXTERNAL_LINK') {
               <mat-form-field appearance="outline">
                 <mat-label>External URL</mat-label>
-                <input matInput [(ngModel)]="form.externalUrl" placeholder="Link to a supporting resource" [disabled]="!parentDraft() || mode.mutationsDisabled() || saving()" />
+                <input matInput [(ngModel)]="form.externalUrl" placeholder="Link to a supporting resource" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
               </mat-form-field>
               <mat-form-field appearance="outline">
                 <mat-label>Label</mat-label>
-                <input matInput [(ngModel)]="form.externalLinkLabel" placeholder="Label shown to students" [disabled]="!parentDraft() || mode.mutationsDisabled() || saving()" />
+                <input matInput [(ngModel)]="form.externalLinkLabel" placeholder="Label shown to students" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
               </mat-form-field>
             }
           }
 
           <mat-form-field appearance="outline">
             <mat-label>Practice notes (optional)</mat-label>
-            <textarea matInput rows="3" [(ngModel)]="form.practiceNotes" placeholder="About this lesson and any practice guidance" [disabled]="!parentDraft() || mode.mutationsDisabled() || saving()"></textarea>
+            <textarea matInput rows="3" [(ngModel)]="form.practiceNotes" placeholder="About this lesson and any practice guidance" [disabled]="readOnly() || mode.mutationsDisabled() || saving()"></textarea>
           </mat-form-field>
 
           <div class="actions">
@@ -178,7 +180,7 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
                 Save as Draft
               </button>
             } @else {
-              @if (parentDraft()) {
+              @if (!readOnly()) {
                 <button mat-stroked-button type="button" [disabled]="mode.mutationsDisabled() || saving() || !saveReady()" (click)="save()">Save</button>
               }
               @if (lesson()?.lifecycleStatus === 'DRAFT' && parentDraft()) {
@@ -246,6 +248,10 @@ export class LessonEditorComponent implements OnInit {
 
   isEdit = computed(() => this.lessonId() !== null);
   parentDraft = computed(() => this.version()?.status === 'DRAFT');
+  /** CURR-FUNC-05: ARCHIVED is terminal and read-only, independent of the parent curriculum version's own status -- an archived lesson stays read-only even while its parent is still DRAFT. */
+  isArchived = computed(() => this.lesson()?.lifecycleStatus === 'ARCHIVED');
+  /** Every editable control and Save's visibility key off this, not off parentDraft() alone -- an archived lesson is read-only regardless of the parent's own status. */
+  readOnly = computed(() => !this.parentDraft() || this.isArchived());
   needsRepair = computed(() => {
     const l = this.lesson();
     return !!l && l.contentType === 'VIDEO' && l.lifecycleStatus === 'PUBLISHED' && l.videoAvailability === 'UNAVAILABLE';
@@ -369,6 +375,8 @@ export class LessonEditorComponent implements OnInit {
   save() {
     const mId = this.moduleId();
     if (mId === null) return;
+    // CURR-FUNC-05: defense-in-depth -- Save is never rendered while readOnly() is true, but this guards against any stale-DOM/programmatic path reaching here anyway.
+    if (this.isArchived()) return;
     if (!this.saveReady()) {
       const message = this.contentType() === 'VIDEO' ? 'Validate the YouTube URL before saving.' : 'Fill in the required fields before saving.';
       this.actionError.set({ kind: 'validation', message, resource: 'Lesson' });

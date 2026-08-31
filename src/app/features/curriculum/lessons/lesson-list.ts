@@ -74,9 +74,9 @@ import { LessonListRowComponent } from './lesson-list-row';
           <mat-card-content style="padding:8px 16px">
             <div class="lesson-list" cdkDropList (cdkDropListDropped)="onDrop($event)">
               @for (l of lessons(); track l.id; let i = $index) {
-                <div cdkDrag [cdkDragDisabled]="!canReorder()" [cdkDragData]="l">
+                <div cdkDrag [cdkDragDisabled]="!canReorder() || l.lifecycleStatus === 'ARCHIVED'" [cdkDragData]="l">
                   <app-lesson-list-row
-                    [lesson]="l" [position]="i" [total]="lessons().length" [disabled]="!canReorder()"
+                    [lesson]="l" [position]="i" [total]="lessons().length" [disabled]="!canReorder() || l.lifecycleStatus === 'ARCHIVED'"
                     (open)="editLesson(l)" (preview)="previewLesson(l)"
                     (moveUp)="moveUp(i)" (moveDown)="moveDown(i)" />
                 </div>
@@ -157,16 +157,27 @@ export class LessonListComponent implements OnInit {
     this.applyReorder(reordered, event.currentIndex);
   }
 
+  /**
+   * CURR-FUNC-05: an archived row has no drag handle or move buttons of its
+   * own (see the template's per-row [disabled] binding), but a NON-archived
+   * neighbor's own moveUp/moveDown could still try to swap across it -- this
+   * guard refuses that swap outright rather than sending a request the
+   * backend would reject anyway.
+   */
   moveUp(i: number) {
     if (i === 0) return;
-    const reordered = [...this.lessons()];
+    const current = this.lessons();
+    if (current[i - 1].lifecycleStatus === 'ARCHIVED') return;
+    const reordered = [...current];
     [reordered[i - 1], reordered[i]] = [reordered[i], reordered[i - 1]];
     this.applyReorder(reordered, i - 1);
   }
 
   moveDown(i: number) {
     if (i === this.lessons().length - 1) return;
-    const reordered = [...this.lessons()];
+    const current = this.lessons();
+    if (current[i + 1].lifecycleStatus === 'ARCHIVED') return;
+    const reordered = [...current];
     [reordered[i], reordered[i + 1]] = [reordered[i + 1], reordered[i]];
     this.applyReorder(reordered, i + 1);
   }

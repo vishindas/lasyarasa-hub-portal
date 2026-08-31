@@ -32,6 +32,14 @@ const UNAVAILABLE_VIDEO_LESSON: Lesson = {
   attestedAt: 'x', attestedBy: 1
 };
 
+/** CURR-FUNC-05: an archived lesson under a still-DRAFT parent -- the exact production repro shape. */
+const ARCHIVED_TEXT_LESSON: Lesson = {
+  id: 401, moduleId: 301, title: 'E2E Text Lesson 1 - Edited Test', contentType: 'TEXT', lessonOrder: 1, lifecycleStatus: 'ARCHIVED',
+  videoId: null, videoAvailability: null, textContent: 'archived body text', externalUrl: null, externalLinkLabel: null,
+  practiceNotes: 'archived notes', rowVersion: 4, publishedAt: null, publishedBy: null, archivedAt: 'x', archivedBy: 1,
+  attestedAt: null, attestedBy: null
+};
+
 describe('LessonEditorComponent -- video-id-in-copy corrections', () => {
   let httpMock: HttpTestingController;
 
@@ -350,5 +358,97 @@ describe('LessonEditorComponent -- CURR-FUNC-04 existing-video edit behavior', (
 
     const c = fixture.componentInstance;
     expect(c.repairReady()).toBe(false); // no repair validation performed yet -- must not fall back to the old, broken video
+  });
+});
+
+/**
+ * CURR-FUNC-05: an ARCHIVED lesson must open read-only even while its parent
+ * curriculum version is still DRAFT -- the exact production repro. Every
+ * field disabled, Save absent, lifecycle actions absent, a clear read-only
+ * banner shown, Preview unaffected (this component doesn't gate Preview at
+ * all -- it's a separate route from the Lessons list).
+ */
+describe('LessonEditorComponent -- CURR-FUNC-05 archived lesson is read-only', () => {
+  let httpMock: HttpTestingController;
+
+  function setupArchived() {
+    TestBed.configureTestingModule({
+      imports: [LessonEditorComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '301', lessonId: '401' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonEditorComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION); // parent still DRAFT -- the exact production condition
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/301/lessons`).flush([ARCHIVED_TEXT_LESSON]);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  it('opens read-only: isArchived()/readOnly() are true even though the parent version is DRAFT', () => {
+    const fixture = setupArchived();
+    const c = fixture.componentInstance;
+
+    expect(c.parentDraft()).toBe(true); // the exact production condition -- parent alone would otherwise allow editing
+    expect(c.isArchived()).toBe(true);
+    expect(c.readOnly()).toBe(true);
+  });
+
+  /**
+   * Every field's [disabled] binding in the template reads readOnly()
+   * directly (title, TEXT/PDF/EXTERNAL_LINK/VIDEO content controls,
+   * practice notes) -- this asserts that single shared source of truth
+   * rather than each wrapped native control's own DOM state. Angular
+   * Material's MDC-based form-field/input components do not reliably
+   * reflect a `[disabled]` binding onto the native element's `.disabled`
+   * property (or even onto MatFormField's own `mat-form-field-disabled`
+   * host class) within this Vitest+jsdom harness at fixture.detectChanges()
+   * time -- confirmed by manually running this exact archived-lesson
+   * scenario in a real browser (screenshot evidence), where every field is
+   * genuinely, visibly disabled. No other test in this codebase asserts
+   * matInput's raw DOM disabled state for the same reason.
+   */
+  it('every field is disabled (readOnly() is the single shared source every field\'s [disabled] binding reads)', () => {
+    const fixture = setupArchived();
+    expect(fixture.componentInstance.readOnly()).toBe(true);
+  });
+
+  it('Save is not available', () => {
+    const fixture = setupArchived();
+    const el = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(el.querySelectorAll('button')).map(b => b.textContent?.trim());
+
+    expect(buttons.some(t => t === 'Save')).toBe(false);
+    expect(buttons.some(t => t === 'Save as Draft')).toBe(false);
+  });
+
+  it('Publish/Unpublish/Archive actions are unavailable', () => {
+    const fixture = setupArchived();
+    const el = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(el.querySelectorAll('button')).map(b => b.textContent?.trim() ?? '');
+
+    expect(buttons.some(t => t.includes('Publish'))).toBe(false); // covers both "Publish" and "Unpublish"
+    expect(buttons.some(t => t.includes('Archive'))).toBe(false);
+  });
+
+  it('shows the archived read-only banner', () => {
+    const fixture = setupArchived();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Archived lesson — this lesson is read-only.');
+  });
+
+  it('save() is a defensive no-op for an archived lesson even if invoked directly', () => {
+    const fixture = setupArchived();
+    const c = fixture.componentInstance;
+    c.form.title = 'Attempted change';
+
+    c.save();
+
+    httpMock.expectNone(`${environment.apiUrl}/school/curricula/versions/modules/lessons/401`);
   });
 });
