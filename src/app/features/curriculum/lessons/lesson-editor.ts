@@ -11,10 +11,11 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
-  Lesson, LessonContentType, CurriculumVersion, CreateLessonRequest, UpdateLessonRequest
+  Lesson, LessonContentType, CurriculumVersion, CurriculumModule, CreateLessonRequest, UpdateLessonRequest
 } from '../../../core/models/curriculum.model';
 import { LessonApiService } from '../../../core/services/lesson-api.service';
 import { CurriculumApiService } from '../../../core/services/curriculum-api.service';
+import { CurriculumModuleApiService } from '../../../core/services/curriculum-module-api.service';
 import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
 import { ClassroomLiteBannerComponent } from '../../../shared/curriculum/classroom-lite-banner';
@@ -94,6 +95,8 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
 
           @if (isArchived()) {
             <p class="readonly-note">Archived lesson — this lesson is read-only.</p>
+          } @else if (moduleArchived()) {
+            <p class="readonly-note">This lesson's module is archived — its content is read-only.</p>
           } @else if (!parentDraft() && needsRepair()) {
             <p class="readonly-note">The parent curriculum version is no longer DRAFT — structural edits require a new cloned draft. Only video repair remains available for this lesson.</p>
           } @else if (!parentDraft()) {
@@ -121,9 +124,12 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
                   <mat-icon aria-hidden="true">warning</mat-icon>
                   This video is private, removed, restricted, or currently unavailable. Repair or replace the link.
                 </div>
-                <app-youtube-url-validator [disabled]="mode.mutationsDisabled() || saving()" (validated)="onRepairValidated($event)" />
+                @if (moduleArchived()) {
+                  <p class="readonly-note">This lesson's module is archived — video repair is read-only.</p>
+                }
+                <app-youtube-url-validator [disabled]="!moduleConfirmedWritable() || mode.mutationsDisabled() || saving()" (validated)="onRepairValidated($event)" />
                 <div class="actions">
-                  <button mat-flat-button color="primary" type="button" [disabled]="!repairReady() || mode.mutationsDisabled() || saving()" (click)="openRepairDialog()">
+                  <button mat-flat-button color="primary" type="button" [disabled]="!repairReady() || !moduleConfirmedWritable() || mode.mutationsDisabled() || saving()" (click)="openRepairDialog()">
                     Republish Video
                   </button>
                 </div>
@@ -176,22 +182,22 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
 
           <div class="actions">
             @if (!isEdit()) {
-              <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled() || saving() || !saveReady()" (click)="save()">
+              <button mat-flat-button color="primary" type="button" [disabled]="readOnly() || mode.mutationsDisabled() || saving() || !saveReady()" (click)="save()">
                 Save as Draft
               </button>
             } @else {
               @if (!readOnly()) {
                 <button mat-stroked-button type="button" [disabled]="mode.mutationsDisabled() || saving() || !saveReady()" (click)="save()">Save</button>
               }
-              @if (lesson()?.lifecycleStatus === 'DRAFT' && parentDraft()) {
+              @if (lesson()?.lifecycleStatus === 'DRAFT' && !readOnly()) {
                 <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled() || saving() || !publishReady()" (click)="openPublishDialog()">
                   <mat-icon>check_circle</mat-icon> Publish
                 </button>
               }
-              @if (lesson()?.lifecycleStatus === 'PUBLISHED' && parentDraft()) {
+              @if (lesson()?.lifecycleStatus === 'PUBLISHED' && !readOnly()) {
                 <button mat-stroked-button type="button" [disabled]="mode.mutationsDisabled() || saving()" (click)="openUnpublishDialog()">Unpublish</button>
               }
-              @if ((lesson()?.lifecycleStatus === 'DRAFT' || lesson()?.lifecycleStatus === 'PUBLISHED') && parentDraft()) {
+              @if ((lesson()?.lifecycleStatus === 'DRAFT' || lesson()?.lifecycleStatus === 'PUBLISHED') && !readOnly()) {
                 <button mat-stroked-button color="warn" type="button" [disabled]="mode.mutationsDisabled() || saving()" (click)="openArchiveDialog()">Archive</button>
               }
             }
@@ -206,6 +212,7 @@ export class LessonEditorComponent implements OnInit {
   private router = inject(Router);
   private lessonApi = inject(LessonApiService);
   private curriculumApi = inject(CurriculumApiService);
+  private moduleApi = inject(CurriculumModuleApiService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
   mode = inject(ClassroomLiteModeService);
@@ -218,6 +225,7 @@ export class LessonEditorComponent implements OnInit {
   lessonId = signal<number | null>(null);
 
   version = signal<CurriculumVersion | null>(null);
+  module = signal<CurriculumModule | null>(null);
   lesson = signal<Lesson | null>(null);
   loading = signal(true);
   saving = signal(false);
@@ -250,8 +258,19 @@ export class LessonEditorComponent implements OnInit {
   parentDraft = computed(() => this.version()?.status === 'DRAFT');
   /** CURR-FUNC-05: ARCHIVED is terminal and read-only, independent of the parent curriculum version's own status -- an archived lesson stays read-only even while its parent is still DRAFT. */
   isArchived = computed(() => this.lesson()?.lifecycleStatus === 'ARCHIVED');
-  /** Every editable control and Save's visibility key off this, not off parentDraft() alone -- an archived lesson is read-only regardless of the parent's own status. */
-  readOnly = computed(() => !this.parentDraft() || this.isArchived());
+  /** CURR-FUNC-06: true only once the module is confirmed ARCHIVED -- distinct from moduleConfirmedWritable() below, which also stays false while the module is still loading. */
+  moduleArchived = computed(() => this.module()?.contentStatus === 'ARCHIVED');
+  /**
+   * CURR-FUNC-06: fails closed by construction -- `module` stays `null`
+   * until a successful fetch resolves it, so neither a load failure nor the
+   * brief in-flight window before it resolves ever lets this default to
+   * "writable". A direct URL to a lesson under an archived module must
+   * never restore editability, and this is what makes that hold even before
+   * the module fetch itself completes.
+   */
+  moduleConfirmedWritable = computed(() => this.module() !== null && this.module()!.contentStatus !== 'ARCHIVED');
+  /** Every editable control and Save's visibility key off this, not off parentDraft() alone -- an archived lesson, or an archived module, is read-only regardless of the parent version's own status. */
+  readOnly = computed(() => !this.parentDraft() || this.isArchived() || !this.moduleConfirmedWritable());
   needsRepair = computed(() => {
     const l = this.lesson();
     return !!l && l.contentType === 'VIDEO' && l.lifecycleStatus === 'PUBLISHED' && l.videoAvailability === 'UNAVAILABLE';
@@ -310,9 +329,21 @@ export class LessonEditorComponent implements OnInit {
     this.loading.set(true);
     this.loadError.set(null);
     this.actionError.set(null);
+    this.module.set(null);
     this.curriculumApi.getVersion(cId, vId).subscribe({
       next: v => this.version.set(v),
       error: (err: HttpErrorResponse) => this.loadError.set(toCurriculumUiError(err))
+    });
+    // CURR-FUNC-06: no single-module GET endpoint exists -- compose from the
+    // existing list endpoint, same established pattern ModuleDetailPanelComponent
+    // and LessonListComponent already use. A failed/empty resolution leaves
+    // `module` null, which moduleConfirmedWritable()/readOnly() treat as
+    // not-writable (fail closed) -- a direct lesson URL under an archived
+    // module (or one whose module fetch fails outright) must never render
+    // as editable.
+    this.moduleApi.list(vId).subscribe({
+      next: modules => this.module.set(modules.find(m => m.id === mId) ?? null),
+      error: () => this.module.set(null)
     });
 
     const lId = this.lessonId();
@@ -375,8 +406,8 @@ export class LessonEditorComponent implements OnInit {
   save() {
     const mId = this.moduleId();
     if (mId === null) return;
-    // CURR-FUNC-05: defense-in-depth -- Save is never rendered while readOnly() is true, but this guards against any stale-DOM/programmatic path reaching here anyway.
-    if (this.isArchived()) return;
+    // CURR-FUNC-05/06: defense-in-depth -- Save is never rendered while readOnly() is true, but this guards against any stale-DOM/programmatic path reaching here anyway.
+    if (this.readOnly()) return;
     if (!this.saveReady()) {
       const message = this.contentType() === 'VIDEO' ? 'Validate the YouTube URL before saving.' : 'Fill in the required fields before saving.';
       this.actionError.set({ kind: 'validation', message, resource: 'Lesson' });

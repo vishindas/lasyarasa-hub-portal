@@ -5,7 +5,7 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { ActivatedRoute, provideRouter, convertToParamMap } from '@angular/router';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { environment } from '../../../../environments/environment';
-import { CurriculumVersion, Lesson } from '../../../core/models/curriculum.model';
+import { CurriculumVersion, CurriculumModule, Lesson } from '../../../core/models/curriculum.model';
 import { LessonListComponent } from './lesson-list';
 
 function activatedRouteStub(params: Record<string, string>) {
@@ -15,6 +15,15 @@ function activatedRouteStub(params: Record<string, string>) {
 const DRAFT_VERSION: CurriculumVersion = {
   id: 10, curriculumId: 1, versionNumber: 1, status: 'DRAFT', title: 't', level: null, objectives: null,
   clonedFromVersionId: null, rowVersion: 0, activatedAt: null, activatedBy: null, archivedAt: null, archivedBy: null
+};
+
+const DRAFT_MODULE: CurriculumModule = {
+  id: 101, curriculumVersionId: 10, title: 'Module', objectives: null, moduleOrder: 1, contentStatus: 'DRAFT',
+  rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null
+};
+
+const ARCHIVED_MODULE: CurriculumModule = {
+  ...DRAFT_MODULE, contentStatus: 'ARCHIVED', rowVersion: 2, publishedAt: 'x', publishedBy: 1, archivedAt: 'x', archivedBy: 1
 };
 
 function textLesson(id: number, title: string, lessonOrder: number, lifecycleStatus: Lesson['lifecycleStatus']): Lesson {
@@ -58,6 +67,7 @@ describe('LessonListComponent -- CURR-FUNC-05 archived lessons are fixed reorder
     const fixture = TestBed.createComponent(LessonListComponent);
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([DRAFT_MODULE]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush(lessons);
     fixture.detectChanges();
     return fixture;
@@ -227,5 +237,87 @@ describe('LessonListComponent -- CURR-FUNC-05 archived lessons are fixed reorder
     fixture.componentInstance.onDrop(dropEvent(0, 0));
 
     httpMock.expectNone(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons/reorder`);
+  });
+});
+
+/** CURR-FUNC-06: ARCHIVED MODULE = FROZEN SUBTREE -- Add Lesson and reorder must be disabled at the list level too, not only inside the editor. */
+describe('LessonListComponent -- CURR-FUNC-06 archived-module lessons are read-only', () => {
+  let httpMock: HttpTestingController;
+
+  function setupWithModule(modulesResponse: CurriculumModule[] | 'error', lessons: Lesson[] = [LESSON_A, LESSON_B]) {
+    TestBed.configureTestingModule({
+      imports: [LessonListComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '101' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonListComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    if (modulesResponse === 'error') {
+      httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`)
+        .flush({ code: 'SERVER_ERROR' }, { status: 500, statusText: 'Server Error' });
+    } else {
+      httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush(modulesResponse);
+    }
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush(lessons);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  it('Add Lesson is hidden when the module is ARCHIVED', () => {
+    const fixture = setupWithModule([ARCHIVED_MODULE]);
+    const el = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(el.querySelectorAll('button')).map(b => b.textContent?.trim() ?? '');
+    expect(buttons.some(t => t.includes('Add Lesson'))).toBe(false);
+  });
+
+  it('Add Lesson is shown when the module is DRAFT (unaffected)', () => {
+    const fixture = setupWithModule([DRAFT_MODULE]);
+    const el = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(el.querySelectorAll('button')).map(b => b.textContent?.trim() ?? '');
+    expect(buttons.some(t => t.includes('Add Lesson'))).toBe(true);
+  });
+
+  it('reorder is disabled -- moveDown on an ARCHIVED module sends no request', () => {
+    const fixture = setupWithModule([ARCHIVED_MODULE]);
+    expect(fixture.componentInstance.canReorder()).toBe(false);
+
+    fixture.componentInstance.moveDown(0);
+
+    httpMock.expectNone(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons/reorder`);
+  });
+
+  it('shows the archived-module read-only banner', () => {
+    const fixture = setupWithModule([ARCHIVED_MODULE]);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('This module is archived — its lessons are read-only.');
+  });
+
+  /** CURR-FUNC-06 (frontend test req): a module-state lookup failure must not fail open to editable. */
+  it('module lookup failure fails closed -- Add Lesson stays hidden, reorder stays disabled', () => {
+    const fixture = setupWithModule('error');
+    const c = fixture.componentInstance;
+
+    expect(c.module()).toBeNull();
+    expect(c.canAddLesson()).toBe(false);
+    expect(c.canReorder()).toBe(false);
+    const el = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(el.querySelectorAll('button')).map(b => b.textContent?.trim() ?? '');
+    expect(buttons.some(t => t.includes('Add Lesson'))).toBe(false);
+  });
+
+  /** A module not found in the list (e.g. deleted/foreign) resolves to `null`, same fail-closed treatment as an outright request error. */
+  it('module not found in the list fails closed -- same as a lookup error', () => {
+    const fixture = setupWithModule([]);
+    const c = fixture.componentInstance;
+
+    expect(c.module()).toBeNull();
+    expect(c.canAddLesson()).toBe(false);
+    expect(c.canReorder()).toBe(false);
   });
 });
