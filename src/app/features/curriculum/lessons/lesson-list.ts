@@ -6,9 +6,10 @@ import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { Lesson, ReorderLessonEntry, CurriculumVersion } from '../../../core/models/curriculum.model';
+import { Lesson, ReorderLessonEntry, CurriculumVersion, CurriculumModule } from '../../../core/models/curriculum.model';
 import { LessonApiService } from '../../../core/services/lesson-api.service';
 import { CurriculumApiService } from '../../../core/services/curriculum-api.service';
+import { CurriculumModuleApiService } from '../../../core/services/curriculum-module-api.service';
 import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
 import { ClassroomLiteBannerComponent } from '../../../shared/curriculum/classroom-lite-banner';
@@ -41,12 +42,16 @@ import { LessonListRowComponent } from './lesson-list-row';
         </button>
         <h2 style="margin:0">Lessons</h2>
       </div>
-      @if (!mode.mutationsDisabled() && parentDraft()) {
+      @if (!mode.mutationsDisabled() && canAddLesson()) {
         <button mat-flat-button color="primary" (click)="addLesson()">
           <mat-icon>add</mat-icon> Add Lesson
         </button>
       }
     </div>
+
+    @if (moduleArchived()) {
+      <p class="readonly-note" style="color:#6c757d;font-size:0.82rem;margin:0 0 12px">This module is archived — its lessons are read-only.</p>
+    }
 
     @if (mode.mode() === 'FULL_OUTAGE') {
       <app-full-outage-block />
@@ -61,7 +66,7 @@ import { LessonListRowComponent } from './lesson-list-row';
         <mat-card>
           <mat-card-content style="padding:48px 24px;text-align:center">
             <p style="color:#6c757d;margin-bottom:16px">No lessons yet — add the first one.</p>
-            @if (!mode.mutationsDisabled() && parentDraft()) {
+            @if (!mode.mutationsDisabled() && canAddLesson()) {
               <button mat-flat-button color="primary" (click)="addLesson()">
                 <mat-icon>add</mat-icon> Add Lesson
               </button>
@@ -93,6 +98,7 @@ export class LessonListComponent implements OnInit {
   private router = inject(Router);
   private lessonApi = inject(LessonApiService);
   private curriculumApi = inject(CurriculumApiService);
+  private moduleApi = inject(CurriculumModuleApiService);
   private announcer = inject(LiveAnnouncer);
   mode = inject(ClassroomLiteModeService);
 
@@ -101,6 +107,7 @@ export class LessonListComponent implements OnInit {
   moduleId = signal<number | null>(null);
 
   version = signal<CurriculumVersion | null>(null);
+  module = signal<CurriculumModule | null>(null);
   lessons = signal<Lesson[]>([]);
   loading = signal(true);
   loadError = signal<CurriculumUiError | null>(null);
@@ -108,7 +115,16 @@ export class LessonListComponent implements OnInit {
 
   // The backend's own DRAFT-only trigger is the real authority; this only gates the UI.
   parentDraft = computed(() => this.version()?.status === 'DRAFT');
-  canReorder = computed(() => this.parentDraft() && !this.mode.mutationsDisabled());
+  /**
+   * CURR-FUNC-06: fails closed by construction -- `module` stays `null`
+   * until a successful fetch resolves it, so a load failure (network error,
+   * not-found) never lets this default to "writable". Only an explicitly
+   * confirmed non-ARCHIVED module makes this true.
+   */
+  moduleArchived = computed(() => this.module()?.contentStatus === 'ARCHIVED');
+  private moduleConfirmedWritable = computed(() => this.module() !== null && this.module()!.contentStatus !== 'ARCHIVED');
+  canAddLesson = computed(() => this.parentDraft() && this.moduleConfirmedWritable());
+  canReorder = computed(() => this.parentDraft() && this.moduleConfirmedWritable() && !this.mode.mutationsDisabled());
 
   ngOnInit() {
     this.curriculumId.set(Number(this.route.snapshot.paramMap.get('curriculumId')));
@@ -123,9 +139,18 @@ export class LessonListComponent implements OnInit {
     this.loading.set(true);
     this.loadError.set(null);
     this.actionError.set(null);
+    this.module.set(null);
     this.curriculumApi.getVersion(cId, vId).subscribe({
       next: v => this.version.set(v),
       error: (err: HttpErrorResponse) => this.loadError.set(toCurriculumUiError(err))
+    });
+    // CURR-FUNC-06: no single-module GET endpoint exists -- compose from the
+    // existing list endpoint, same established pattern ModuleDetailPanelComponent
+    // already uses. A failed/empty resolution leaves `module` null, which
+    // canAddLesson()/canReorder() treat as not-writable (fail closed).
+    this.moduleApi.list(vId).subscribe({
+      next: modules => this.module.set(modules.find(m => m.id === mId) ?? null),
+      error: () => this.module.set(null)
     });
     this.lessonApi.list(mId).subscribe({
       next: lessons => { this.lessons.set([...lessons].sort((a, b) => a.lessonOrder - b.lessonOrder)); this.loading.set(false); },
@@ -167,6 +192,8 @@ export class LessonListComponent implements OnInit {
    * lessonOrder completely untouched and never named in the request.
    */
   onDrop(event: CdkDragDrop<Lesson[]>) {
+    // CURR-FUNC-06: defense-in-depth -- CDK drag is never enabled while canReorder() is false, but this guards against any stale-DOM/programmatic path reaching here anyway.
+    if (!this.canReorder()) return;
     if (event.previousIndex === event.currentIndex) return;
     const movedLesson = this.lessons()[event.previousIndex];
     const fullReordered = [...this.lessons()];
@@ -182,6 +209,7 @@ export class LessonListComponent implements OnInit {
    * past a fixed obstacle, rather than refusing the move outright.
    */
   moveUp(i: number) {
+    if (!this.canReorder()) return; // CURR-FUNC-06: defense-in-depth, same rationale as onDrop above
     const all = this.lessons();
     const lesson = all[i];
     if (lesson.lifecycleStatus === 'ARCHIVED') return; // defensive -- archived rows render no move button anyway
@@ -194,6 +222,7 @@ export class LessonListComponent implements OnInit {
   }
 
   moveDown(i: number) {
+    if (!this.canReorder()) return; // CURR-FUNC-06: defense-in-depth, same rationale as onDrop above
     const all = this.lessons();
     const lesson = all[i];
     if (lesson.lifecycleStatus === 'ARCHIVED') return;

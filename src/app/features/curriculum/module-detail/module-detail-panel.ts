@@ -75,16 +75,18 @@ import { AssignmentCapabilityStateService } from '../../../core/services/assignm
             <div class="field-row" style="margin-top:16px">
               <mat-form-field appearance="outline">
                 <mat-label>Title</mat-label>
-                <input matInput [(ngModel)]="form.title" [disabled]="!parentDraft()" />
+                <input matInput [(ngModel)]="form.title" [disabled]="!editable()" />
               </mat-form-field>
               <mat-form-field appearance="outline">
                 <mat-label>Objectives</mat-label>
-                <textarea matInput rows="3" [(ngModel)]="form.objectives" [disabled]="!parentDraft()"></textarea>
+                <textarea matInput rows="3" [(ngModel)]="form.objectives" [disabled]="!editable()"></textarea>
               </mat-form-field>
             </div>
 
-            @if (parentDraft()) {
+            @if (editable()) {
               <button mat-stroked-button [disabled]="mode.mutationsDisabled() || saving()" (click)="save()">Save</button>
+            } @else if (isArchived()) {
+              <p style="color:#6c757d;font-size:0.82rem">This module is archived — its structural fields are read-only.</p>
             } @else {
               <p style="color:#6c757d;font-size:0.82rem">The parent curriculum version is no longer DRAFT — structural edits require a new cloned draft.</p>
             }
@@ -141,6 +143,9 @@ export class ModuleDetailPanelComponent implements OnInit {
 
   // The backend's own DRAFT-only trigger is the real authority; this only gates the UI.
   parentDraft = computed(() => this.version()?.status === 'DRAFT');
+  /** CURR-FUNC-06: ARCHIVED MODULE = FROZEN NODE -- this module's own structural fields are read-only once its own contentStatus is ARCHIVED, independently of the parent version's DRAFT-ness. */
+  isArchived = computed(() => this.module()?.contentStatus === 'ARCHIVED');
+  editable = computed(() => this.parentDraft() && !this.isArchived());
 
   form = { title: '', objectives: '' };
 
@@ -176,6 +181,8 @@ export class ModuleDetailPanelComponent implements OnInit {
   save() {
     const m = this.module();
     if (!m) return;
+    // CURR-FUNC-06: defense-in-depth -- Save is never rendered while editable() is false, but this guards against any stale-DOM/programmatic path reaching here anyway.
+    if (!this.editable()) return;
     this.saving.set(true);
     this.moduleApi.update(m.id, { title: this.form.title.trim(), objectives: this.form.objectives.trim() || null, expectedRowVersion: m.rowVersion }).subscribe({
       next: updated => { this.module.set(updated); this.saving.set(false); this.snack.open('Saved', 'OK', { duration: 2000 }); },

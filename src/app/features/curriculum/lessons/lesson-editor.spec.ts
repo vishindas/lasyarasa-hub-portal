@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { ActivatedRoute, provideRouter, convertToParamMap } from '@angular/router';
 import { environment } from '../../../../environments/environment';
-import { CurriculumVersion, Lesson } from '../../../core/models/curriculum.model';
+import { CurriculumVersion, CurriculumModule, Lesson } from '../../../core/models/curriculum.model';
 import { LessonEditorComponent } from './lesson-editor';
 
 function activatedRouteStub(params: Record<string, string>) {
@@ -17,6 +17,21 @@ const DRAFT_VERSION: CurriculumVersion = {
 };
 
 const ACTIVE_VERSION: CurriculumVersion = { ...DRAFT_VERSION, id: 20, status: 'ACTIVE', activatedAt: 'x', activatedBy: 1 };
+
+/** CURR-FUNC-06: every existing scenario in this file exercises a non-archived module -- only the dedicated describe block below covers an ARCHIVED one. */
+function draftModuleFixture(id: number, curriculumVersionId: number): CurriculumModule {
+  return {
+    id, curriculumVersionId, title: 'Module', objectives: null, moduleOrder: 1, contentStatus: 'DRAFT',
+    rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null
+  };
+}
+
+function archivedModuleFixture(id: number, curriculumVersionId: number): CurriculumModule {
+  return {
+    id, curriculumVersionId, title: 'Module', objectives: null, moduleOrder: 1, contentStatus: 'ARCHIVED',
+    rowVersion: 2, publishedAt: 'x', publishedBy: 1, archivedAt: 'x', archivedBy: 1
+  };
+}
 
 const AVAILABLE_VIDEO_LESSON: Lesson = {
   id: 301, moduleId: 101, title: 'Introduction Video', contentType: 'VIDEO', lessonOrder: 1, lifecycleStatus: 'DRAFT',
@@ -61,6 +76,7 @@ describe('LessonEditorComponent -- video-id-in-copy corrections', () => {
     const fixture = setup({ curriculumId: '1', versionId: '10', moduleId: '101', lessonId: '301' });
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(101, 10)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush([AVAILABLE_VIDEO_LESSON]);
     fixture.detectChanges();
 
@@ -76,6 +92,7 @@ describe('LessonEditorComponent -- video-id-in-copy corrections', () => {
     const fixture = setup({ curriculumId: '2', versionId: '20', moduleId: '201', lessonId: '306' });
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/2/versions/20`).flush(ACTIVE_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/20/modules`).flush([draftModuleFixture(201, 20)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/201/lessons`).flush([UNAVAILABLE_VIDEO_LESSON]);
     fixture.detectChanges();
 
@@ -110,6 +127,7 @@ describe('LessonEditorComponent -- create-mode Save enablement (content-type swi
     const fixture = TestBed.createComponent(LessonEditorComponent);
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(101, 10)]);
     fixture.detectChanges();
     return fixture;
   }
@@ -246,6 +264,7 @@ describe('LessonEditorComponent -- CURR-FUNC-04 existing-video edit behavior', (
     const fixture = TestBed.createComponent(LessonEditorComponent);
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(101, 10)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush([AVAILABLE_VIDEO_LESSON]);
     fixture.detectChanges();
     return fixture;
@@ -353,6 +372,7 @@ describe('LessonEditorComponent -- CURR-FUNC-04 existing-video edit behavior', (
     const fixture = TestBed.createComponent(LessonEditorComponent);
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/2/versions/20`).flush(ACTIVE_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/20/modules`).flush([draftModuleFixture(201, 20)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/201/lessons`).flush([UNAVAILABLE_VIDEO_LESSON]);
     fixture.detectChanges();
 
@@ -383,6 +403,7 @@ describe('LessonEditorComponent -- CURR-FUNC-05 archived lesson is read-only', (
     const fixture = TestBed.createComponent(LessonEditorComponent);
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION); // parent still DRAFT -- the exact production condition
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(301, 10)]); // module itself not archived -- isolates this test to the lesson's own ARCHIVED status
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/301/lessons`).flush([ARCHIVED_TEXT_LESSON]);
     fixture.detectChanges();
     return fixture;
@@ -450,5 +471,114 @@ describe('LessonEditorComponent -- CURR-FUNC-05 archived lesson is read-only', (
     c.save();
 
     httpMock.expectNone(`${environment.apiUrl}/school/curricula/versions/modules/lessons/401`);
+  });
+});
+
+/**
+ * CURR-FUNC-06: a DRAFT (unarchived) lesson whose *parent module* is
+ * ARCHIVED must open read-only -- direct URL access to a child lesson under
+ * an archived module must never restore editability. Distinct from
+ * CURR-FUNC-05 above (the lesson's own ARCHIVED status): here the lesson
+ * itself is a perfectly ordinary DRAFT lesson.
+ */
+describe('LessonEditorComponent -- CURR-FUNC-06 archived-module lesson is read-only', () => {
+  let httpMock: HttpTestingController;
+
+  const DRAFT_LESSON_UNDER_ARCHIVED_MODULE: Lesson = {
+    id: 501, moduleId: 401, title: 'Ordinary Draft Lesson', contentType: 'TEXT', lessonOrder: 1, lifecycleStatus: 'DRAFT',
+    videoId: null, videoAvailability: null, textContent: 'ordinary body text', externalUrl: null, externalLinkLabel: null,
+    practiceNotes: null, rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null,
+    attestedAt: null, attestedBy: null
+  };
+
+  function setupUnderArchivedModule() {
+    TestBed.configureTestingModule({
+      imports: [LessonEditorComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '401', lessonId: '501' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonEditorComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION); // parent version still DRAFT -- module archival is the only reason this is read-only
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([archivedModuleFixture(401, 10)]);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/401/lessons`).flush([DRAFT_LESSON_UNDER_ARCHIVED_MODULE]);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  it('opens read-only: readOnly() is true even though both the parent version and the lesson itself are DRAFT', () => {
+    const fixture = setupUnderArchivedModule();
+    const c = fixture.componentInstance;
+
+    expect(c.parentDraft()).toBe(true);
+    expect(c.isArchived()).toBe(false); // the lesson itself is an ordinary DRAFT lesson
+    expect(c.moduleArchived()).toBe(true);
+    expect(c.readOnly()).toBe(true);
+  });
+
+  it('shows the archived-module read-only banner', () => {
+    const fixture = setupUnderArchivedModule();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain("This lesson's module is archived — its content is read-only.");
+  });
+
+  it('Save is not available', () => {
+    const fixture = setupUnderArchivedModule();
+    const el = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(el.querySelectorAll('button')).map(b => b.textContent?.trim());
+    expect(buttons.some(t => t === 'Save')).toBe(false);
+  });
+
+  it('Publish/Unpublish/Archive actions are unavailable', () => {
+    const fixture = setupUnderArchivedModule();
+    const el = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(el.querySelectorAll('button')).map(b => b.textContent?.trim() ?? '');
+    expect(buttons.some(t => t.includes('Publish'))).toBe(false);
+    expect(buttons.some(t => t.includes('Archive'))).toBe(false);
+  });
+
+  it('save() is a defensive no-op even if invoked directly', () => {
+    const fixture = setupUnderArchivedModule();
+    const c = fixture.componentInstance;
+    c.form.title = 'Attempted change';
+
+    c.save();
+
+    httpMock.expectNone(`${environment.apiUrl}/school/curricula/versions/modules/lessons/501`);
+  });
+
+  /**
+   * CURR-FUNC-06 (frontend test req): a module-state lookup failure must
+   * not fail open to editable. The module list request errors outright
+   * (network failure) -- `module` stays `null` forever, and
+   * moduleConfirmedWritable()/readOnly() must treat that exactly like a
+   * confirmed-archived module: not writable.
+   */
+  it('module lookup failure fails closed -- never falls back to editable', () => {
+    TestBed.configureTestingModule({
+      imports: [LessonEditorComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '401', lessonId: '501' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonEditorComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`)
+      .flush({ code: 'SERVER_ERROR' }, { status: 500, statusText: 'Server Error' });
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/401/lessons`).flush([DRAFT_LESSON_UNDER_ARCHIVED_MODULE]);
+    fixture.detectChanges();
+
+    const c = fixture.componentInstance;
+    expect(c.module()).toBeNull();
+    expect(c.moduleConfirmedWritable()).toBe(false);
+    expect(c.readOnly()).toBe(true);
   });
 });
