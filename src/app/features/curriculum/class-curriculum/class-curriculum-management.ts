@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   ClassCurriculumAssignment, ClassModuleState, CurriculumModule, CurriculumVersion
 } from '../../../core/models/curriculum.model';
@@ -32,22 +33,24 @@ interface ModuleRow {
  * calls, then join modules to states by moduleId client-side -- no
  * dedicated joined endpoint exists or is needed.
  *
- * Known, documented limitation: Re-lock's real precondition ("no student
- * interaction or issued assignment exists for that module") has no
- * corresponding read exposed by the Slice 5 API, so this screen cannot
- * pre-hide an ineligible Re-lock the way it can for Release (which DOES
- * have a checkable precondition: module content PUBLISHED). Re-lock is
- * shown whenever a module is RELEASED; an ineligible attempt is rejected by
- * the backend with ILLEGAL_TRANSITION and surfaced via the same
- * action-specific conflict message as any other guarded transition, per
- * the approved error mapping. This is not silently invented -- it is the
- * honest behavior given the existing API contract.
+ * CURR-FUNC-07: the documented Slice-5-era gap this comment used to
+ * describe ("Re-lock's real precondition has no corresponding read exposed
+ * by the API, so this screen cannot pre-hide an ineligible Re-lock") is now
+ * closed -- ClassModuleStateDTO carries a server-computed, authoritative
+ * {@code relockEligible} field (folding both approved conditions: no
+ * learner/guardian interaction since release, no assignment issued for
+ * this class/module) and the button below is disabled when it is false.
+ * The backend's own guarded write remains the real authority regardless:
+ * this is advisory UI only, never the enforcement itself, and an
+ * ineligible attempt that somehow still reaches the backend (e.g. a stale
+ * client) is still rejected with ILLEGAL_TRANSITION via the same
+ * action-specific conflict message as any other guarded transition.
  */
 @Component({
   selector: 'app-class-curriculum-management',
   standalone: true,
   imports: [
-    MatButtonModule, MatIconModule, MatCardModule, MatDialogModule, MatSnackBarModule,
+    MatButtonModule, MatIconModule, MatCardModule, MatDialogModule, MatSnackBarModule, MatTooltipModule,
     ClassroomLiteBannerComponent, CurriculumMessageComponent, StatusChipCurriculumComponent, CurriculumVersionSelectorComponent
   ],
   styles: [`
@@ -121,7 +124,9 @@ interface ModuleRow {
                 }
                 @if (r.state.status === 'RELEASED') {
                   <button mat-stroked-button [disabled]="mode.mutationsDisabled() || saving()" (click)="complete(r)">Complete</button>
-                  <button mat-stroked-button [disabled]="mode.mutationsDisabled() || saving()" (click)="relock(r)">Re-lock</button>
+                  <button mat-stroked-button [disabled]="mode.mutationsDisabled() || saving() || !r.state.relockEligible"
+                          [matTooltip]="r.state.relockEligible ? '' : 'This module cannot be re-locked -- a learner has accessed it, or an assignment has been issued for it, since release.'"
+                          (click)="relock(r)">Re-lock</button>
                   <button mat-stroked-button color="warn" [disabled]="mode.mutationsDisabled() || saving()" (click)="confirmWithdraw(r)">Withdraw</button>
                 }
               </div>

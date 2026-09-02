@@ -73,6 +73,15 @@ export interface ClassModuleState {
   withdrawReason: string | null;
   relockedAt: string | null;
   relockedBy: number | null;
+  /** CURR-FUNC-07: set once, first RELEASED-state access by a learner or their guardian; never overwritten. */
+  firstLearnerInteractionAt: string | null;
+  firstLearnerInteractionBy: number | null;
+  /**
+   * CURR-FUNC-07: single, server-computed, authoritative signal -- true only
+   * if Re-lock would actually succeed right now. Advisory only: the backend's
+   * own guarded write remains the real authority regardless of this field.
+   */
+  relockEligible: boolean;
 }
 
 export interface ModuleDiffEntry {

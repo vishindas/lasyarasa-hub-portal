@@ -46,9 +46,9 @@ export const FIXTURE_ASSIGNMENT: ClassCurriculumAssignment =
   { id: 50, classId: 1, curriculumVersionId: 20, activeFrom: '2026-06-01T10:05:00', activeTo: null, endedBy: null, rowVersion: 0 };
 
 export const FIXTURE_MODULE_STATES: ClassModuleState[] = [
-  { id: 500, classCurriculumAssignmentId: 50, moduleId: 201, status: 'COMPLETED', rowVersion: 2, releasedAt: '2026-06-04T09:00:00', releasedBy: 100, completedAt: '2026-06-10T09:00:00', completedBy: 100, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null },
-  { id: 501, classCurriculumAssignmentId: 50, moduleId: 202, status: 'RELEASED', rowVersion: 1, releasedAt: '2026-06-11T09:00:00', releasedBy: 100, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null },
-  { id: 502, classCurriculumAssignmentId: 50, moduleId: 203, status: 'LOCKED', rowVersion: 0, releasedAt: null, releasedBy: null, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null }
+  { id: 500, classCurriculumAssignmentId: 50, moduleId: 201, status: 'COMPLETED', rowVersion: 2, releasedAt: '2026-06-04T09:00:00', releasedBy: 100, completedAt: '2026-06-10T09:00:00', completedBy: 100, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null, firstLearnerInteractionAt: null, firstLearnerInteractionBy: null, relockEligible: false },
+  { id: 501, classCurriculumAssignmentId: 50, moduleId: 202, status: 'RELEASED', rowVersion: 1, releasedAt: '2026-06-11T09:00:00', releasedBy: 100, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null, firstLearnerInteractionAt: null, firstLearnerInteractionBy: null, relockEligible: true },
+  { id: 502, classCurriculumAssignmentId: 50, moduleId: 203, status: 'LOCKED', rowVersion: 0, releasedAt: null, releasedBy: null, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null, firstLearnerInteractionAt: null, firstLearnerInteractionBy: null, relockEligible: false }
 ];
 
 // Slice 9: covers all four content types (module 101, DRAFT version 10 --
