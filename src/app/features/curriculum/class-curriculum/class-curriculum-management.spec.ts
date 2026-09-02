@@ -45,8 +45,8 @@ describe('ClassCurriculumManagementComponent', () => {
       { id: 2, curriculumVersionId: 20, title: 'First', objectives: null, moduleOrder: 1, contentStatus: 'PUBLISHED', rowVersion: 0, publishedAt: '', publishedBy: 1, archivedAt: null, archivedBy: null }
     ]);
     httpMock.expectOne(`${environment.apiUrl}/school/classes/7/curriculum-assignment/module-states`).flush([
-      { id: 100, classCurriculumAssignmentId: 50, moduleId: 1, status: 'LOCKED', rowVersion: 0, releasedAt: null, releasedBy: null, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null },
-      { id: 101, classCurriculumAssignmentId: 50, moduleId: 2, status: 'LOCKED', rowVersion: 0, releasedAt: null, releasedBy: null, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null }
+      { id: 100, classCurriculumAssignmentId: 50, moduleId: 1, status: 'LOCKED', rowVersion: 0, releasedAt: null, releasedBy: null, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null, firstLearnerInteractionAt: null, firstLearnerInteractionBy: null, relockEligible: true },
+      { id: 101, classCurriculumAssignmentId: 50, moduleId: 2, status: 'LOCKED', rowVersion: 0, releasedAt: null, releasedBy: null, completedAt: null, completedBy: null, withdrawnAt: null, withdrawnBy: null, withdrawReason: null, relockedAt: null, relockedBy: null, firstLearnerInteractionAt: null, firstLearnerInteractionBy: null, relockEligible: true }
     ]);
 
     const rows = fixture.componentInstance.rows();
