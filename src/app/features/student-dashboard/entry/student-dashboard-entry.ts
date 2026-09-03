@@ -47,6 +47,13 @@ import { environment } from '../../../../environments/environment';
 @Component({
   selector: 'app-student-dashboard-entry',
   standalone: true,
+  // UX-1: hooks this screen into the shared student token system (.sp-scope,
+  // src/styles-student.scss) so AccountMenuComponent's var(--sp-*) rules
+  // resolve here too, since this screen sits outside StudentLearningShellComponent's
+  // own subtree. This is infrastructure only -- this screen's own visual
+  // content (header, cards) is deliberately untouched in this slice; every
+  // rule below still uses its own literal ivory/gold values unchanged.
+  host: { class: 'sp-scope' },
   imports: [MatCardModule, MatProgressSpinnerModule, CurriculumMessageComponent, AccountMenuComponent],
   styles: [`
     :host { display: block; min-height: 100vh; background: #FBF7EC; }

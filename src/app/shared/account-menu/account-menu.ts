@@ -45,7 +45,7 @@ import { ChangePasswordComponent } from '../../features/settings/change-password
     .trigger.expanded .label { flex: 1; text-align: left; font-size: 0.92rem; }
     .trigger.expanded .chevron { opacity: 0.6; }
     .menu-header { padding: 10px 16px; display: flex; flex-direction: column; gap: 2px; }
-    .menu-email { font-weight: 600; color: #1C1A16; word-break: break-all; }
+    .menu-email { font-weight: 600; color: var(--sp-text, #1a1f36); word-break: break-all; }
     .menu-item { min-height: 44px; }
   `],
   template: `
