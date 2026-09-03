@@ -50,13 +50,14 @@ import { StudentShellNavComponent } from './shell-nav/student-shell-nav';
 @Component({
   selector: 'app-student-learning-shell',
   standalone: true,
+  host: { class: 'sp-scope' },
   imports: [RouterOutlet, MatIconModule, ClassContextBarComponent, FullOutageBlockComponent, OfflineBlockComponent, LostAccessBlockComponent, StudentShellNavComponent],
   styles: [`
-    :host { display: block; min-height: 100vh; background: #FBF7EC; }
+    :host { display: block; min-height: 100vh; background: var(--sp-bg, #f8f9fb); }
 
     .skip-link {
       position: absolute; left: -9999px; top: 0; z-index: 100;
-      background: #1C1A16; color: #FAF6EC; padding: 10px 16px; border-radius: 0 0 8px 0;
+      background: var(--sp-primary, #3d4ed8); color: #fff; padding: 10px 16px; border-radius: 0 0 8px 0;
       text-decoration: none; font-size: 0.9rem;
     }
     .skip-link:focus { left: 0; }
@@ -64,22 +65,24 @@ import { StudentShellNavComponent } from './shell-nav/student-shell-nav';
     .shell { display: flex; min-height: 100vh; }
 
     .rail {
-      width: 264px; flex: none; background: #FBF7EC; border-right: 1px solid #E3DCC8;
+      width: 264px; flex: none; background: var(--sp-surface, #fff); border-right: 1px solid var(--sp-border, #e8eaf0);
     }
 
-    .scrim { position: fixed; inset: 0; background: rgba(28, 26, 22, 0.4); z-index: 5; }
+    .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 5; }
 
     .shell-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
     .topbar {
       display: flex; align-items: center; gap: 10px; padding: 10px 16px;
-      background: #1C1A16; color: #FAF6EC; position: sticky; top: 0; z-index: 2;
+      background: var(--sp-surface, #fff); color: var(--sp-text, #1a1f36);
+      border-bottom: 1px solid var(--sp-border, #e8eaf0);
+      position: sticky; top: 0; z-index: 2;
     }
     .menu-toggle {
       min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;
       background: none; border: none; color: inherit; cursor: pointer; border-radius: 8px; padding: 0;
     }
-    .menu-toggle:focus-visible { outline: 2px solid #A3762C; outline-offset: 2px; }
+    .menu-toggle:focus-visible { outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: 2px; }
     .topbar-brand { font-family: Fraunces, Georgia, serif; font-weight: 700; }
 
     /* UX-01 refinement: the shell no longer imposes any narrow width of its

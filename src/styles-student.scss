@@ -1,0 +1,128 @@
+// ─── Student Learning Portal — shared visual tokens (UX-1) ─────────────────
+//
+// Scoping strategy: every token/utility class below lives under a single
+// `.sp-scope` selector, applied only to the two student-portal root
+// components (StudentLearningShellComponent, StudentDashboardEntryComponent)
+// via their own `host: { class: 'sp-scope' }` metadata. CSS custom
+// properties declared here inherit down through every descendant element in
+// the DOM regardless of Angular's per-component style encapsulation, so any
+// student-facing component rendered inside either root can consume them via
+// `var(--sp-*)` without needing its own copy of these values, and without
+// this file ever touching (or being reachable by) any Provider/Admin
+// selector -- nothing outside `.sp-scope` can ever match these rules. This
+// is deliberately a SEPARATE file from src/styles.scss (added as its own
+// entry in angular.json's build.styles array) rather than an addition to
+// that shared file, so the Provider Portal's existing stylesheet is never
+// touched by this slice at all, not even additively.
+//
+// Values below are largely direct reuse of src/styles.scss's own existing
+// Provider Portal tokens (indigo primary, neutral cool-gray borders, the
+// mat-card shadow/radius) per the approved visual direction ("School
+// Admin/Provider Portal professionalism + restrained LasyaRasa identity" --
+// reuse where sensible, never blind-copy screens). Where a student-specific
+// semantic name is clearer than reaching for a Provider class name directly
+// (e.g. `--sp-text` vs. assuming every consumer knows Provider's `#1a1f36`
+// convention by heart), a new token is defined here rather than creating a
+// cross-portal CSS dependency.
+//
+// UX-1 scope note: this file also establishes the shared status-chip
+// FOUNDATION (`.sp-chip` + tone classes) per the Phase 0 audit's Finding 7
+// (three incompatible chip-color systems today). No chip-bearing screen
+// (Dashboard, Learning Path, Assignments, Fees) is restyled to actually USE
+// these classes in this slice -- that wiring is explicitly out of scope
+// until each screen's own later slice -- but the shared system is defined
+// once, here, so later slices consume it rather than re-inventing it.
+
+.sp-scope {
+  // Core palette -- reused directly from src/styles.scss's existing values
+  // (Material indigo theme, neutral app background/borders) wherever an
+  // equivalent Provider token already exists.
+  --sp-bg: #f8f9fb;              // Provider's app-wide background (src/styles.scss html,body)
+  --sp-surface: #ffffff;          // card/panel background
+  --sp-border: #e8eaf0;           // Provider's sidebar/topbar border color
+  --sp-border-subtle: #edf0f7;    // Provider's mat-card border color
+
+  --sp-text: #1a1f36;             // Provider's primary text color (sidebar brand-name, dash-row-title)
+  --sp-text-muted: #52596b;       // Provider's sidebar inactive-item text color
+  --sp-text-faint: #9ba3b8;       // Provider's sidebar inactive icon color
+
+  --sp-primary: #3d4ed8;          // Provider's indigo active/accent color
+  --sp-primary-bg: #eef0fb;       // Provider's active-nav-item background wash
+  --sp-hover-bg: #f4f5f9;         // Provider's nav-item hover background
+
+  --sp-radius: 12px;              // Provider's mat-card radius
+  --sp-radius-sm: 8px;            // Provider's nav-item/button radius
+  --sp-shadow: 0 1px 4px rgba(0, 0, 0, 0.07); // Provider's mat-card shadow
+
+  // Semantic status tones, for the shared chip foundation below and for any
+  // later slice's own status/banner treatments. Named by meaning, not by
+  // color, so a later slice never has to guess which literal hex a status
+  // maps to.
+  --sp-tone-positive-bg: #d1fae5;   --sp-tone-positive-text: #065f46;
+  --sp-tone-attention-bg: #fef3c7;  --sp-tone-attention-text: #92400e;
+  --sp-tone-negative-bg: #fee2e2;   --sp-tone-negative-text: #991b1b;
+  --sp-tone-info-bg: #e0f2fe;       --sp-tone-info-text: #075985;
+  --sp-tone-neutral-bg: #f1f5f9;    --sp-tone-neutral-text: #64748b;
+}
+
+// ─── Shared page container ───────────────────────────────────────────────
+// Geometry-only correction (UX-1 visual review round 2): every student
+// content screen previously capped its OWN width a second time
+// (`:host { max-width: 720-1200px; margin: 0 auto; }`) on top of the shell's
+// already-reasonable outer bound (`main { max-width: 1600px }` in
+// student-learning-shell.ts). For a grid/card page like Dashboard, that
+// double cap produced a narrow, centered "island" of cards with excessive
+// unused space on both sides -- Provider Portal's own Dashboard has no such
+// second cap at all: `main.page-content` (src/styles.scss) fills 100% of
+// the space the shell hands it, with only a flat 28px/32px padding gutter,
+// and dashboard.html's grids fill that directly. `.sp-page` reproduces
+// exactly that pattern -- gutter padding, no width cap of its own -- so a
+// page adopting it fills the shell's own 1600px ceiling the same way
+// Provider's Dashboard fills its shell's (uncapped) content region.
+//
+// Deliberately NOT applied retroactively to every student screen in this
+// pass -- narrower reading-width pages (Module Detail, Lesson Detail, and
+// the other list pages' own 720-1200px caps) were not the subject of this
+// correction and are left exactly as they were; only
+// StudentDashboardOverviewComponent adopts this class right now. Later
+// slices decide per screen whether a reading-width cap or this full-bleed
+// gutter pattern is the right fit.
+.sp-scope .sp-page {
+  display: block;
+  padding: 28px 32px 48px;
+  box-sizing: border-box;
+}
+
+// ─── Shared card treatment ──────────────────────────────────────────────
+// One radius, one shadow, one border rule for every student-facing card,
+// replacing the two different radii (0 and 8px) found across the portal
+// in the Phase 0 audit (Finding 8). Not yet applied to any screen in UX-1
+// beyond the shell/nav chrome itself -- later slices adopt this class as
+// they're restyled.
+.sp-scope .sp-card {
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border-subtle);
+  border-radius: var(--sp-radius);
+  box-shadow: var(--sp-shadow);
+}
+
+// ─── Shared status-chip foundation ──────────────────────────────────────
+// One pill-shaped chip system, semantic tone classes matching Provider
+// Portal's own `.status-chip` pattern in shape/typography. Foundation only
+// in UX-1 -- see file header note above.
+.sp-scope .sp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+
+  &.sp-tone-positive  { background: var(--sp-tone-positive-bg);  color: var(--sp-tone-positive-text); }
+  &.sp-tone-attention { background: var(--sp-tone-attention-bg); color: var(--sp-tone-attention-text); }
+  &.sp-tone-negative  { background: var(--sp-tone-negative-bg);  color: var(--sp-tone-negative-text); }
+  &.sp-tone-info      { background: var(--sp-tone-info-bg);      color: var(--sp-tone-info-text); }
+  &.sp-tone-neutral   { background: var(--sp-tone-neutral-bg);   color: var(--sp-tone-neutral-text); }
+}

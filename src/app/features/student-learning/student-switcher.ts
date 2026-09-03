@@ -37,7 +37,7 @@ import { StudentAccessDTO } from '../../core/models/student-learning.model';
   imports: [MatMenuModule, MatButtonModule, MatIconModule],
   styles: [`
     .trigger { min-height: 44px; color: inherit; }
-    .relationship { font-size: 0.75rem; color: #6B6255; text-transform: capitalize; }
+    .relationship { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); text-transform: capitalize; }
     .panel-item { display: flex; flex-direction: column; align-items: flex-start; min-height: 44px; }
     /* v1.1.1 verified fix (296px right edge at 320px, 24px clearance),
        applied here defensively too -- the reverification report's own

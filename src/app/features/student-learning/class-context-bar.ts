@@ -30,8 +30,8 @@ import { StudentClassDTO } from '../../core/models/student-learning.model';
     :host { display: block; } /* in-flow, never absolute/fixed */
     .bar {
       display: flex; align-items: center; gap: 8px;
-      padding: 10px 16px; background: #F3EEDE; border-bottom: 1px solid #E3DCC8;
-      font-size: 0.85rem; color: #1C1A16;
+      padding: 10px 16px; background: #f8f9ff; border-bottom: 1px solid var(--sp-border, #e8eaf0);
+      font-size: 0.85rem; color: var(--sp-text, #1a1f36);
     }
     .trigger { min-height: 44px; }
     .panel-item { min-height: 44px; }

@@ -31,34 +31,35 @@ import { AccountMenuComponent } from '../../../shared/account-menu/account-menu'
 
     .brand-row { padding: 22px 20px 18px; }
     .brand {
+      /* Decision 4: Fraunces reserved for the LasyaRasa wordmark only -- this is that one use. */
       font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 1.2rem;
-      color: #1C1A16; letter-spacing: 0.01em;
+      color: var(--sp-text, #1a1f36); letter-spacing: 0.01em;
     }
 
     .context {
-      padding: 4px 12px 14px; margin: 0 8px 10px; border-bottom: 1px solid #E3DCC8;
+      padding: 4px 12px 14px; margin: 0 8px 10px; border-bottom: 1px solid var(--sp-border, #e8eaf0);
       display: flex; flex-direction: column; gap: 2px;
     }
     .relationship-caption {
-      padding-left: 4px; font-size: 0.74rem; color: #6B6255; text-transform: uppercase; letter-spacing: 0.04em;
+      padding-left: 4px; font-size: 0.74rem; color: var(--sp-text-muted, #52596b); text-transform: uppercase; letter-spacing: 0.04em;
     }
 
     .links { display: flex; flex-direction: column; gap: 2px; padding: 0 8px; flex: 1; }
     .nav-item {
       display: flex; align-items: center; gap: 12px; min-height: 44px;
-      padding: 0 12px; border-radius: 8px; text-decoration: none;
-      color: #6B6255; font-size: 0.92rem; font-weight: 500;
+      padding: 0 12px; border-radius: var(--sp-radius-sm, 8px); text-decoration: none;
+      color: var(--sp-text-muted, #52596b); font-size: 0.92rem; font-weight: 500;
       border-left: 3px solid transparent;
     }
     .nav-item mat-icon { font-size: 20px; width: 20px; height: 20px; color: inherit; }
-    .nav-item:hover { background: #F3EEDE; color: #1C1A16; }
+    .nav-item:hover { background: var(--sp-hover-bg, #f4f5f9); color: var(--sp-text, #1a1f36); }
     .nav-item.active {
-      background: rgba(163, 118, 44, 0.12); color: #7A5419; font-weight: 600;
-      border-left-color: #A3762C;
+      background: var(--sp-primary-bg, #eef0fb); color: var(--sp-primary, #3d4ed8); font-weight: 600;
+      border-left-color: var(--sp-primary, #3d4ed8);
     }
-    .nav-item:focus-visible { outline: 2px solid #7A5419; outline-offset: -2px; }
+    .nav-item:focus-visible { outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
 
-    .rail-bottom { padding: 10px 8px 16px; border-top: 1px solid #E3DCC8; margin-top: 8px; }
+    .rail-bottom { padding: 10px 8px 16px; border-top: 1px solid var(--sp-border, #e8eaf0); margin-top: 8px; }
   `],
   template: `
     <div class="brand-row">
