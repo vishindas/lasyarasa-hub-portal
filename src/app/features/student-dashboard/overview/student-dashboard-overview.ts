@@ -52,12 +52,19 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
 @Component({
   selector: 'app-student-dashboard-overview',
   standalone: true,
+  // UX-1 visual review round 2: was `:host { max-width: 1200px; margin: 0
+  // auto; }` -- a second, narrower cap on top of the shell's own outer
+  // bound (student-learning-shell.ts's `main { max-width: 1600px }`),
+  // producing a centered "island" of cards with excessive unused space on
+  // both sides. `.sp-page` (styles-student.scss) reproduces Provider
+  // Portal's own Dashboard pattern instead: gutter padding only, no width
+  // cap of its own, so this page fills the shell's existing outer bound
+  // exactly the way Provider's Dashboard fills its shell's uncapped
+  // `main.page-content`. Geometry only -- card content/typography/grid
+  // internals below are unchanged.
+  host: { class: 'sp-page' },
   imports: [RouterLink, MatCardModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, CurriculumMessageComponent],
   styles: [`
-    /* UX-01 refinement: widened from 880px so the shell's new, wider
-       application workspace isn't wasted -- container-only, the card
-       content itself is unchanged ahead of its own future redesign slice. */
-    :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
     h1 { font-family: Fraunces, Georgia, serif; font-size: 1.6rem; color: #1C1A16; margin: 0 0 4px; }
     .school-name { margin: 0 0 20px; color: #6B6255; font-size: 0.9rem; }
     /* Second UX-01 refinement: a rigid "always exactly 2 columns" grid left
@@ -66,7 +73,17 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
        card-count-aware, auto-fit responsive grid replaces the fixed
        1-then-2-column breakpoint so column count scales with the actual
        available width instead of a hardcoded number. */
-    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    /* UX-1 visual review round 2: minmax()'s 320px floor is a genuine lower
+       bound, not a safe one -- CSS Grid permits a track to exceed its
+       container's own width when the minimum can't fit, which the wider
+       32px gutter above (matching Provider's own page padding) made
+       reachable at real narrow-phone widths (a true 320px-wide device has
+       only 320-64=256px available, below the 320px floor). min(320px, 100%)
+       clamps the floor to whatever's actually available, so a column never
+       exceeds its container -- the standard safe-grid pattern, same 4/2/1
+       column behavior at every width this was already verified at (1920/
+       1440/1024/768px), zero change to card content/count/gap/typography. */
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
     .card { border-radius: 8px !important; border: 1px solid #E3DCC8 !important; }
     .card a, .card button { min-height: 44px; }
     .card-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #A3762C; font-weight: 700; margin: 0 0 6px; }

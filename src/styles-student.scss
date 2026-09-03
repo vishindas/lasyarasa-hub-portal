@@ -65,6 +65,34 @@
   --sp-tone-neutral-bg: #f1f5f9;    --sp-tone-neutral-text: #64748b;
 }
 
+// ─── Shared page container ───────────────────────────────────────────────
+// Geometry-only correction (UX-1 visual review round 2): every student
+// content screen previously capped its OWN width a second time
+// (`:host { max-width: 720-1200px; margin: 0 auto; }`) on top of the shell's
+// already-reasonable outer bound (`main { max-width: 1600px }` in
+// student-learning-shell.ts). For a grid/card page like Dashboard, that
+// double cap produced a narrow, centered "island" of cards with excessive
+// unused space on both sides -- Provider Portal's own Dashboard has no such
+// second cap at all: `main.page-content` (src/styles.scss) fills 100% of
+// the space the shell hands it, with only a flat 28px/32px padding gutter,
+// and dashboard.html's grids fill that directly. `.sp-page` reproduces
+// exactly that pattern -- gutter padding, no width cap of its own -- so a
+// page adopting it fills the shell's own 1600px ceiling the same way
+// Provider's Dashboard fills its shell's (uncapped) content region.
+//
+// Deliberately NOT applied retroactively to every student screen in this
+// pass -- narrower reading-width pages (Module Detail, Lesson Detail, and
+// the other list pages' own 720-1200px caps) were not the subject of this
+// correction and are left exactly as they were; only
+// StudentDashboardOverviewComponent adopts this class right now. Later
+// slices decide per screen whether a reading-width cap or this full-bleed
+// gutter pattern is the right fit.
+.sp-scope .sp-page {
+  display: block;
+  padding: 28px 32px 48px;
+  box-sizing: border-box;
+}
+
 // ─── Shared card treatment ──────────────────────────────────────────────
 // One radius, one shadow, one border rule for every student-facing card,
 // replacing the two different radii (0 and 8px) found across the portal
