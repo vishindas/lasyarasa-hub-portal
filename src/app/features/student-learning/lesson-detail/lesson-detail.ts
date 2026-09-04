@@ -58,14 +58,20 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
     .module-context { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); margin: 0 0 10px; }
     /* UX-4: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
     h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 16px; }
-    .embed-frame { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
+    /* UX-4 correction: capped to a sensible desktop maximum -- unconstrained,
+       the player expanded across the entire .sp-page workspace on wide
+       screens. This is a max-width on the media container only, not a
+       second page-level cap: width:100% still governs below 1050px (so the
+       player stays fully responsive/left-aligned down through mobile), the
+       cap only ever engages once the page itself is wider than 1050px. */
+    .embed-frame { position: relative; width: 100%; max-width: 1050px; aspect-ratio: 16/9; background: #000; }
     .embed-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
     /* UX-4: recolored onto the shared neutral tone -- same family
        CurriculumMessageComponent's own "not-found" state already uses for
        "content isn't accessible right now, nothing is broken" states. */
     .unavailable-block {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; width: 100%; aspect-ratio: 16/9; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text-muted, #52596b); text-align: center; padding: 24px;
+      gap: 10px; width: 100%; max-width: 1050px; aspect-ratio: 16/9; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text-muted, #52596b); text-align: center; padding: 24px;
       box-sizing: border-box; /* width:100% + padding on the same element overflows its container without this -- found at 320px verification */
     }
     .lesson-text { white-space: pre-wrap; line-height: 1.6; color: var(--sp-text, #1a1f36); }
