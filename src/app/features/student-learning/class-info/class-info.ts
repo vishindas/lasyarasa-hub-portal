@@ -51,9 +51,14 @@ import { ModuleSummaryRowComponent } from '../learning-path/module-summary-row';
 @Component({
   selector: 'app-class-info',
   standalone: true,
+  // UX-3 geometry correction: was `:host { max-width: 720px; margin: 0
+  // auto; padding: 24px 20px 48px; }` -- same independently-centered
+  // container class of bug UX-1 fixed on Dashboard and this slice just
+  // fixed on Learning Path/Module Detail. `.sp-page` (styles-student.scss)
+  // gives the same flush gutter, no local width cap.
+  host: { class: 'sp-page' },
   imports: [MatProgressSpinnerModule, CurriculumMessageComponent, ModuleSummaryRowComponent],
   styles: [`
-    :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; }
     /* UX-3: Fraunces retired (Deliverable 3), matching Provider's page-header
        h2 pattern; the gold uppercase eyebrow labels (dt/.section-title) move
        onto Provider's own .form-section-label gray-uppercase pattern

@@ -22,9 +22,14 @@ import { LessonSummaryRowComponent } from './lesson-summary-row';
 @Component({
   selector: 'app-module-detail',
   standalone: true,
+  // UX-3 geometry correction: was `:host { max-width: 720px; margin: 0
+  // auto; padding: 24px 20px 48px; }` -- same independently-centered
+  // container class of bug UX-1 fixed on Dashboard and this slice just
+  // fixed on Learning Path. `.sp-page` (styles-student.scss) gives the
+  // same flush gutter, no local width cap.
+  host: { class: 'sp-page' },
   imports: [RouterLink, MatProgressSpinnerModule, MatIconModule, CurriculumMessageComponent, LessonSummaryRowComponent],
   styles: [`
-    :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; }
     .breadcrumb { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--sp-text-muted, #52596b); margin-bottom: 8px; }
     /* 44px touch-target floor -- same fix as lesson-detail.ts's identical breadcrumb pattern. */
     .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: var(--sp-text-muted, #52596b); text-decoration: none; }
