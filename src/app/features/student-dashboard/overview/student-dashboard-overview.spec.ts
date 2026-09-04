@@ -115,7 +115,7 @@ describe('StudentDashboardOverviewComponent', () => {
     expect(link.getAttribute('href')).toBe('/my-students/117/fees');
   });
 
-  it('renders the schedule for every active class from the shared context service (multi-class support)', () => {
+  it('UX-2: no class selected (ambiguous) -- Class Schedule falls back to the aggregate list of every active class', () => {
     const fixture = setup();
     const context = TestBed.inject(StudentLearningContextService);
     context.clearForNewStudent(117);
@@ -126,13 +126,52 @@ describe('StudentDashboardOverviewComponent', () => {
     fixture.detectChanges();
 
     httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
-    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: true });
     httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('PILOT Assignment Class: Pilot schedule');
     expect(text).toContain('PILOT Lesson Class: Pilot lesson schedule');
+  });
+
+  it('UX-2 correction: a selected class shows only that class\'s own schedule on the Dashboard, never the student\'s other classes', () => {
+    const fixture = setup();
+    const context = TestBed.inject(StudentLearningContextService);
+    context.clearForNewStudent(117);
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/classes`).flush([
+      { classId: 11, className: 'Saturday Beginners', schedule: 'Sat 10:00 AM' },
+      { classId: 12, className: 'Weekday Technique Intensive', schedule: 'Tue/Thu 5:00 PM' }
+    ]);
+    fixture.detectChanges();
+
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 12 });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Tue/Thu 5:00 PM');
+    expect(text).not.toContain('Sat 10:00 AM');
+    expect(text).not.toContain('Saturday Beginners');
+    expect(text).not.toContain('Weekday Technique Intensive');
+  });
+
+  it('UX-2 correction: a selected class with no schedule on file shows an honest "Schedule unavailable", not a blank card', () => {
+    const fixture = setup();
+    const context = TestBed.inject(StudentLearningContextService);
+    context.clearForNewStudent(117);
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/classes`).flush([
+      { classId: 11, className: 'Saturday Beginners', schedule: null }
+    ]);
+    fixture.detectChanges();
+
+    httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+    httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({ classSelectionRequired: false, selectedClassId: 11 });
+    httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Schedule unavailable');
   });
 
   it('zero-class empty state: no active classes renders one intentional empty state, never the class-dependent cards', () => {

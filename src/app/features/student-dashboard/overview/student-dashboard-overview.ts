@@ -231,11 +231,25 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
         <mat-card class="card">
           <mat-card-content>
             <p class="card-title">Class schedule</p>
-            @for (c of classes(); track c.classId) {
-              @if (c.schedule) {
-                <p class="schedule-line">{{ c.className }}: {{ c.schedule }}</p>
+            @if (!h.classSelectionRequired && h.selectedClassId != null) {
+              <!-- UX-2 correction: a selected class is a specific class context
+                   -- its own Dashboard schedule card must describe only that
+                   class, never the student's other classes. The aggregate
+                   multi-class list below is reserved for when there genuinely
+                   is no single class context (classSelectionRequired, or no
+                   classes at all), where it's the only useful schedule view. -->
+              @if (selectedClassSchedule(); as s) {
+                <p class="schedule-line">{{ s }}</p>
               } @else {
-                <p class="schedule-line schedule-unavailable">{{ c.className }}: schedule unavailable</p>
+                <p class="schedule-line schedule-unavailable">Schedule unavailable</p>
+              }
+            } @else {
+              @for (c of classes(); track c.classId) {
+                @if (c.schedule) {
+                  <p class="schedule-line">{{ c.className }}: {{ c.schedule }}</p>
+                } @else {
+                  <p class="schedule-line schedule-unavailable">{{ c.className }}: schedule unavailable</p>
+                }
               }
             }
           </mat-card-content>
@@ -270,6 +284,19 @@ export class StudentDashboardOverviewComponent implements OnInit {
   });
 
   classes = computed(() => this.context.classes());
+
+  /**
+   * UX-2 correction: derived entirely from data already fetched for the
+   * class-context bar (StudentLearningContextService.classes()) -- no new
+   * endpoint or backend change. `null` covers both "no class selected" and
+   * "the selected class has no schedule on file", which the template
+   * renders identically ("Schedule unavailable").
+   */
+  selectedClassSchedule = computed(() => {
+    const id = this.home()?.selectedClassId;
+    if (id == null) return null;
+    return this.classes().find(c => c.classId === id)?.schedule ?? null;
+  });
 
   ngOnInit() {
     const studentId = Number(this.route.snapshot.paramMap.get('studentId'));
