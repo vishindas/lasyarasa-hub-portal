@@ -49,7 +49,7 @@ describe('StudentDashboardOverviewComponent', () => {
     expect(text).toContain('Dev Dance School');
   });
 
-  it('shows the multi-class prompt when classSelectionRequired is true', () => {
+  it('UX-2: shows an inline hint pointing at the class-context bar when classSelectionRequired is true, not a competing picker', () => {
     const fixture = setup();
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
@@ -58,7 +58,7 @@ describe('StudentDashboardOverviewComponent', () => {
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('more than one active class');
+    expect(text).toContain('Select a class above');
   });
 
   it('links to the current module when one class is selected and a current module exists', () => {
@@ -400,8 +400,8 @@ describe('StudentDashboardOverviewComponent', () => {
     });
   });
 
-  describe('D5: Continue Learning + Learning Path (independent, not mutually exclusive)', () => {
-    it('renders both Continue Learning and Learning Path cards together when both are present -- matches Home\'s own behavior for the same DTO', () => {
+  describe('D5/UX-2: Current Learning + Learning Path (independent, not mutually exclusive)', () => {
+    it('renders both Current Learning and Learning Path cards together when both are present', () => {
       const fixture = setup();
       fixture.detectChanges();
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
@@ -418,7 +418,7 @@ describe('StudentDashboardOverviewComponent', () => {
       expect(text).toContain('Bharatanatyam Foundations');
       // Two distinct cards, not one absorbing the other's content.
       const titles = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.card-title')).map(e => e.textContent);
-      expect(titles).toContain('Continue learning');
+      expect(titles).toContain('Current Learning');
       expect(titles).toContain('Learning path');
     });
 
@@ -437,7 +437,7 @@ describe('StudentDashboardOverviewComponent', () => {
       expect(el.textContent).toContain('Bharatanatyam Foundations');
       expect(el.textContent).not.toContain('No curriculum assigned yet for this class.');
       const titles = Array.from(el.querySelectorAll('.card-title')).map(e => e.textContent);
-      expect(titles).not.toContain('Continue learning');
+      expect(titles).not.toContain('Current Learning');
     });
 
     it('no curriculum assigned (neither current module nor learning path): shows the honest empty state, not a blank card', () => {
@@ -453,7 +453,7 @@ describe('StudentDashboardOverviewComponent', () => {
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('No curriculum assigned yet for this class.');
     });
 
-    it('multiple-class selection unchanged: neither Continue Learning nor Learning Path renders while a class is still ambiguous', () => {
+    it('UX-2: neither Current Learning nor Learning Path renders while a class is still ambiguous, and no competing class-picker link is duplicated here', () => {
       const fixture = setup();
       fixture.detectChanges();
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
@@ -462,13 +462,14 @@ describe('StudentDashboardOverviewComponent', () => {
       fixture.detectChanges();
 
       const el = fixture.nativeElement as HTMLElement;
-      expect(el.textContent).toContain('more than one active class');
+      expect(el.textContent).toContain('Select a class above');
       const titles = Array.from(el.querySelectorAll('.card-title')).map(e => e.textContent);
       expect(titles).not.toContain('Learning path');
-      // The existing class-picker link is untouched by this change.
-      const link = el.querySelector('a[href*="/classes"]') as HTMLAnchorElement;
-      expect(link).toBeTruthy();
-      expect(link.getAttribute('href')).toBe('/my-students/117/classes');
+      expect(titles).not.toContain('Current Learning');
+      // UX-2: the retired friction card's "Choose a class" link is gone --
+      // My Classes (the directory) and the class-context bar (the switcher)
+      // are the only two selection mechanisms now, neither duplicated here.
+      expect(el.querySelector('a[href*="/classes"]')).toBeNull();
     });
 
     it('Learning Path card links to the full learning path for the selected class, as a real anchor', () => {
@@ -503,6 +504,42 @@ describe('StudentDashboardOverviewComponent', () => {
 
       const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
       expect(text).not.toMatch(/%|percent|completed|last viewed|progress/i);
+    });
+
+    it('UX-2: Current Learning is the priority card (spans two grid columns), Learning Path is not', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({
+        classSelectionRequired: false, selectedClassId: 11,
+        currentModule: { moduleId: 5, title: 'PILOT Lesson Module', moduleOrder: 1, status: 'RELEASED' },
+        learningPath: { curriculumTitle: 'Bharatanatyam Foundations', level: 'Beginner' }
+      });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const cards = Array.from(el.querySelectorAll('.card'));
+      const currentLearningCard = cards.find(c => c.querySelector('.card-title')?.textContent === 'Current Learning');
+      const learningPathCard = cards.find(c => c.querySelector('.card-title')?.textContent === 'Learning path');
+      expect(currentLearningCard?.classList.contains('priority')).toBe(true);
+      expect(learningPathCard?.classList.contains('priority')).toBe(false);
+    });
+
+    it('UX-2 priority order: Current Learning/Learning Path render before Attention/Fees/Class details/Class schedule', () => {
+      const fixture = setup();
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
+      httpMock.expectOne(`${environment.apiUrl}/account/students/117/learning/home`).flush({
+        classSelectionRequired: false, selectedClassId: 11,
+        currentModule: { moduleId: 5, title: 'PILOT Lesson Module', moduleOrder: 1, status: 'RELEASED' },
+        learningPath: { curriculumTitle: 'Bharatanatyam Foundations', level: 'Beginner' }
+      });
+      httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
+      fixture.detectChanges();
+
+      const titles = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.card-title')).map(e => e.textContent);
+      expect(titles).toEqual(['Current Learning', 'Learning path', 'Attention', 'Fees', 'Class details', 'Class schedule']);
     });
   });
 

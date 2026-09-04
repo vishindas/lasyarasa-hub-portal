@@ -10,8 +10,9 @@ import { CurriculumUiErrorKind } from '../../core/services/curriculum-api-error.
  *   STUDENT_CONTEXT_UNAVAILABLE -> /my-students (the account lost access to
  *     this student entirely; there is no valid page left under this
  *     studentId to fall back to).
- *   CLASS_CONTEXT_UNAVAILABLE -> this student's Home/class selector (the
- *     student is still valid; only the class reference was bad/stale).
+ *   CLASS_CONTEXT_UNAVAILABLE -> this student's Dashboard (UX-2: retargeted
+ *     from the retired Home route -- the student is still valid; only the
+ *     class reference was bad/stale).
  *   LEARNING_CONTENT_NOT_FOUND -> the nearest valid parent screen already
  *     on the stack (module -> its class's Learning Path, lesson -> its
  *     module's detail, etc.) -- passed in by the caller since it is the one
@@ -20,7 +21,7 @@ import { CurriculumUiErrorKind } from '../../core/services/curriculum-api-error.
 export function backLabelFor(kind: CurriculumUiErrorKind, parentLabel?: string): string | null {
   switch (kind) {
     case 'student-context-unavailable': return 'Back to My Students';
-    case 'class-context-unavailable': return 'Back to Home';
+    case 'class-context-unavailable': return 'Back to Dashboard';
     case 'learning-content-not-found': return parentLabel ? `Back to ${parentLabel}` : 'Back';
     default: return null;
   }
@@ -32,10 +33,10 @@ export function navigateForRecovery(router: Router, kind: CurriculumUiErrorKind,
       router.navigate(['/my-students']);
       return;
     case 'class-context-unavailable':
-      router.navigate(['/my-students', studentId, 'home']);
+      router.navigate(['/my-students', studentId, 'dashboard']);
       return;
     case 'learning-content-not-found':
-      router.navigate(parentRoute ?? ['/my-students', studentId, 'home']);
+      router.navigate(parentRoute ?? ['/my-students', studentId, 'dashboard']);
       return;
   }
 }

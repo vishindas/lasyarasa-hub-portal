@@ -18,8 +18,14 @@ import { Routes } from '@angular/router';
  */
 export const STUDENT_LEARNING_ROUTES: Routes = [
   {
+    // UX-2: retired -- Dashboard is now the single canonical landing screen
+    // (StudentLearningHomeComponent's own content was a strict subset of
+    // Dashboard's, per that component's own former doc comment). Kept as a
+    // redirect, not removed outright, so an old bookmarked/cached
+    // /my-students/:id/home URL still lands safely on Dashboard rather than
+    // 404ing or exposing a second Home experience.
     path: 'home',
-    loadComponent: () => import('./home/student-learning-home').then(m => m.StudentLearningHomeComponent)
+    redirectTo: 'dashboard'
   },
   {
     // Student Dashboard D1 foundation: nested here (not a standalone route)
@@ -69,5 +75,5 @@ export const STUDENT_LEARNING_ROUTES: Routes = [
     path: 'fees',
     loadComponent: () => import('../student-fees/student-fees').then(m => m.StudentFeesComponent)
   },
-  { path: '', redirectTo: 'home', pathMatch: 'full' }
+  { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
 ];
