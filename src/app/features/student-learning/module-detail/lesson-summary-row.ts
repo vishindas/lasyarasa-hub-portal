@@ -18,11 +18,14 @@ import { StudentLearningLessonSummaryDTO } from '../../../core/models/student-le
   styles: [`
     a.row {
       display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 14px;
-      border: 1px solid #E3DCC8; background: #fff; text-decoration: none; color: #1C1A16;
+      border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px);
+      background: var(--sp-surface, #fff); text-decoration: none; color: var(--sp-text, #1a1f36);
     }
-    a.row:hover, a.row:focus-visible { outline: 2px solid #7A5419; outline-offset: -2px; }
+    a.row:hover, a.row:focus-visible { outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
     .title { flex: 1; }
-    .unavailable-chip { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: #fee2e2; color: #991b1b; font-weight: 600; }
+    /* UX-3: recolored onto the shared negative tone (styles-student.scss) --
+       same tone module-summary-row.ts now uses for WITHDRAWN. */
+    .unavailable-chip { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--sp-tone-negative-bg, #fee2e2); color: var(--sp-tone-negative-text, #991b1b); font-weight: 600; }
   `],
   template: `
     <a class="row" [routerLink]="['lessons', lesson().lessonId]">

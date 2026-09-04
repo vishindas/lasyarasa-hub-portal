@@ -20,15 +20,24 @@ import { ModuleSummaryRowComponent } from './module-summary-row';
 @Component({
   selector: 'app-learning-path',
   standalone: true,
+  // UX-3 geometry correction: was `:host { max-width: 1200px; margin: 0
+  // auto; padding: 24px 20px 48px; }` -- a second, independently-centered
+  // container competing with the shell's own outer bound (student-
+  // learning-shell.ts's `main { max-width: 1600px }`), the same "narrow
+  // island" class of bug UX-1 fixed on Dashboard. `.sp-page`
+  // (styles-student.scss) reproduces Dashboard's own fix here: flush
+  // gutter padding, no independent width cap, so this page starts at the
+  // same left gutter and uses the same available width Dashboard does.
+  host: { class: 'sp-page' },
   imports: [MatProgressSpinnerModule, CurriculumMessageComponent, ModuleSummaryRowComponent],
   styles: [`
-    /* UX-01 refinement: widened from 720px -- container only, the module
-       list itself is unchanged ahead of its own future redesign slice. */
-    :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.5rem; color: #1C1A16; margin: 0 0 4px; }
-    .level { color: #6B6255; font-size: 0.9rem; margin: 0 0 20px; }
+    /* UX-3: Fraunces retired here (Deliverable 3 -- the serif wordmark is
+       the only surviving exception, per UX-1), matching Provider's
+       page-header h2 pattern (1.4rem/600 weight sans-serif). */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
+    .level { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 20px; }
     .modules { display: flex; flex-direction: column; gap: 10px; }
-    .empty-note { color: #6B6255; }
+    .empty-note { color: var(--sp-text-muted, #52596b); }
   `],
   template: `
     <h1 tabindex="-1">{{ path()?.curriculumTitle || 'Curriculum Overview' }}</h1>
