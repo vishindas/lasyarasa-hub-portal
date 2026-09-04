@@ -72,9 +72,9 @@ describe('ClassInfoComponent (D2 Class Details)', () => {
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
-    const dts = Array.from(el.querySelectorAll('dt')).map(d => d.textContent);
-    expect(dts).toContain('Dance Style');
-    expect(dts).toContain('Age Group');
+    const labels = Array.from(el.querySelectorAll('.info-label')).map(d => d.textContent);
+    expect(labels).toContain('Dance Style');
+    expect(labels).toContain('Age Group');
     expect(el.textContent).toContain('Kuchipudi');
     expect(el.textContent).toContain('Under 12');
   });
@@ -86,10 +86,10 @@ describe('ClassInfoComponent (D2 Class Details)', () => {
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
-    const dts = Array.from(el.querySelectorAll('dt')).map(d => d.textContent);
-    expect(dts).not.toContain('Curriculum');
-    expect(dts).not.toContain('Dance Style');
-    expect(dts).not.toContain('Age Group');
+    const labels = Array.from(el.querySelectorAll('.info-label')).map(d => d.textContent);
+    expect(labels).not.toContain('Curriculum');
+    expect(labels).not.toContain('Dance Style');
+    expect(labels).not.toContain('Age Group');
     expect(el.textContent).toContain('Not available'); // schedule fallback
     expect(el.textContent).toContain('No modules have been released yet.');
   });

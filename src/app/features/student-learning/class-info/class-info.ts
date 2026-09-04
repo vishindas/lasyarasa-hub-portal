@@ -65,9 +65,23 @@ import { ModuleSummaryRowComponent } from '../learning-path/module-summary-row';
        (Deliverable 3, Learning Path/Class Details share this module). */
     h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
     .subtitle { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 20px; }
-    dl { margin: 0 0 28px; }
-    dt { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--sp-text-muted, #52596b); font-weight: 700; margin-top: 14px; }
-    dd { margin: 2px 0 0; color: var(--sp-text, #1a1f36); }
+    /* UX-3 correction: the basic-information dt/dl list left a large
+       unused horizontal area on desktop (a narrow left column of stacked
+       label/value pairs, unrelated to the Released Modules width below).
+       Replaced with a single full-width .sp-card (shared UX-1 card
+       treatment) containing a responsive info-cell grid -- same safe-grid
+       auto-fit/minmax pattern already used by Dashboard, tuned to a
+       240px floor so it resolves to 4 cells across at desktop content
+       widths (~1000px+), 2x2 at tablet/intermediate widths (~700-1000px),
+       and a single column at mobile (~300-350px) -- verified at
+       375/768/1024/1440px. With at most 4 possible cells (Dance
+       Style/Age Group are conditional), auto-fit collapses any unused
+       tracks so fewer-than-4 cells still fill the row evenly rather than
+       leaving a stray narrow column. */
+    .info-card { padding: 20px 24px; margin: 0 0 28px; }
+    .info-grid { display: grid; gap: 16px 24px; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+    .info-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--sp-text-muted, #52596b); font-weight: 700; margin: 0 0 4px; }
+    .info-value { margin: 0; color: var(--sp-text, #1a1f36); font-size: 0.95rem; font-weight: 500; }
     .section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--sp-text-muted, #52596b); font-weight: 700; margin: 0 0 10px; }
     .modules { display: flex; flex-direction: column; gap: 10px; }
     .empty-note { color: var(--sp-text-muted, #52596b); font-size: 0.9rem; }
@@ -83,18 +97,20 @@ import { ModuleSummaryRowComponent } from '../learning-path/module-summary-row';
       <h1 tabindex="-1">{{ i.className }}</h1>
       @if (i.providerDisplayName) { <p class="subtitle">{{ i.providerDisplayName }}</p> }
 
-      <dl>
-        @if (i.danceStyleName) {
-          <dt>Dance Style</dt><dd>{{ i.danceStyleName }}</dd>
-        }
-        @if (i.ageGroupName) {
-          <dt>Age Group</dt><dd>{{ i.ageGroupName }}</dd>
-        }
-        <dt>Schedule</dt><dd>{{ i.schedule || 'Not available' }}</dd>
-        @if (i.curriculumTitle) {
-          <dt>Curriculum</dt><dd>{{ i.curriculumTitle }}@if (i.level) { &nbsp;·&nbsp;{{ i.level }} }</dd>
-        }
-      </dl>
+      <div class="sp-card info-card">
+        <div class="info-grid">
+          @if (i.danceStyleName) {
+            <div class="info-cell"><p class="info-label">Dance Style</p><p class="info-value">{{ i.danceStyleName }}</p></div>
+          }
+          @if (i.ageGroupName) {
+            <div class="info-cell"><p class="info-label">Age Group</p><p class="info-value">{{ i.ageGroupName }}</p></div>
+          }
+          <div class="info-cell"><p class="info-label">Schedule</p><p class="info-value">{{ i.schedule || 'Not available' }}</p></div>
+          @if (i.curriculumTitle) {
+            <div class="info-cell"><p class="info-label">Curriculum</p><p class="info-value">{{ i.curriculumTitle }}@if (i.level) { &nbsp;·&nbsp;{{ i.level }} }</p></div>
+          }
+        </div>
+      </div>
 
       <p class="section-title">Released modules</p>
       @if (modulesError()) {
