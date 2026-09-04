@@ -54,6 +54,14 @@ describe('LessonDetailComponent', () => {
     expect((iframe.src ?? iframe.getAttribute('src')) as string).not.toContain('autoplay=1');
   });
 
+  it('UX-4/Decision 5: the non-functional captions placeholder is gone -- no "Captions availability" text anywhere', () => {
+    const fixture = setup(501, {
+      lessonId: 501, moduleId: 9, title: 'Video lesson', contentType: 'VIDEO', lessonOrder: 1,
+      videoAvailability: 'AVAILABLE', videoId: 'dQw4w9WgXcQ', nextLessonId: 502
+    });
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Captions availability');
+  });
+
   it('VIDEO + UNAVAILABLE: renders the exact locked copy, no embed, no videoId anywhere in visible text (correction 5)', () => {
     const fixture = setup(501, {
       lessonId: 501, moduleId: 9, title: 'Video lesson', contentType: 'VIDEO', lessonOrder: 1,
@@ -74,7 +82,7 @@ describe('LessonDetailComponent', () => {
     expect(fixture.nativeElement.querySelector('iframe')).toBeNull();
   });
 
-  it('PDF_LINK: renders a resource card with the label as a link', () => {
+  it('PDF_LINK: renders a resource card with the label as a link, tagged "PDF document" (Finding 11)', () => {
     const fixture = setup(503, {
       lessonId: 503, moduleId: 9, title: 'PDF lesson', contentType: 'PDF_LINK', lessonOrder: 3,
       externalUrl: 'https://example.test/x.pdf', externalLinkLabel: 'Practice sheet'
@@ -84,15 +92,31 @@ describe('LessonDetailComponent', () => {
     expect(link.getAttribute('href')).toBe('https://example.test/x.pdf');
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('PDF document');
+    expect(text).not.toContain('Opens in a new tab'); // EXTERNAL_LINK-only microcopy
   });
 
-  it('EXTERNAL_LINK: same resource-card treatment as PDF_LINK', () => {
+  it('EXTERNAL_LINK: same base resource-card treatment as PDF_LINK, but differentiated (Finding 11) -- destination domain + "Opens in a new tab"', () => {
     const fixture = setup(504, {
       lessonId: 504, moduleId: 9, title: 'Reference', contentType: 'EXTERNAL_LINK', lessonOrder: 4,
-      externalUrl: 'https://example.test/ref', externalLinkLabel: 'Reference recording'
+      externalUrl: 'https://docs.example.test/ref', externalLinkLabel: 'Reference recording'
     });
     const link = fixture.nativeElement.querySelector('.resource-card a') as HTMLAnchorElement;
     expect(link.textContent?.trim()).toBe('Reference recording');
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('docs.example.test');
+    expect(text).toContain('Opens in a new tab');
+    expect(text).not.toContain('PDF document'); // PDF_LINK-only caption
+  });
+
+  it('EXTERNAL_LINK with an unparsable URL falls back to plain "Opens in a new tab", no domain, never a crash', () => {
+    const fixture = setup(505, {
+      lessonId: 505, moduleId: 9, title: 'Reference', contentType: 'EXTERNAL_LINK', lessonOrder: 5,
+      externalUrl: 'not-a-valid-url', externalLinkLabel: 'Reference recording'
+    });
+    expect(fixture.componentInstance.externalDomain()).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Opens in a new tab');
   });
 
   it('prev/next are disabled (not hidden) at module boundaries', () => {

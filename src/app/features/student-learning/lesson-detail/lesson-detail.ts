@@ -28,32 +28,56 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
  * Module Detail (which it needs anyway, for the module title) and derives
  * position/count client-side from its already-ordered lessons[] list --
  * no new Slice 11 endpoint or field, per the plan's own resolution.
+ *
+ * UX-4: recolored per Deliverable 5 wireframes 6-8, on the same `.sp-page`
+ * geometry discipline UX-3 applied to Learning Path/Module Detail/Class
+ * Details (this screen had the identical independently-centered `:host`
+ * pattern). The video embed/videoId construction above (embedUrl()) is
+ * untouched -- restyle only, per the architect's explicit instruction.
+ * PDF_LINK and EXTERNAL_LINK now render distinctly (Finding 11): PDF gets
+ * a "PDF document" caption, EXTERNAL_LINK gets its destination domain
+ * (derived client-side from externalUrl, no new field) plus "Opens in a
+ * new tab" microcopy, since it's the one link that leaves the app. The
+ * non-functional captions placeholder is removed outright (Deliverable 7
+ * decision 5, already approved) rather than kept as inert filler text.
  */
 @Component({
   selector: 'app-lesson-detail',
   standalone: true,
+  // UX-4 geometry correction: was `:host { max-width: 760px; margin: 0
+  // auto; padding: 24px 20px 48px; }` -- the same independently-centered
+  // container class of bug UX-1/UX-3 already fixed elsewhere. `.sp-page`
+  // (styles-student.scss) gives the same flush gutter, no local width cap.
+  host: { class: 'sp-page' },
   imports: [RouterLink, MatProgressSpinnerModule, MatIconModule, MatButtonModule, CurriculumMessageComponent],
   styles: [`
-    :host { display: block; max-width: 760px; margin: 0 auto; padding: 24px 20px 48px; }
-    .breadcrumb { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: #6B6255; margin-bottom: 4px; }
+    .breadcrumb { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--sp-text-muted, #52596b); margin-bottom: 4px; }
     /* 44px touch-target floor (found undersized at 17px during 390px verification): the link text itself is small, so height comes from padding, not font-size. */
-    .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: #6B6255; text-decoration: none; }
-    .module-context { font-size: 0.8rem; color: #6B6255; margin: 0 0 10px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; color: #1C1A16; margin: 0 0 16px; }
+    .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: var(--sp-text-muted, #52596b); text-decoration: none; }
+    .breadcrumb a:hover, .breadcrumb a:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
+    .module-context { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); margin: 0 0 10px; }
+    /* UX-4: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 16px; }
     .embed-frame { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
     .embed-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    /* UX-4: recolored onto the shared neutral tone -- same family
+       CurriculumMessageComponent's own "not-found" state already uses for
+       "content isn't accessible right now, nothing is broken" states. */
     .unavailable-block {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; width: 100%; aspect-ratio: 16/9; background: #F3EEDE; color: #6B6255; text-align: center; padding: 24px;
+      gap: 10px; width: 100%; aspect-ratio: 16/9; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text-muted, #52596b); text-align: center; padding: 24px;
       box-sizing: border-box; /* width:100% + padding on the same element overflows its container without this -- found at 320px verification */
     }
-    .captions-row { font-size: 0.75rem; color: #6B6255; margin: 8px 0 0; }
-    .lesson-text { white-space: pre-wrap; line-height: 1.6; color: #1C1A16; }
-    .resource-card { display: flex; align-items: center; gap: 10px; padding: 16px; border: 1px solid #E3DCC8; background: #fff; }
+    .lesson-text { white-space: pre-wrap; line-height: 1.6; color: var(--sp-text, #1a1f36); }
+    .resource-card { display: flex; align-items: center; gap: 10px; padding: 16px; border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); background: var(--sp-surface, #fff); }
+    .resource-text { display: flex; flex-direction: column; gap: 2px; }
     /* 44px touch-target floor (found undersized at 19.2px during verification-closure numerical layout checks): same fix pattern as the breadcrumb link above -- height comes from padding via inline-flex, not font-size. */
-    .resource-card a { display: inline-flex; align-items: center; min-height: 44px; color: #A3762C; font-weight: 600; }
-    .practice-notes { margin-top: 20px; padding: 14px 16px; background: #F3EEDE; border: 1px solid #E3DCC8; }
-    .practice-notes p { margin: 0; color: #1C1A16; font-size: 0.9rem; }
+    .resource-card a { display: inline-flex; align-items: center; min-height: 44px; color: var(--sp-primary, #3d4ed8); font-weight: 600; }
+    /* UX-4: PDF's "PDF document" tag / EXTERNAL_LINK's domain + "Opens in a new tab" (Finding 11 differentiation). */
+    .resource-caption { margin: 0; font-size: 0.8rem; color: var(--sp-text-muted, #52596b); }
+    /* UX-4: recolored from ivory to a light indigo tint, per wireframe 6. */
+    .practice-notes { margin-top: 20px; padding: 14px 16px; background: var(--sp-primary-bg, #eef0fb); border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); }
+    .practice-notes p { margin: 0; color: var(--sp-text, #1a1f36); font-size: 0.9rem; }
     .nav-row { display: flex; justify-content: space-between; margin-top: 24px; }
     .nav-row button { min-height: 44px; }
   `],
@@ -86,17 +110,27 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
             <div class="embed-frame">
               <iframe [src]="embedUrl()" title="Lesson video" allow="encrypted-media" allowfullscreen></iframe>
             </div>
-            <!-- Illustrative only (Part IV.2/10.5) -- no real caption sourcing/parsing exists yet. -->
-            <p class="captions-row">Captions availability varies by video.</p>
           }
         }
         @case ('TEXT') {
           <p class="lesson-text">{{ l.textContent }}</p>
         }
-        @default {
+        @case ('PDF_LINK') {
           <div class="resource-card">
-            <mat-icon aria-hidden="true">{{ l.contentType === 'PDF_LINK' ? 'picture_as_pdf' : 'link' }}</mat-icon>
-            <a [href]="l.externalUrl" target="_blank" rel="noopener noreferrer">{{ l.externalLinkLabel || 'Open resource' }}</a>
+            <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+            <div class="resource-text">
+              <a [href]="l.externalUrl" target="_blank" rel="noopener noreferrer">{{ l.externalLinkLabel || 'Open resource' }}</a>
+              <p class="resource-caption">PDF document</p>
+            </div>
+          </div>
+        }
+        @case ('EXTERNAL_LINK') {
+          <div class="resource-card">
+            <mat-icon aria-hidden="true">link</mat-icon>
+            <div class="resource-text">
+              <a [href]="l.externalUrl" target="_blank" rel="noopener noreferrer">{{ l.externalLinkLabel || 'Open resource' }}</a>
+              <p class="resource-caption">@if (externalDomain()) { {{ externalDomain() }} &middot; } Opens in a new tab</p>
+            </div>
           </div>
         }
       }
@@ -142,6 +176,19 @@ export class LessonDetailComponent implements OnInit {
     const idx = lessons.findIndex(l => l.lessonId === this.lessonId());
     if (idx < 0) return null;
     return `Lesson ${idx + 1} of ${lessons.length}`;
+  });
+
+  /**
+   * UX-4/Finding 11: derived client-side from the already-provided
+   * externalUrl -- no new field, matching the same "derive from what's
+   * already there" pattern positionLabel() uses. `null` covers both "not
+   * an external-link-shaped lesson" and a malformed URL -- either way the
+   * template falls back to plain "Opens in a new tab" with no domain.
+   */
+  externalDomain = computed<string | null>(() => {
+    const url = this.lesson()?.externalUrl;
+    if (!url) return null;
+    try { return new URL(url).hostname; } catch { return null; }
   });
 
   embedUrl = computed<SafeResourceUrl | null>(() => {
