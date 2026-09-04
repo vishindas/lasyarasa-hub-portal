@@ -25,13 +25,15 @@ import { LessonSummaryRowComponent } from './lesson-summary-row';
   imports: [RouterLink, MatProgressSpinnerModule, MatIconModule, CurriculumMessageComponent, LessonSummaryRowComponent],
   styles: [`
     :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; }
-    .breadcrumb { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: #6B6255; margin-bottom: 8px; }
+    .breadcrumb { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--sp-text-muted, #52596b); margin-bottom: 8px; }
     /* 44px touch-target floor -- same fix as lesson-detail.ts's identical breadcrumb pattern. */
-    .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: #6B6255; text-decoration: none; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; color: #1C1A16; margin: 0 0 10px; }
-    .objective { color: #1C1A16; margin: 0 0 20px; line-height: 1.5; }
+    .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: var(--sp-text-muted, #52596b); text-decoration: none; }
+    .breadcrumb a:hover, .breadcrumb a:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
+    /* UX-3: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 10px; }
+    .objective { color: var(--sp-text, #1a1f36); margin: 0 0 20px; line-height: 1.5; }
     .lessons { display: flex; flex-direction: column; gap: 8px; }
-    .empty-note { color: #6B6255; }
+    .empty-note { color: var(--sp-text-muted, #52596b); }
   `],
   template: `
     <div class="breadcrumb">

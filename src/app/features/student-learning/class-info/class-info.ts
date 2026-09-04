@@ -54,14 +54,18 @@ import { ModuleSummaryRowComponent } from '../learning-path/module-summary-row';
   imports: [MatProgressSpinnerModule, CurriculumMessageComponent, ModuleSummaryRowComponent],
   styles: [`
     :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.5rem; color: #1C1A16; margin: 0 0 4px; }
-    .subtitle { color: #6B6255; font-size: 0.9rem; margin: 0 0 20px; }
+    /* UX-3: Fraunces retired (Deliverable 3), matching Provider's page-header
+       h2 pattern; the gold uppercase eyebrow labels (dt/.section-title) move
+       onto Provider's own .form-section-label gray-uppercase pattern
+       (Deliverable 3, Learning Path/Class Details share this module). */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
+    .subtitle { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 20px; }
     dl { margin: 0 0 28px; }
-    dt { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #A3762C; font-weight: 700; margin-top: 14px; }
-    dd { margin: 2px 0 0; color: #1C1A16; }
-    .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #A3762C; font-weight: 700; margin: 0 0 10px; }
+    dt { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--sp-text-muted, #52596b); font-weight: 700; margin-top: 14px; }
+    dd { margin: 2px 0 0; color: var(--sp-text, #1a1f36); }
+    .section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--sp-text-muted, #52596b); font-weight: 700; margin: 0 0 10px; }
     .modules { display: flex; flex-direction: column; gap: 10px; }
-    .empty-note { color: #6B6255; font-size: 0.9rem; }
+    .empty-note { color: var(--sp-text-muted, #52596b); font-size: 0.9rem; }
   `],
   template: `
     @if (loadError(); as e) {
