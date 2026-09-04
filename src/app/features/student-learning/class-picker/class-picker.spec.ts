@@ -1,9 +1,11 @@
+import { vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { ActivatedRoute, provideRouter, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, Router, provideRouter, convertToParamMap } from '@angular/router';
 import { environment } from '../../../../environments/environment';
+import { StudentLearningContextService } from '../../../core/services/student-learning-context.service';
 import { ClassPickerComponent } from './class-picker';
 
 function activatedRouteStub(params: Record<string, string>) {
@@ -95,5 +97,26 @@ describe('ClassPickerComponent', () => {
 
     expect(fixture.componentInstance.cards()[0].className).toBe('Saturday Beginners');
     expect(fixture.componentInstance.cards()[0].schedule).toBe('Sat 10am');
+  });
+
+  it('UX-2: choosing a class establishes it as the active context before navigating, so the persistent class-context bar and My Classes are never out of sync', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/account/students/42/learning/classes`).flush([
+      { classId: 301, className: 'Saturday Beginners', schedule: 'Sat 10am' }
+    ]);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/account/students/42/learning/classes/301/class-info`)
+      .flush({ className: 'Saturday Beginners', schedule: 'Sat 10am', curriculumTitle: 'Foundations' });
+    fixture.detectChanges();
+
+    const context = TestBed.inject(StudentLearningContextService);
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate');
+
+    fixture.componentInstance.choose(301);
+
+    expect(context.selectedClassId()).toBe(301);
+    expect(navigateSpy).toHaveBeenCalledWith(['/my-students', 42, 'classes', 301, 'path']);
   });
 });

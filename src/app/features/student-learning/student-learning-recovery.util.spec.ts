@@ -6,8 +6,8 @@ describe('backLabelFor (architect correction 1: three distinct recovery labels)'
     expect(backLabelFor('student-context-unavailable')).toBe('Back to My Students');
   });
 
-  it('class-context-unavailable -> "Back to Home"', () => {
-    expect(backLabelFor('class-context-unavailable')).toBe('Back to Home');
+  it('class-context-unavailable -> "Back to Dashboard"', () => {
+    expect(backLabelFor('class-context-unavailable')).toBe('Back to Dashboard');
   });
 
   it('learning-content-not-found -> a parent-scoped label when a parent is named', () => {
@@ -40,10 +40,10 @@ describe('navigateForRecovery', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/my-students']);
   });
 
-  it('routes class-context-unavailable to the student home, not a nested route', () => {
+  it('routes class-context-unavailable to the student dashboard, not a nested route', () => {
     const router = { navigate: vi.fn() } as unknown as import('@angular/router').Router;
     navigateForRecovery(router, 'class-context-unavailable', 42);
-    expect(router.navigate).toHaveBeenCalledWith(['/my-students', 42, 'home']);
+    expect(router.navigate).toHaveBeenCalledWith(['/my-students', 42, 'dashboard']);
   });
 
   it('routes learning-content-not-found to the supplied parent route when given', () => {
@@ -52,9 +52,9 @@ describe('navigateForRecovery', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/my-students', 42, 'classes', 7, 'path']);
   });
 
-  it('routes learning-content-not-found to student home when no parent route is supplied', () => {
+  it('routes learning-content-not-found to student dashboard when no parent route is supplied', () => {
     const router = { navigate: vi.fn() } as unknown as import('@angular/router').Router;
     navigateForRecovery(router, 'learning-content-not-found', 42);
-    expect(router.navigate).toHaveBeenCalledWith(['/my-students', 42, 'home']);
+    expect(router.navigate).toHaveBeenCalledWith(['/my-students', 42, 'dashboard']);
   });
 });

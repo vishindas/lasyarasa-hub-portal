@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { StudentLearningApiService } from '../../../core/services/student-learning-api.service';
+import { StudentLearningContextService } from '../../../core/services/student-learning-context.service';
 import { LearningPathDTO } from '../../../core/models/student-learning.model';
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
@@ -54,6 +55,7 @@ export class LearningPathComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private api = inject(StudentLearningApiService);
+  private context = inject(StudentLearningContextService);
   private destroyRef = inject(DestroyRef);
 
   studentId = signal<number>(0);
@@ -67,6 +69,12 @@ export class LearningPathComponent implements OnInit {
     const classId = Number(this.route.snapshot.paramMap.get('classId'));
     this.studentId.set(studentId);
     this.classId.set(classId);
+    // UX-2: however this screen is reached (the class-context bar's
+    // switcher, My Classes, Dashboard's Learning Path card, or a direct
+    // deep link), arriving here establishes it as the active class context
+    // -- keeps the persistent switcher accurate without requiring every
+    // caller to remember to set it themselves.
+    this.context.selectClass(classId);
     this.load(studentId, classId);
   }
 
@@ -87,7 +95,7 @@ export class LearningPathComponent implements OnInit {
   }
 
   recoveryLabel(kind: CurriculumUiError['kind']): string | null {
-    return backLabelFor(kind, 'Home');
+    return backLabelFor(kind, 'Dashboard');
   }
 
   onBack(kind: CurriculumUiError['kind']) {

@@ -4,6 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { ActivatedRoute, provideRouter, convertToParamMap } from '@angular/router';
 import { environment } from '../../../../environments/environment';
+import { StudentLearningContextService } from '../../../core/services/student-learning-context.service';
 import { LearningPathComponent } from './learning-path';
 
 function activatedRouteStub(params: Record<string, string>) {
@@ -52,5 +53,14 @@ describe('LearningPathComponent', () => {
     httpMock.expectOne(url).flush({ code: 'LEARNING_CONTENT_NOT_FOUND', message: 'x', resource: null }, { status: 404, statusText: 'Not Found' });
     fixture.detectChanges();
     expect(fixture.componentInstance.loadError()?.kind).toBe('learning-content-not-found');
+  });
+
+  it('UX-2: arriving here establishes this class as the active context, so the persistent class-context bar stays accurate regardless of how this screen was reached', () => {
+    const fixture = setup();
+    httpMock.expectOne(url).flush({ curriculumTitle: 'Foundations', level: 'Beginner', modules: [] });
+    fixture.detectChanges();
+
+    const context = TestBed.inject(StudentLearningContextService);
+    expect(context.selectedClassId()).toBe(2);
   });
 });

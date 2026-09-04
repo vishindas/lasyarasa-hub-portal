@@ -145,7 +145,7 @@ export class ClassInfoComponent implements OnInit {
   }
 
   recoveryLabel(kind: CurriculumUiError['kind']): string | null {
-    return backLabelFor(kind, 'Home');
+    return backLabelFor(kind, 'Dashboard');
   }
 
   onBack(kind: CurriculumUiError['kind']) {

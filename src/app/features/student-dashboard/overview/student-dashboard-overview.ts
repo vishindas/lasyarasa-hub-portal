@@ -17,13 +17,14 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
 
 /**
  * D1 foundation: the Student Dashboard's Overview section. Nested inside
- * the existing StudentLearningShellComponent (route `dashboard` alongside
- * the existing `home`/`classes`/`assignments`/lesson routes) so it inherits
- * the shell's student switcher, class-context bar, and FULL_OUTAGE/offline/
- * lost-access handling for free -- no second authorization layer is added
- * here. Data comes entirely from the already-deployed
- * StudentLearningApiService.home() (Slice 11) and StudentAccessApiService
- * (for the header's student/school name) -- no new endpoint.
+ * the existing StudentLearningShellComponent (route `dashboard`, the single
+ * canonical landing screen as of UX-2 -- the legacy `home` route now just
+ * redirects here) so it inherits the shell's student switcher, class-
+ * context bar, and FULL_OUTAGE/offline/lost-access handling for free -- no
+ * second authorization layer is added here. Data comes entirely from the
+ * already-deployed StudentLearningApiService.home() (Slice 11) and
+ * StudentAccessApiService (for the header's student/school name) -- no new
+ * endpoint.
  *
  * D4: the Attention card now calls the existing
  * StudentAssignmentApiService.list() (the same endpoint the Assignments
@@ -39,15 +40,30 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
  * distinguished, see StudentAssignmentReadService) never blocks or clears
  * the rest of the dashboard -- it only affects this one card.
  *
- * D5: Continue Learning and Learning Path now render as independent cards
- * (see the template) rather than an if/else-if chain, matching
- * StudentLearningHomeComponent's own established behavior for this same
- * StudentLearningHomeDTO -- no new call, no new field, no reimplementation
- * of "current module" (still exactly `home().currentModule`, derived
- * server-side from class-level release state, never per-student progress).
- * Product note carried forward for D6: "Continue learning" is itself a
- * label that slightly overstates what's actually tracked (a class-wide
- * current module, not personal progress) -- out of scope to rename here.
+ * D5: Current Learning and Learning Path render as independent cards (see
+ * the template) rather than an if/else-if chain -- no new call, no new
+ * field, no reimplementation of "current module" (still exactly
+ * `home().currentModule`, derived server-side from class-level release
+ * state, never per-student progress).
+ *
+ * UX-2 (architect-approved product decisions):
+ *  - "Continue learning" renamed to "Current Learning" -- the prior label
+ *    overstated what's actually tracked (a class-wide current module, not
+ *    personal per-student progress), which the backend genuinely has no
+ *    way to provide; this project does not add per-student progress
+ *    tracking, only corrects the label to match reality.
+ *  - The ambiguous-class "Choose a class" card (a second, competing
+ *    picker duplicating the persistent class-context bar the shell already
+ *    renders above this page) is retired -- replaced by a lightweight
+ *    inline hint pointing at that same bar, per the approved Class-Context-
+ *    Selector-vs-My-Classes model: one quick-switch mechanism (the bar),
+ *    one intentional directory (My Classes), never two competing pickers.
+ *  - Cards are re-weighted, not just listed: Current Learning is the
+ *    priority card (spans two grid columns where the grid has them),
+ *    ordered first: Current Learning/Learning Path, then Attention/Fees,
+ *    then Class details/Class schedule -- matching the approved dashboard
+ *    priority order. No card's own visual/typography/color styling
+ *    changed -- that restyling is explicitly later, separate work.
  */
 @Component({
   selector: 'app-student-dashboard-overview',
@@ -83,13 +99,37 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
        exceeds its container -- the standard safe-grid pattern, same 4/2/1
        column behavior at every width this was already verified at (1920/
        1440/1024/768px), zero change to card content/count/gap/typography. */
-    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+    .grid { container-type: inline-size; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
     .card { border-radius: 8px !important; border: 1px solid #E3DCC8 !important; }
+    /* UX-2: priority re-weighting -- Current Learning spans two grid tracks
+       when the grid actually has two to give. An earlier version of this
+       rule applied grid-column: span 2 unconditionally on the assumption
+       that auto-fit's single-column collapse at narrow widths made the span
+       a harmless no-op -- that assumption was wrong and was caught during
+       this slice's own 375px verification pass: when the explicit auto-fit
+       grid resolves to only 1 track, an item that still declares span:2
+       forces the browser to fabricate an IMPLICIT second column (sized to
+       its content via grid-auto-columns: auto, with no minmax safety at
+       all), which measurably overflowed the grid's own container box. The
+       container query below gates the span to exactly the same condition
+       the safe-grid minmax(min(320px,100%),1fr) rule already uses to decide
+       whether 2 real tracks exist: 2 tracks of the 320px floor plus one
+       14px gap = 654px of available grid width. Below that, the card stays
+       at the implicit default (span 1); no overflow is possible either way
+       because the span the browser actually honors always matches the
+       column count the grid actually has. */
+    @container (min-width: 654px) {
+      .card.priority { grid-column: span 2; }
+    }
     .card a, .card button { min-height: 44px; }
     .card-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #A3762C; font-weight: 700; margin: 0 0 6px; }
     .schedule-line { margin: 2px 0; font-size: 0.9rem; color: #1C1A16; }
     .schedule-unavailable { color: #6B6255; font-style: italic; }
     .empty-note { color: #6B6255; font-size: 0.85rem; }
+    /* UX-2: replaces the retired "Choose a class" friction card -- points at
+       the persistent class-context bar (rendered by the shell, above this
+       page) instead of duplicating it with a second picker. */
+    .context-hint { color: #6B6255; font-size: 0.85rem; margin: 0 0 14px; }
     .no-classes { border: 1px solid #E3DCC8; border-radius: 8px; padding: 20px; max-width: 480px; }
     .no-classes h2 { font-family: Fraunces, Georgia, serif; font-size: 1.1rem; color: #1C1A16; margin: 0 0 8px; }
     .no-classes p { margin: 0; color: #6B6255; font-size: 0.9rem; }
@@ -112,7 +152,49 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
           <p>There are no active classes connected to this student yet. Please contact the school if you believe a class should appear here.</p>
         </div>
       } @else {
+      @if (h.classSelectionRequired) {
+        <!-- UX-2: the "Choose a class" friction card is retired -- this
+             points at the persistent class-context bar (shell-rendered,
+             directly above this page) instead of duplicating it with a
+             second, competing picker. -->
+        <p class="context-hint">Select a class above to see your current learning and class details.</p>
+      }
       <div class="grid">
+        <!-- UX-2 priority order: Current Learning/Learning Path first (the
+             reason a student is here), then Attention/Fees, then Class
+             details/Class schedule -- matches the approved dashboard
+             priority grid. Current Learning and Learning Path stay
+             independent @if blocks, not an @if/@else-if chain -- both
+             render together whenever both are present, so a current
+             module never silently hides the Dashboard's only link into the
+             full module list. -->
+        @if (!h.classSelectionRequired && h.selectedClassId != null) {
+          @if (h.currentModule) {
+            <mat-card class="card priority">
+              <mat-card-content>
+                <p class="card-title">Current Learning</p>
+                <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes', h.selectedClassId, 'modules', h.currentModule.moduleId]">{{ h.currentModule.title }}</a>
+              </mat-card-content>
+            </mat-card>
+          }
+          @if (h.learningPath) {
+            <mat-card class="card">
+              <mat-card-content>
+                <p class="card-title">Learning path</p>
+                <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes', h.selectedClassId, 'path']">{{ h.learningPath.curriculumTitle }}@if (h.learningPath.level) { &nbsp;·&nbsp;{{ h.learningPath.level }} }</a>
+              </mat-card-content>
+            </mat-card>
+          }
+          @if (!h.currentModule && !h.learningPath) {
+            <mat-card class="card">
+              <mat-card-content>
+                <p class="card-title">Learning path</p>
+                <p class="empty-note">No curriculum assigned yet for this class.</p>
+              </mat-card-content>
+            </mat-card>
+          }
+        }
+
         <mat-card class="card">
           <mat-card-content>
             <p class="card-title">Attention</p>
@@ -137,49 +219,6 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
           </mat-card-content>
         </mat-card>
 
-        @if (h.classSelectionRequired) {
-          <mat-card class="card">
-            <mat-card-content>
-              <p class="card-title">Continue learning</p>
-              <p class="empty-note">This student has more than one active class.</p>
-              <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes']">Choose a class</a>
-            </mat-card-content>
-          </mat-card>
-        } @else if (h.selectedClassId != null) {
-          <!-- D5: Continue Learning and Learning Path are independent @if blocks, not an
-               @if/@else-if chain -- both render together whenever both are present, matching
-               StudentLearningHomeComponent's own established behavior for this identical DTO.
-               The previous mutually-exclusive chain silently hid the Learning Path link (the
-               Dashboard's only path into the full module list) whenever a current module
-               existed, which is the common case -- inconsistent with Home for the same
-               backend state. No new data, no new endpoint: both blocks read fields the
-               existing StudentLearningHomeDTO already carries. -->
-          @if (h.currentModule) {
-            <mat-card class="card">
-              <mat-card-content>
-                <p class="card-title">Continue learning</p>
-                <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes', h.selectedClassId, 'modules', h.currentModule.moduleId]">{{ h.currentModule.title }}</a>
-              </mat-card-content>
-            </mat-card>
-          }
-          @if (h.learningPath) {
-            <mat-card class="card">
-              <mat-card-content>
-                <p class="card-title">Learning path</p>
-                <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'classes', h.selectedClassId, 'path']">{{ h.learningPath.curriculumTitle }}@if (h.learningPath.level) { &nbsp;·&nbsp;{{ h.learningPath.level }} }</a>
-              </mat-card-content>
-            </mat-card>
-          }
-          @if (!h.currentModule && !h.learningPath) {
-            <mat-card class="card">
-              <mat-card-content>
-                <p class="card-title">Learning path</p>
-                <p class="empty-note">No curriculum assigned yet for this class.</p>
-              </mat-card-content>
-            </mat-card>
-          }
-        }
-
         @if (!h.classSelectionRequired && h.selectedClassId != null) {
           <mat-card class="card">
             <mat-card-content>
@@ -192,11 +231,25 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
         <mat-card class="card">
           <mat-card-content>
             <p class="card-title">Class schedule</p>
-            @for (c of classes(); track c.classId) {
-              @if (c.schedule) {
-                <p class="schedule-line">{{ c.className }}: {{ c.schedule }}</p>
+            @if (!h.classSelectionRequired && h.selectedClassId != null) {
+              <!-- UX-2 correction: a selected class is a specific class context
+                   -- its own Dashboard schedule card must describe only that
+                   class, never the student's other classes. The aggregate
+                   multi-class list below is reserved for when there genuinely
+                   is no single class context (classSelectionRequired, or no
+                   classes at all), where it's the only useful schedule view. -->
+              @if (selectedClassSchedule(); as s) {
+                <p class="schedule-line">{{ s }}</p>
               } @else {
-                <p class="schedule-line schedule-unavailable">{{ c.className }}: schedule unavailable</p>
+                <p class="schedule-line schedule-unavailable">Schedule unavailable</p>
+              }
+            } @else {
+              @for (c of classes(); track c.classId) {
+                @if (c.schedule) {
+                  <p class="schedule-line">{{ c.className }}: {{ c.schedule }}</p>
+                } @else {
+                  <p class="schedule-line schedule-unavailable">{{ c.className }}: schedule unavailable</p>
+                }
               }
             }
           </mat-card-content>
@@ -231,6 +284,19 @@ export class StudentDashboardOverviewComponent implements OnInit {
   });
 
   classes = computed(() => this.context.classes());
+
+  /**
+   * UX-2 correction: derived entirely from data already fetched for the
+   * class-context bar (StudentLearningContextService.classes()) -- no new
+   * endpoint or backend change. `null` covers both "no class selected" and
+   * "the selected class has no schedule on file", which the template
+   * renders identically ("Schedule unavailable").
+   */
+  selectedClassSchedule = computed(() => {
+    const id = this.home()?.selectedClassId;
+    if (id == null) return null;
+    return this.classes().find(c => c.classId === id)?.schedule ?? null;
+  });
 
   ngOnInit() {
     const studentId = Number(this.route.snapshot.paramMap.get('studentId'));

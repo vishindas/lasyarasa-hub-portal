@@ -7,6 +7,7 @@ import { catchError } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { StudentLearningApiService } from '../../../core/services/student-learning-api.service';
+import { StudentLearningContextService } from '../../../core/services/student-learning-context.service';
 import { StudentClassDTO } from '../../../core/models/student-learning.model';
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
@@ -22,9 +23,19 @@ interface ClassPickerCard {
 
 /**
  * Part II.1a, new in v1.1 (correction 1). Trigger condition (enforced by
- * the caller, StudentLearningHomeComponent/route guards feeding this
- * route, not here): more than one active class and none selected yet.
- * Never shown for a single- or zero-class student.
+ * the caller, Dashboard/route guards feeding this route, not here): more
+ * than one active class and none selected yet. Never shown for a single-
+ * or zero-class student.
+ *
+ * UX-2: "My Classes" per the architect's approved Class-Context-Selector-
+ * vs-My-Classes model -- this screen is the intentional overview/directory
+ * of the student's accessible classes, distinct from the persistent
+ * class-context bar's quick-switch dropdown (rendered by the shell, not
+ * this component). Picking a card here establishes that same active
+ * context (via StudentLearningContextService.selectClass) before
+ * navigating, so the two are never out of sync with each other -- not two
+ * competing "choose a class" mechanisms, one directory and one switcher
+ * sharing the same underlying selection.
  *
  * Curriculum-name enrichment is architect decision 3, MVP-accepted with
  * requirements: parallel (forkJoin, not sequential .subscribe-chaining),
@@ -84,6 +95,7 @@ export class ClassPickerComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private api = inject(StudentLearningApiService);
+  private context = inject(StudentLearningContextService);
   private destroyRef = inject(DestroyRef);
 
   studentId = signal<number>(0);
@@ -134,11 +146,16 @@ export class ClassPickerComponent implements OnInit {
   }
 
   choose(classId: number) {
+    // UX-2: establishes the active class context (the same state the
+    // persistent class-context bar reads/writes) before navigating, so
+    // picking a class from this directory and picking one from the
+    // switcher dropdown are never out of sync with each other.
+    this.context.selectClass(classId);
     this.router.navigate(['/my-students', this.studentId(), 'classes', classId, 'path']);
   }
 
   recoveryLabel(kind: CurriculumUiError['kind']): string | null {
-    return backLabelFor(kind, 'Home');
+    return backLabelFor(kind, 'Dashboard');
   }
 
   onBack(kind: CurriculumUiError['kind']) {
