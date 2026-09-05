@@ -56,6 +56,17 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
     :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
     /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
     h1 { font-size: 1.5rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 16px; }
+    /* UX-5 correction: this h1 is never reached via Tab (tabindex="-1") --
+       it exists solely as the route-change screen-reader announcement
+       target the shell's focusPageHeading() focuses on every navigation
+       (student-learning-shell.ts). That's the exact same "programmatic,
+       non-interactive focus target" case the shell already handles for
+       itself (main:focus-visible { outline: none; }); this heading
+       just never got the same treatment. Scoped to this one non-
+       interactive heading only -- every real interactive element on this
+       screen (tabs, links, buttons) keeps its own default focus-visible
+       ring untouched. */
+    h1:focus-visible { outline: none; }
     .tab-body { padding: 20px 4px; }
     .empty-note { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--sp-text-muted, #52596b); padding: 40px 16px; }
     .empty-note mat-icon { font-size: 32px; width: 32px; height: 32px; color: var(--sp-text-faint, #9ba3b8); }
