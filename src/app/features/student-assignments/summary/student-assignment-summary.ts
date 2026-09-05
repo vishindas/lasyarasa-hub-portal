@@ -115,7 +115,27 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
     .row.row-revision { background: var(--sp-tone-attention-bg, #fef3c7); }
     .row.row-validated { background: var(--sp-tone-positive-bg, #d1fae5); }
     .row.row-closed { background: var(--sp-tone-neutral-bg, #f1f5f9); }
-    .row-main { min-width: 0; flex: 1 1 200px; }
+    /* UX-5 mobile correction: was flex: 1 1 200px -- at 375px this basis
+       alone (200px) already exceeded the row's ~283px inner content width
+       once the chip+action cluster's own natural width was added, so the
+       browser's flex line-breaking always pushed .row-meta onto its own
+       line regardless of how short the title was, producing tall stacked
+       "card" rows. Flex-wrap's line-fitting decision is made against each
+       item's flex-basis (clamped by min-width), not its final shrunk
+       size -- lowering both to 100px makes that decision use a much
+       smaller hypothetical width for the title column, so title+chip+
+       action now share one line whenever the actual content allows it.
+       .row-meta's own flex-shrink: 0 (below) is untouched, so the chip
+       and Start button never shrink -- only the title column's available
+       width narrows, wrapping the title text itself onto a second line
+       for longer titles rather than pushing the whole action cluster
+       down. flex-wrap: wrap on .row (above) still applies as a genuine
+       last resort for the rare case where even a 100px-wide title column
+       isn't enough room (e.g. a long "Submitted -- awaiting review"
+       chip). Desktop is unaffected: .row-main is the only flex-grow
+       item, so at desktop widths it still absorbs 100% of the row's
+       surplus width regardless of its own basis value. */
+    .row-main { min-width: 100px; flex: 1 1 100px; }
     .row-title { font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0; }
     /* Secondary due-date line only ever appears when it adds information
        the status chip doesn't already carry -- an overdue row's chip
