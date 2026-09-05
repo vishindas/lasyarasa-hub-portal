@@ -10,7 +10,6 @@ import { StudentAssignmentApiService } from '../data-access/student-assignment-a
 import { DraftResponseDTO, StudentAssignmentDetailDTO, StudentAssignmentQuestionDTO } from '../data-access/student-assignment.model';
 import { StudentAssignmentUiError, toStudentAssignmentUiError } from '../data-access/student-assignment-ui-error.util';
 import { StudentAssignmentMessageComponent } from '../shared/student-assignment-message';
-import { StudentAssignmentModeBannerComponent } from '../shared/student-assignment-mode-banner';
 import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
@@ -60,7 +59,7 @@ const DEBOUNCE_MS = 800;
   host: { class: 'sp-page' },
   imports: [
     FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule,
-    StudentAssignmentMessageComponent, StudentAssignmentModeBannerComponent
+    StudentAssignmentMessageComponent
   ],
   styles: [`
     :host { padding-bottom: 88px !important; }
@@ -92,6 +91,21 @@ const DEBOUNCE_MS = 800;
     }
     textarea { min-height: 100px; resize: vertical; }
     .char-count { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin: 4px 0 0; text-align: right; }
+    /* Correction: the screen-level WRITE_FROZEN message previously reused
+       the shared attention-tone (amber) mode-banner -- a full-width
+       warning-yellow treatment for something that is informational, not
+       an error (per-question autosave failures already carry their own
+       "Couldn't save" state, unaffected by this change). Restyled onto
+       the same restrained neutral banner Detail's own Closed/Unavailable
+       states use (see student-assignment-detail.ts's base .banner), scoped
+       to this component only -- Detail and Review keep rendering the
+       shared amber mode-banner unchanged. */
+    .frozen-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem;
+      border: 1px solid #e2e8f0; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text, #1a1f36);
+    }
+    .frozen-banner mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
     /* UX-5/wireframe 9: save-state colors already use semantic green/gray/red -- kept exactly as-is, not part of the ivory system. */
     .save-state { font-size: 0.78rem; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
     .save-state.saved { color: #1e4620; }
@@ -122,7 +136,12 @@ const DEBOUNCE_MS = 800;
       <h1 tabindex="-1">{{ d.title }}</h1>
       <p class="meta">{{ questionStates().length }} question{{ questionStates().length === 1 ? '' : 's' }}</p>
 
-      <app-student-assignment-mode-banner />
+      @if (mode.mode() === 'WRITE_FROZEN') {
+        <div class="frozen-banner" role="status" aria-live="assertive">
+          <mat-icon aria-hidden="true">pause_circle</mat-icon>
+          <span>Reading remains available; writing is paused while learning is read-only.</span>
+        </div>
+      }
 
       @if (isRevising() && revisionFeedback()) {
         <div class="feedback-box" role="status">{{ revisionFeedback() }}</div>
