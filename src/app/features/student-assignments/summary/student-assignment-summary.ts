@@ -75,24 +75,29 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
     .tab-body { padding: 20px 4px; }
     .empty-note { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--sp-text-muted, #52596b); padding: 40px 16px; }
     .empty-note mat-icon { font-size: 32px; width: 32px; height: 32px; color: var(--sp-text-faint, #9ba3b8); }
-    .card {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 14px 16px; margin-bottom: 10px; border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); background: var(--sp-surface, #fff);
+    /* UX-5 visual-density correction: brought to the same compact row
+       language Learning Path's module-summary-row.ts already established
+       (min-height 44px, 12px/14px padding, single-line title-left/
+       status-right rhythm) instead of this screen's own taller, more
+       heavily-padded card. Learning Path's row is copied in spirit, not
+       verbatim -- Assignments still needs an explicit, labeled action
+       (Start/Continue/View/Revise, with its own disabled/read-only state)
+       that Learning Path's plain click-anywhere row has no equivalent of. */
+    .row {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
+      min-height: 44px; padding: 12px 14px; margin-bottom: 8px;
+      border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); background: var(--sp-surface, #fff);
     }
-    .card-main { min-width: 0; }
-    .card-title { font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 2px; }
-    .card-meta { font-size: 0.82rem; color: var(--sp-text-muted, #52596b); margin: 0 0 4px; }
-    .card-due { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); }
-    .card-due.overdue { color: var(--sp-tone-negative-text, #991b1b); font-weight: 600; }
-    /* UX-5/Finding 7: migrated onto the shared .sp-chip/.sp-tone-* system
-       (styles-student.scss, UX-1) -- spToneClass() maps this feature's own
-       unchanged tone logic (warning/error/neutral/success) onto it. This
-       local modifier only adds the row-specific spacing/wrapping .sp-chip
-       itself doesn't define -- the tone colors come entirely from the
-       shared classes. */
-    .card-chip { margin-top: 4px; white-space: normal; max-width: 100%; }
-    .card-action button { min-height: 44px; }
-    .frozen-note { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin-top: 4px; }
+    .row-main { min-width: 0; flex: 1 1 200px; }
+    .row-title { font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0; }
+    /* Secondary due-date line only ever appears when it adds information
+       the status chip doesn't already carry -- an overdue row's chip
+       already reads "Overdue", so no separate red duplicate text here
+       (Finding 7's redundant-status-presentation correction). */
+    .row-due { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); margin: 2px 0 0; }
+    .row-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .row-action { min-height: 44px; }
+    .frozen-note { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin: 2px 0 8px 14px; }
   `],
   template: `
     <h1 tabindex="-1">Assignments</h1>
@@ -113,23 +118,23 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
                 </div>
               } @else {
                 @for (a of rowsForTab(tab); track a.id) {
-                  <div class="card">
-                    <div class="card-main">
-                      <p class="card-title">{{ a.title }}</p>
-                      <p class="card-due" [class.overdue]="overdue(a)">{{ dueLabel(a) }}</p>
-                      <span class="sp-chip card-chip {{ spToneClass(chipFor(a).tone) }}">{{ chipFor(a).label }}</span>
+                  <div class="row">
+                    <div class="row-main">
+                      <p class="row-title">{{ a.title }}</p>
+                      @if (secondaryLabel(a); as s) { <p class="row-due">{{ s }}</p> }
                     </div>
-                    <div class="card-action">
-                      <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'assignments', a.id]"
+                    <div class="row-meta">
+                      <span class="sp-chip {{ spToneClass(chipFor(a).tone) }}">{{ chipFor(a).label }}</span>
+                      <a mat-stroked-button class="row-action" [routerLink]="['/my-students', studentId(), 'assignments', a.id]"
                          [attr.aria-disabled]="ctaDisabled(a) || null" [tabIndex]="ctaDisabled(a) ? -1 : 0"
                          (click)="onCardClick($event, a)">
                         {{ ctaLabel(a) }}
                       </a>
-                      @if (ctaDisabled(a)) {
-                        <p class="frozen-note">Read-only for now</p>
-                      }
                     </div>
                   </div>
+                  @if (ctaDisabled(a)) {
+                    <p class="frozen-note">Read-only for now</p>
+                  }
                 }
               }
             </div>
@@ -211,9 +216,16 @@ export class StudentAssignmentSummaryComponent implements OnInit {
     return a.status === 'DRAFT' && isOverdue(a.dueAt);
   }
 
-  dueLabel(a: StudentAssignmentSummaryDTO): string {
-    if (a.status !== 'DRAFT') return '';
-    return this.overdue(a) ? 'Overdue' : `Due ${new Date(a.dueAt).toLocaleDateString()}`;
+  /**
+   * UX-5 correction: an overdue row's status chip already reads "Overdue"
+   * -- this no longer duplicates that as separate red text, returning
+   * null (renders nothing) instead. Only ever returns a value when it
+   * adds information the chip doesn't already carry (the actual due
+   * date on a not-yet-overdue To-do row).
+   */
+  secondaryLabel(a: StudentAssignmentSummaryDTO): string | null {
+    if (a.status !== 'DRAFT' || this.overdue(a)) return null;
+    return `Due ${new Date(a.dueAt).toLocaleDateString()}`;
   }
 
   chipFor(a: StudentAssignmentSummaryDTO) {
