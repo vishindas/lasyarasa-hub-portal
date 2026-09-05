@@ -144,6 +144,28 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
     .row-due { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); margin: 2px 0 0; }
     .row-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .row-action { min-height: 44px; }
+    /* Mobile correction: sharing the row (the fix directly above) still
+       squeezed the title column down to ~100-130px on a real 375px
+       screen once the chip+button claimed their space, wrapping longer
+       titles into 3-4 narrow lines -- not the readable, calm result
+       wanted. Below 600px, stop sharing the row at all: stack title
+       (full card width) -> due date -> a compact, left-aligned status+
+       action row, instead of narrowing the title to make horizontal
+       room. flex-direction: column repurposes .row's own existing
+       gap: 8px 12px shorthand -- row-gap (8px) becomes the vertical
+       gap between the stacked title block and the status+action row,
+       with no extra rule needed. align-items: stretch (replacing the
+       desktop default center) gives .row-main the full row width for
+       the title/due-date block; .row-meta stretches its own invisible
+       box too, but its chip+button stay left-aligned within it (its
+       default justify-content: flex-start, unchanged) rather than
+       centered. Only the container's own axis/alignment changes here --
+       no color, typography, button-size, or behavior differences vs.
+       desktop, and desktop/tablet (600px+) are completely untouched. */
+    @media (max-width: 599px) {
+      .row { flex-direction: column; align-items: stretch; }
+      .row-main { flex: 1 1 auto; min-width: 0; }
+    }
     .frozen-note { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin: 2px 0 8px 14px; }
   `],
   template: `
