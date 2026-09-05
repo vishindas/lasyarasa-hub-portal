@@ -72,7 +72,17 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
        screen (tabs, links, buttons) keeps its own default focus-visible
        ring untouched. */
     h1:focus-visible { outline: none; }
-    .tab-body { padding: 20px 4px; }
+    /* UX-5 correction: mat-tab-group defaults to stretching its labels
+       across the full header width -- with only 5 short labels, this
+       produced a wide, evenly-distributed navigation band unlike Learning
+       Path's tight heading->rows rhythm. [mat-stretch-tabs]="false" on the
+       template's <mat-tab-group> makes each tab only as wide as its own
+       label (Material's own natural-width mode, still left-aligned,
+       still using Material's own built-in horizontal-scroll/pagination
+       arrows if all 5 ever overflow a narrow viewport) -- same tabs, same
+       behavior/ARIA, no new navigation component. Tightened the vertical
+       gap to the rows below at the same time (was 20px top). */
+    .tab-body { padding: 12px 4px 20px; }
     .empty-note { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--sp-text-muted, #52596b); padding: 40px 16px; }
     .empty-note mat-icon { font-size: 32px; width: 32px; height: 32px; color: var(--sp-text-faint, #9ba3b8); }
     /* UX-5 visual-density correction: brought to the same compact row
@@ -88,6 +98,19 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
       min-height: 44px; padding: 12px 14px; margin-bottom: 8px;
       border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); background: var(--sp-surface, #fff);
     }
+    /* UX-5 correction: subtle, state-dependent row surfaces -- the same
+       design principle Learning Path's module-summary-row.ts already
+       uses (a light tone wash on the row itself, with the chip staying
+       the one EXPLICIT status indicator). Reuses the exact shared tone
+       tokens already used for the chips/elsewhere in this app rather
+       than inventing new colors -- .row-awaiting reuses the identical
+       --sp-primary-bg wash Learning Path's own "Current" row uses, for
+       the closest possible echo of that reference screen. */
+    .row.row-overdue { background: var(--sp-tone-negative-bg, #fee2e2); }
+    .row.row-awaiting { background: var(--sp-primary-bg, #eef0fb); }
+    .row.row-revision { background: var(--sp-tone-attention-bg, #fef3c7); }
+    .row.row-validated { background: var(--sp-tone-positive-bg, #d1fae5); }
+    .row.row-closed { background: var(--sp-tone-neutral-bg, #f1f5f9); }
     .row-main { min-width: 0; flex: 1 1 200px; }
     .row-title { font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0; }
     /* Secondary due-date line only ever appears when it adds information
@@ -107,7 +130,7 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
     @if (loading()) {
       <mat-spinner diameter="36" />
     } @else {
-      <mat-tab-group [(selectedIndex)]="tabIndex">
+      <mat-tab-group [(selectedIndex)]="tabIndex" [mat-stretch-tabs]="false">
         @for (tab of tabOrder; track tab) {
           <mat-tab [label]="tabLabel(tab)">
             <div class="tab-body">
@@ -118,7 +141,7 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
                 </div>
               } @else {
                 @for (a of rowsForTab(tab); track a.id) {
-                  <div class="row">
+                  <div class="row {{ rowSurfaceClass(a) }}">
                     <div class="row-main">
                       <p class="row-title">{{ a.title }}</p>
                       @if (secondaryLabel(a); as s) { <p class="row-due">{{ s }}</p> }
@@ -230,6 +253,23 @@ export class StudentAssignmentSummaryComponent implements OnInit {
 
   chipFor(a: StudentAssignmentSummaryDTO) {
     return studentAssignmentChip({ status: a.status, attemptNumber: a.attemptNumber, overdue: this.overdue(a) });
+  }
+
+  /**
+   * UX-5 correction: a subtle, state-dependent row surface class, separate
+   * from chipFor()'s tone -- SUBMITTED and CLOSED share the neutral chip
+   * tone today, but need visually distinct row surfaces (indigo-tinted
+   * "awaiting" vs. muted "closed"), so this is derived from status/overdue
+   * directly rather than reusing the chip's own tone value.
+   */
+  rowSurfaceClass(a: StudentAssignmentSummaryDTO): string {
+    if (a.status === 'DRAFT') return this.overdue(a) ? 'row-overdue' : 'row-neutral';
+    switch (a.status) {
+      case 'SUBMITTED': return 'row-awaiting';
+      case 'REVISION_REQUESTED': return 'row-revision';
+      case 'VALIDATED': return 'row-validated';
+      case 'CLOSED': return 'row-closed';
+    }
   }
 
   ctaLabel(a: StudentAssignmentSummaryDTO): string {
