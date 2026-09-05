@@ -42,12 +42,16 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
 @Component({
   selector: 'app-student-assignment-detail',
   standalone: true,
+  // UX-5 geometry correction: was `:host { max-width: 720px; margin: 0
+  // auto; padding: 24px 20px 48px; }` -- same independently-centered
+  // container class of bug fixed elsewhere. `.sp-page` (styles-student.scss)
+  // gives the same flush gutter, no local width cap.
+  host: { class: 'sp-page' },
   imports: [
     RouterLink, DatePipe, MatButtonModule, MatIconModule, MatProgressSpinnerModule,
     StudentAssignmentMessageComponent, StudentAssignmentModeBannerComponent, StudentAttemptHistoryComponent
   ],
   styles: [`
-    :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; }
     .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
     .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
     /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */

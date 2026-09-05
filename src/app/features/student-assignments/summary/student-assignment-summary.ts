@@ -49,11 +49,16 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
 @Component({
   selector: 'app-student-assignment-summary',
   standalone: true,
+  // UX-5 geometry correction: was `:host { max-width: 1200px; margin: 0
+  // auto; padding: 24px 20px 48px; }` -- the same independently-centered
+  // container class of bug UX-1/UX-3/UX-4 already fixed on every other
+  // student-portal content screen (Dashboard, Learning Path, Module
+  // Detail, Class Details, Lesson Detail). `.sp-page` (styles-student.scss)
+  // gives the same flush gutter/no local width cap, so this screen shares
+  // Learning Path's exact left content edge and available width.
+  host: { class: 'sp-page' },
   imports: [RouterLink, MatTabsModule, MatIconModule, MatButtonModule, MatProgressSpinnerModule, StudentAssignmentMessageComponent],
   styles: [`
-    /* UX-01 refinement: widened from 720px -- container only, the tab/list
-       layout itself is unchanged ahead of its own future redesign slice. */
-    :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
     /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
     h1 { font-size: 1.5rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 16px; }
     /* UX-5 correction: this h1 is never reached via Tab (tabindex="-1") --

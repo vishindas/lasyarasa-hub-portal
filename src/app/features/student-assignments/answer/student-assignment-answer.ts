@@ -49,12 +49,21 @@ const DEBOUNCE_MS = 800;
 @Component({
   selector: 'app-student-assignment-answer',
   standalone: true,
+  // UX-5 geometry correction: was `:host { max-width: 720px; margin: 0
+  // auto; padding: 24px 20px 88px; }` -- same independently-centered
+  // container class of bug fixed elsewhere. `.sp-page` (styles-student.scss)
+  // gives the same flush gutter, no local width cap. The extra bottom
+  // padding (88px vs .sp-page's own 48px) is preserved below via an
+  // !important override -- it's load-bearing clearance for this screen's
+  // own sticky `.bottom-bar` (not present on any other .sp-page screen),
+  // so the last question card is never left partially hidden behind it.
+  host: { class: 'sp-page' },
   imports: [
     FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule,
     StudentAssignmentMessageComponent, StudentAssignmentModeBannerComponent
   ],
   styles: [`
-    :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 88px; }
+    :host { padding-bottom: 88px !important; }
     .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
     .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
     /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
