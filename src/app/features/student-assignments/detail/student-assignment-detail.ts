@@ -67,8 +67,13 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
     .banner.success { background: var(--sp-tone-positive-bg, #d1fae5); border-color: #a7f3d0; color: var(--sp-tone-positive-text, #065f46); }
     .banner.warning { background: var(--sp-tone-attention-bg, #fef3c7); border-color: #fde68a; color: var(--sp-tone-attention-text, #92400e); }
     .q-card { border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); padding: 14px 16px; margin-bottom: 12px; background: var(--sp-surface, #fff); }
-    /* UX-5/wireframe 9: flagged state moves from gold/ivory to indigo. */
-    .q-card.flagged { border-color: var(--sp-primary, #3d4ed8); border-width: 2px; background: var(--sp-primary-bg, #eef0fb); }
+    /* Correction: a flagged card previously filled the whole card lavender
+       AND drew a strong 2px indigo outline, on top of the amber "Needs
+       revision" chip, the amber feedback banner above, and bold indigo
+       flag-note text -- five signals competing at once. Restrained back to
+       Learning Path/Summary's language: the flagged card now uses the same
+       plain white surface and neutral border as every other question card
+       (no override here at all); the chip alone is the primary indicator. */
     .q-meta { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin: 0 0 4px; }
     /* Detail restyle: the outcome chip was previously inline at the end of
        the prompt text (mid-sentence), unlike the title-left/status-right
@@ -81,7 +86,11 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
     .q-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
     .q-prompt { font-weight: 600; margin: 0; color: var(--sp-text, #1a1f36); }
     .q-answer { margin: 0; color: var(--sp-text, #1a1f36); }
-    .q-flag-note { font-size: 0.78rem; color: var(--sp-primary, #3d4ed8); font-weight: 600; margin-top: 6px; }
+    /* Correction: was bold indigo (color: var(--sp-primary), font-weight:
+       600) -- competed with the question content instead of reading as
+       quiet supporting text. Now matches the exact same muted, regular-
+       weight treatment as its sibling "Already validated" note. */
+    .q-flag-note { font-size: 0.78rem; color: var(--sp-text-muted, #52596b); margin-top: 6px; }
     /* UX-5/Finding 7: migrated onto the shared .sp-chip/.sp-tone-* system -- see student-assignment-summary.ts. */
     .outcome-chip { flex-shrink: 0; }
     .actions { margin-top: 16px; }
@@ -161,7 +170,7 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
                 @if (q.editable) {
                   <p class="q-flag-note">Flagged for revision — see feedback above</p>
                 } @else {
-                  <p class="q-flag-note" style="color:var(--sp-text-muted, #52596b)">Already validated — no changes needed</p>
+                  <p class="q-flag-note">Already validated — no changes needed</p>
                 }
               </div>
             }
