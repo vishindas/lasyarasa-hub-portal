@@ -49,8 +49,14 @@ interface ReviewRow {
        bg/text/border combo CurriculumMessageComponent's own .validation
        state already uses. */
     .warn-banner { background: var(--sp-tone-negative-bg, #fee2e2); border: 1px solid #fecaca; color: var(--sp-tone-negative-text, #991b1b); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+    /* Correction: an unanswered row previously filled the entire card red
+       (border-color #fecaca, background --sp-tone-negative-bg) on top of
+       the already-red top banner and the row's own red "Not answered yet"
+       text -- three overlapping red signals for one condition. Restrained
+       to Learning Path's own row language: every row (answered or not)
+       shares the same plain neutral/white surface; the localized red
+       .row-answer.missing text below is the only per-row indicator. */
     .row { border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); padding: 12px 16px; margin-bottom: 10px; background: var(--sp-surface, #fff); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-    .row.unanswered { border-color: #fecaca; background: var(--sp-tone-negative-bg, #fee2e2); }
     .row-main { min-width: 0; }
     .row-prompt { font-weight: 600; margin: 0 0 4px; color: var(--sp-text, #1a1f36); }
     .row-answer { margin: 0; color: var(--sp-text, #1a1f36); }
