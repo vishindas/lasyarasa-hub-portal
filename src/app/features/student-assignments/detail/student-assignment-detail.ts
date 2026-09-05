@@ -70,11 +70,20 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
     /* UX-5/wireframe 9: flagged state moves from gold/ivory to indigo. */
     .q-card.flagged { border-color: var(--sp-primary, #3d4ed8); border-width: 2px; background: var(--sp-primary-bg, #eef0fb); }
     .q-meta { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin: 0 0 4px; }
-    .q-prompt { font-weight: 600; margin: 0 0 8px; color: var(--sp-text, #1a1f36); }
+    /* Detail restyle: the outcome chip was previously inline at the end of
+       the prompt text (mid-sentence), unlike the title-left/status-right
+       row rhythm established by Learning Path's module-summary-row.ts and
+       Assignments' own Summary rows. .q-head puts the prompt on the left
+       (still free to wrap across multiple lines -- this is real question
+       text, not a short title, so it isn't forced onto one line the way a
+       Summary row's title is) and pins the chip to the top-right, matching
+       that same convention without changing any content. */
+    .q-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
+    .q-prompt { font-weight: 600; margin: 0; color: var(--sp-text, #1a1f36); }
     .q-answer { margin: 0; color: var(--sp-text, #1a1f36); }
     .q-flag-note { font-size: 0.78rem; color: var(--sp-primary, #3d4ed8); font-weight: 600; margin-top: 6px; }
     /* UX-5/Finding 7: migrated onto the shared .sp-chip/.sp-tone-* system -- see student-assignment-summary.ts. */
-    .outcome-chip { margin-left: 8px; }
+    .outcome-chip { flex-shrink: 0; }
     .actions { margin-top: 16px; }
     button, a[mat-flat-button], a[mat-stroked-button] { min-height: 44px; }
     .empty-note { color: var(--sp-text-muted, #52596b); padding: 24px 0; }
@@ -118,9 +127,10 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
             @for (q of d.questions; track q.id) {
               <div class="q-card">
                 <p class="q-meta">Question {{ q.questionOrder }} · {{ typeLabel(q) }}</p>
-                <p class="q-prompt">{{ q.prompt }}
+                <div class="q-head">
+                  <p class="q-prompt">{{ q.prompt }}</p>
                   @if (outcomeForCurrent(q); as o) { <span class="sp-chip outcome-chip {{ spToneClass(o.tone) }}">{{ o.label }}</span> }
-                </p>
+                </div>
                 <p class="q-answer">{{ currentAnswerText(q) }}</p>
               </div>
             }
@@ -130,9 +140,10 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
             @for (q of d.questions; track q.id) {
               <div class="q-card">
                 <p class="q-meta">Question {{ q.questionOrder }} · {{ typeLabel(q) }}</p>
-                <p class="q-prompt">{{ q.prompt }}
+                <div class="q-head">
+                  <p class="q-prompt">{{ q.prompt }}</p>
                   @if (outcomeForCurrent(q); as o) { <span class="sp-chip outcome-chip {{ spToneClass(o.tone) }}">{{ o.label }}</span> }
-                </p>
+                </div>
                 <p class="q-answer">{{ currentAnswerText(q) }}</p>
               </div>
             }
@@ -142,9 +153,10 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
             @for (q of d.questions; track q.id) {
               <div class="q-card" [class.flagged]="q.editable">
                 <p class="q-meta">Question {{ q.questionOrder }} · {{ typeLabel(q) }}</p>
-                <p class="q-prompt">{{ q.prompt }}
+                <div class="q-head">
+                  <p class="q-prompt">{{ q.prompt }}</p>
                   @if (outcomeForCurrent(q); as o) { <span class="sp-chip outcome-chip {{ spToneClass(o.tone) }}">{{ o.label }}</span> }
-                </p>
+                </div>
                 <p class="q-answer">{{ currentAnswerText(q) }}</p>
                 @if (q.editable) {
                   <p class="q-flag-note">Flagged for revision — see feedback above</p>
@@ -167,9 +179,10 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
               @for (q of d.questions; track q.id) {
                 <div class="q-card">
                   <p class="q-meta">Question {{ q.questionOrder }} · {{ typeLabel(q) }}</p>
-                  <p class="q-prompt">{{ q.prompt }}
+                  <div class="q-head">
+                    <p class="q-prompt">{{ q.prompt }}</p>
                     @if (outcomeForCurrent(q); as o) { <span class="sp-chip outcome-chip {{ spToneClass(o.tone) }}">{{ o.label }}</span> }
-                  </p>
+                  </div>
                   <p class="q-answer">{{ currentAnswerText(q) }}</p>
                 </div>
               }
