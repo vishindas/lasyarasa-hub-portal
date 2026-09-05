@@ -119,7 +119,6 @@ const DEBOUNCE_MS = 800;
       padding: 12px 0; margin-top: 8px;
     }
     button, a[mat-flat-button], a[mat-stroked-button] { min-height: 44px; }
-    .frozen-note { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); }
   `],
   template: `
     <div class="answer-content">
@@ -211,9 +210,7 @@ const DEBOUNCE_MS = 800;
       }
 
       <div class="bottom-bar">
-        @if (mode.mutationsDisabled()) {
-          <p class="frozen-note">Reading remains available; writing is paused while learning is read-only. Your answers so far are saved as a draft.</p>
-        } @else {
+        @if (!mode.mutationsDisabled()) {
           <button mat-flat-button color="primary" type="button" [disabled]="navigating()" (click)="goReview()">Review answers</button>
         }
       </div>
