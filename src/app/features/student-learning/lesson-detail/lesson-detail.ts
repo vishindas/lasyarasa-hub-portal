@@ -69,10 +69,20 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
     /* UX-4: recolored onto the shared neutral tone -- same family
        CurriculumMessageComponent's own "not-found" state already uses for
        "content isn't accessible right now, nothing is broken" states. */
+    /* UX-4 correction: a compact panel, not a full 16:9 frame -- inheriting
+       the video player's own aspect ratio gave an unavailable resource the
+       same visual weight as a real, watchable video. min-height (not
+       aspect-ratio) keeps this a fixed-height panel regardless of the
+       1050px-capped width, roughly 240px on desktop and a more compact
+       160px on narrow/mobile widths, icon+message still centered both
+       axes via the existing flex column. */
     .unavailable-block {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; width: 100%; max-width: 1050px; aspect-ratio: 16/9; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text-muted, #52596b); text-align: center; padding: 24px;
+      gap: 10px; width: 100%; max-width: 1050px; min-height: 240px; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text-muted, #52596b); text-align: center; padding: 24px;
       box-sizing: border-box; /* width:100% + padding on the same element overflows its container without this -- found at 320px verification */
+    }
+    @media (max-width: 599px) {
+      .unavailable-block { min-height: 160px; }
     }
     .lesson-text { white-space: pre-wrap; line-height: 1.6; color: var(--sp-text, #1a1f36); }
     .resource-card { display: flex; align-items: center; gap: 10px; padding: 16px; border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); background: var(--sp-surface, #fff); }
