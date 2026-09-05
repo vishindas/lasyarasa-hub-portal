@@ -31,6 +31,15 @@ interface ReviewRow {
   imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule, StudentAssignmentMessageComponent, StudentAssignmentModeBannerComponent],
   styles: [`
     :host { padding-bottom: 88px !important; }
+    /* Correction: a shared left-aligned content boundary -- same technique
+       as answer/student-assignment-answer.ts's own .answer-content --
+       covering the back-link, heading/context, question rows, and the
+       bottom action bar, so none of them spread across the full .sp-page
+       workspace on wide desktop screens. No margin:auto (left-aligned, not
+       centered). Below 1050px this has no effect -- max-width only ever
+       constrains a wider container, so smaller screens already render at
+       100% available width with no separate code path needed for it. */
+    .review-content { max-width: 1050px; }
     .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
     .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
     /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
@@ -48,9 +57,9 @@ interface ReviewRow {
     .row-answer.missing { color: var(--sp-tone-negative-text, #991b1b); }
     button, a[mat-flat-button], a[mat-stroked-button] { min-height: 44px; }
     .bottom-bar { position: sticky; bottom: 0; background: var(--sp-bg, #f8f9fb); border-top: 1px solid var(--sp-border-subtle, #edf0f7); padding: 12px 0; margin-top: 8px; }
-    .frozen-note { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); }
   `],
   template: `
+    <div class="review-content">
     <a class="back-link" [routerLink]="['/my-students', studentId(), 'assignments', studentAssignmentId(), 'answer']">
       <mat-icon aria-hidden="true">arrow_back</mat-icon> Back to answers
     </a>
@@ -64,7 +73,7 @@ interface ReviewRow {
       <p class="meta">{{ d.title }}</p>
 
       @if (unansweredCount() > 0) {
-        <div class="warn-banner" role="alert">{{ unansweredCount() }} question(s) need an answer before you can submit.</div>
+        <div class="warn-banner" role="alert">{{ unansweredCount() }} question{{ unansweredCount() === 1 ? '' : 's' }} need{{ unansweredCount() === 1 ? 's' : '' }} an answer before you can submit.</div>
       }
 
       @for (row of rows(); track row.question.id) {
@@ -81,13 +90,12 @@ interface ReviewRow {
 
       <div class="bottom-bar">
         <app-student-assignment-mode-banner />
-        @if (mode.mutationsDisabled()) {
-          <p class="frozen-note">Reading remains available; writing is paused while learning is read-only.</p>
-        } @else {
+        @if (!mode.mutationsDisabled()) {
           <button mat-flat-button color="primary" type="button" [disabled]="unansweredCount() > 0" (click)="submit()">Submit</button>
         }
       </div>
     }
+    </div>
   `
 })
 export class StudentAssignmentReviewComponent implements OnInit {

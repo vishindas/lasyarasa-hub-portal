@@ -52,7 +52,7 @@ describe('StudentAssignmentReviewComponent', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance.unansweredCount()).toBe(1);
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('1 question(s) need an answer');
+    expect(text).toContain('1 question needs an answer');
     const submitBtn = (Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[]).find(b => b.textContent?.trim() === 'Submit')!;
     expect(submitBtn.disabled).toBe(true);
   });
