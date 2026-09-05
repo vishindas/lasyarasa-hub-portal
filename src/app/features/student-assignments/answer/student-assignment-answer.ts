@@ -64,6 +64,15 @@ const DEBOUNCE_MS = 800;
   ],
   styles: [`
     :host { padding-bottom: 88px !important; }
+    /* Correction: a shared left-aligned content boundary -- same technique
+       as lesson-detail.ts's .lesson-content -- covering the back-link,
+       heading/context, question cards, and the Review-answers action, so
+       none of them spread across the full .sp-page workspace on wide
+       desktop screens. No margin:auto (left-aligned, not centered).
+       Below 1050px this simply has no effect -- max-width only ever
+       constrains a wider container, so 375px/mobile already renders at
+       100% available width with no code path needed for it. */
+    .answer-content { max-width: 1050px; }
     .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
     .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
     /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
@@ -99,6 +108,7 @@ const DEBOUNCE_MS = 800;
     .frozen-note { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); }
   `],
   template: `
+    <div class="answer-content">
     <a class="back-link" role="button" tabindex="0" [attr.aria-disabled]="navigating() || null"
        (click)="onExitClick($event)" (keydown.enter)="onExitClick($event)" (keydown.space)="onExitClick($event)">
       <mat-icon aria-hidden="true">arrow_back</mat-icon> {{ isRevising() ? 'Cancel revise' : 'Save and exit' }}
@@ -110,7 +120,7 @@ const DEBOUNCE_MS = 800;
       <mat-spinner diameter="36" />
     } @else if (!loadError() && detail(); as d) {
       <h1 tabindex="-1">{{ d.title }}</h1>
-      <p class="meta">{{ questionStates().length }} question(s)</p>
+      <p class="meta">{{ questionStates().length }} question{{ questionStates().length === 1 ? '' : 's' }}</p>
 
       <app-student-assignment-mode-banner />
 
@@ -189,6 +199,7 @@ const DEBOUNCE_MS = 800;
         }
       </div>
     }
+    </div>
   `
 })
 export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
