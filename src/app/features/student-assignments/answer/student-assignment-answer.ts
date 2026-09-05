@@ -10,7 +10,6 @@ import { StudentAssignmentApiService } from '../data-access/student-assignment-a
 import { DraftResponseDTO, StudentAssignmentDetailDTO, StudentAssignmentQuestionDTO } from '../data-access/student-assignment.model';
 import { StudentAssignmentUiError, toStudentAssignmentUiError } from '../data-access/student-assignment-ui-error.util';
 import { StudentAssignmentMessageComponent } from '../shared/student-assignment-message';
-import { StudentAssignmentModeBannerComponent } from '../shared/student-assignment-mode-banner';
 import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
@@ -49,42 +48,80 @@ const DEBOUNCE_MS = 800;
 @Component({
   selector: 'app-student-assignment-answer',
   standalone: true,
+  // UX-5 geometry correction: was `:host { max-width: 720px; margin: 0
+  // auto; padding: 24px 20px 88px; }` -- same independently-centered
+  // container class of bug fixed elsewhere. `.sp-page` (styles-student.scss)
+  // gives the same flush gutter, no local width cap. The extra bottom
+  // padding (88px vs .sp-page's own 48px) is preserved below via an
+  // !important override -- it's load-bearing clearance for this screen's
+  // own sticky `.bottom-bar` (not present on any other .sp-page screen),
+  // so the last question card is never left partially hidden behind it.
+  host: { class: 'sp-page' },
   imports: [
     FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule,
-    StudentAssignmentMessageComponent, StudentAssignmentModeBannerComponent
+    StudentAssignmentMessageComponent
   ],
   styles: [`
-    :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 88px; }
-    .back-link { display: inline-flex; align-items: center; gap: 4px; color: #6B6255; text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; color: #1C1A16; margin: 0 0 4px; }
-    .meta { color: #6B6255; font-size: 0.85rem; margin: 0 0 16px; }
-    .q-card { border: 1px solid #E3DCC8; border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; background: #fff; }
-    .q-card.locked { background: #F3EEDE; }
-    .q-card.flagged { border-color: #A3762C; border-width: 2px; }
-    .q-meta { font-size: 0.75rem; color: #6B6255; margin: 0 0 4px; }
-    .q-prompt { font-weight: 600; margin: 0 0 10px; color: #1C1A16; }
+    :host { padding-bottom: 88px !important; }
+    /* Correction: a shared left-aligned content boundary -- same technique
+       as lesson-detail.ts's .lesson-content -- covering the back-link,
+       heading/context, question cards, and the Review-answers action, so
+       none of them spread across the full .sp-page workspace on wide
+       desktop screens. No margin:auto (left-aligned, not centered).
+       Below 1050px this simply has no effect -- max-width only ever
+       constrains a wider container, so 375px/mobile already renders at
+       100% available width with no code path needed for it. */
+    .answer-content { max-width: 1050px; }
+    .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
+    .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
+    /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
+    .meta { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 16px; }
+    .q-card { border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); padding: 14px 16px; margin-bottom: 14px; background: var(--sp-surface, #fff); }
+    /* UX-5/wireframe 9: locked/flagged move from gold/ivory to gray/indigo. */
+    .q-card.locked { background: var(--sp-tone-neutral-bg, #f1f5f9); }
+    .q-card.flagged { border-color: var(--sp-primary, #3d4ed8); border-width: 2px; }
+    .q-meta { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin: 0 0 4px; }
+    .q-prompt { font-weight: 600; margin: 0 0 10px; color: var(--sp-text, #1a1f36); }
     .option-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; min-height: 44px; }
     .option-row input[type="radio"], .option-row input[type="checkbox"] { width: 20px; height: 20px; }
     textarea, input[type="text"] {
-      width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #E3DCC8; border-radius: 6px;
+      width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: 6px;
       font-family: inherit; font-size: 0.95rem; min-height: 44px;
     }
     textarea { min-height: 100px; resize: vertical; }
-    .char-count { font-size: 0.75rem; color: #6B6255; margin: 4px 0 0; text-align: right; }
+    .char-count { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin: 4px 0 0; text-align: right; }
+    /* Correction: the screen-level WRITE_FROZEN message previously reused
+       the shared attention-tone (amber) mode-banner -- a full-width
+       warning-yellow treatment for something that is informational, not
+       an error (per-question autosave failures already carry their own
+       "Couldn't save" state, unaffected by this change). Restyled onto
+       the same restrained neutral banner Detail's own Closed/Unavailable
+       states use (see student-assignment-detail.ts's base .banner), scoped
+       to this component only -- Detail and Review keep rendering the
+       shared amber mode-banner unchanged. */
+    .frozen-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem;
+      border: 1px solid #e2e8f0; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text, #1a1f36);
+    }
+    .frozen-banner mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
+    /* UX-5/wireframe 9: save-state colors already use semantic green/gray/red -- kept exactly as-is, not part of the ivory system. */
     .save-state { font-size: 0.78rem; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
     .save-state.saved { color: #1e4620; }
     .save-state.saving { color: #6B6255; }
     .save-state.error, .save-state.conflict { color: #7a1f1f; }
-    .locked-note { font-size: 0.78rem; color: #6B6255; font-style: italic; }
-    .feedback-box { background: #fff8e1; border: 1px solid #E3DCC8; border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 0.88rem; color: #7A5419; }
+    .locked-note { font-size: 0.78rem; color: var(--sp-text-muted, #52596b); font-style: italic; }
+    /* UX-5: recolored onto the shared attention tone (same family as attempt-history's feedback box and the mode-banner). */
+    .feedback-box { background: var(--sp-tone-attention-bg, #fef3c7); color: var(--sp-tone-attention-text, #92400e); border: 1px solid #fde68a; border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 0.88rem; }
     .bottom-bar {
-      position: sticky; bottom: 0; background: #FBF7EC; border-top: 1px solid #E3DCC8;
+      position: sticky; bottom: 0; background: var(--sp-bg, #f8f9fb); border-top: 1px solid var(--sp-border-subtle, #edf0f7);
       padding: 12px 0; margin-top: 8px;
     }
     button, a[mat-flat-button], a[mat-stroked-button] { min-height: 44px; }
-    .frozen-note { font-size: 0.8rem; color: #6B6255; }
   `],
   template: `
+    <div class="answer-content">
     <a class="back-link" role="button" tabindex="0" [attr.aria-disabled]="navigating() || null"
        (click)="onExitClick($event)" (keydown.enter)="onExitClick($event)" (keydown.space)="onExitClick($event)">
       <mat-icon aria-hidden="true">arrow_back</mat-icon> {{ isRevising() ? 'Cancel revise' : 'Save and exit' }}
@@ -96,9 +133,14 @@ const DEBOUNCE_MS = 800;
       <mat-spinner diameter="36" />
     } @else if (!loadError() && detail(); as d) {
       <h1 tabindex="-1">{{ d.title }}</h1>
-      <p class="meta">{{ questionStates().length }} question(s)</p>
+      <p class="meta">{{ questionStates().length }} question{{ questionStates().length === 1 ? '' : 's' }}</p>
 
-      <app-student-assignment-mode-banner />
+      @if (mode.mode() === 'WRITE_FROZEN') {
+        <div class="frozen-banner" role="status" aria-live="assertive">
+          <mat-icon aria-hidden="true">pause_circle</mat-icon>
+          <span>Reading remains available; writing is paused while learning is read-only.</span>
+        </div>
+      }
 
       @if (isRevising() && revisionFeedback()) {
         <div class="feedback-box" role="status">{{ revisionFeedback() }}</div>
@@ -168,13 +210,12 @@ const DEBOUNCE_MS = 800;
       }
 
       <div class="bottom-bar">
-        @if (mode.mutationsDisabled()) {
-          <p class="frozen-note">Reading remains available; writing is paused while learning is read-only. Your answers so far are saved as a draft.</p>
-        } @else {
+        @if (!mode.mutationsDisabled()) {
           <button mat-flat-button color="primary" type="button" [disabled]="navigating()" (click)="goReview()">Review answers</button>
         }
       </div>
     }
+    </div>
   `
 })
 export class StudentAssignmentAnswerComponent implements OnInit, OnDestroy {
