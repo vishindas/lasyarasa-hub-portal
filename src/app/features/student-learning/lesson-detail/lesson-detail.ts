@@ -51,6 +51,16 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
   host: { class: 'sp-page' },
   imports: [RouterLink, MatProgressSpinnerModule, MatIconModule, MatButtonModule, CurriculumMessageComponent],
   styles: [`
+    /* UX-4 correction: a single shared reading/content boundary -- was
+       previously only the video/unavailable blocks that capped their own
+       width, leaving the breadcrumb, title, text/resource content, and
+       Previous/Next nav to spread across the full .sp-page workspace
+       (visually disconnected on short lessons like TEXT). Every piece of
+       lesson UI (breadcrumb through nav-row) now sits inside this one
+       max-width box; no margin:auto, so it stays left-aligned exactly
+       like every other student-portal page. Below 1050px it simply fills
+       the available .sp-page width, same responsive behavior as before. */
+    .lesson-content { max-width: 1050px; }
     .breadcrumb { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--sp-text-muted, #52596b); margin-bottom: 4px; }
     /* 44px touch-target floor (found undersized at 17px during 390px verification): the link text itself is small, so height comes from padding, not font-size. */
     .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: var(--sp-text-muted, #52596b); text-decoration: none; }
@@ -58,13 +68,7 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
     .module-context { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); margin: 0 0 10px; }
     /* UX-4: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
     h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 16px; }
-    /* UX-4 correction: capped to a sensible desktop maximum -- unconstrained,
-       the player expanded across the entire .sp-page workspace on wide
-       screens. This is a max-width on the media container only, not a
-       second page-level cap: width:100% still governs below 1050px (so the
-       player stays fully responsive/left-aligned down through mobile), the
-       cap only ever engages once the page itself is wider than 1050px. */
-    .embed-frame { position: relative; width: 100%; max-width: 1050px; aspect-ratio: 16/9; background: #000; }
+    .embed-frame { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
     .embed-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
     /* UX-4: recolored onto the shared neutral tone -- same family
        CurriculumMessageComponent's own "not-found" state already uses for
@@ -72,13 +76,14 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
     /* UX-4 correction: a compact panel, not a full 16:9 frame -- inheriting
        the video player's own aspect ratio gave an unavailable resource the
        same visual weight as a real, watchable video. min-height (not
-       aspect-ratio) keeps this a fixed-height panel regardless of the
-       1050px-capped width, roughly 240px on desktop and a more compact
-       160px on narrow/mobile widths, icon+message still centered both
-       axes via the existing flex column. */
+       aspect-ratio) keeps this a fixed-height panel regardless of width,
+       roughly 240px on desktop and a more compact 160px on narrow/mobile
+       widths, icon+message still centered both axes via the existing flex
+       column. Width comes from the shared .lesson-content boundary now,
+       not its own max-width. */
     .unavailable-block {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; width: 100%; max-width: 1050px; min-height: 240px; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text-muted, #52596b); text-align: center; padding: 24px;
+      gap: 10px; width: 100%; min-height: 240px; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text-muted, #52596b); text-align: center; padding: 24px;
       box-sizing: border-box; /* width:100% + padding on the same element overflows its container without this -- found at 320px verification */
     }
     @media (max-width: 599px) {
@@ -98,24 +103,25 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
     .nav-row button { min-height: 44px; }
   `],
   template: `
-    <div class="breadcrumb">
-      <a [routerLink]="['/my-students', studentId(), 'classes', classId(), 'modules', moduleId()]">
-        <mat-icon aria-hidden="true" style="font-size:16px;width:16px;height:16px;vertical-align:middle">chevron_left</mat-icon>
-        {{ moduleTitle() || 'Module' }}
-      </a>
-    </div>
+    <div class="lesson-content">
+      <div class="breadcrumb">
+        <a [routerLink]="['/my-students', studentId(), 'classes', classId(), 'modules', moduleId()]">
+          <mat-icon aria-hidden="true" style="font-size:16px;width:16px;height:16px;vertical-align:middle">chevron_left</mat-icon>
+          {{ moduleTitle() || 'Module' }}
+        </a>
+      </div>
 
-    @if (loadError(); as e) {
-      <h1 tabindex="-1">Lesson</h1>
-      <app-curriculum-message [error]="e" [backLabel]="recoveryLabel(e.kind)" (back)="onBack(e.kind)" />
-    } @else if (loading()) {
-      <h1 tabindex="-1">Lesson</h1>
-      <mat-spinner diameter="36" />
-    } @else if (lesson(); as l) {
-      @if (positionLabel()) { <p class="module-context">{{ moduleTitle() }} · {{ positionLabel() }}</p> }
-      <h1 tabindex="-1">{{ l.title }}</h1>
+      @if (loadError(); as e) {
+        <h1 tabindex="-1">Lesson</h1>
+        <app-curriculum-message [error]="e" [backLabel]="recoveryLabel(e.kind)" (back)="onBack(e.kind)" />
+      } @else if (loading()) {
+        <h1 tabindex="-1">Lesson</h1>
+        <mat-spinner diameter="36" />
+      } @else if (lesson(); as l) {
+        @if (positionLabel()) { <p class="module-context">{{ moduleTitle() }} · {{ positionLabel() }}</p> }
+        <h1 tabindex="-1">{{ l.title }}</h1>
 
-      @switch (l.contentType) {
+        @switch (l.contentType) {
         @case ('VIDEO') {
           @if (l.videoAvailability === 'UNAVAILABLE') {
             <div class="unavailable-block">
@@ -163,7 +169,8 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
           Next <mat-icon aria-hidden="true">chevron_right</mat-icon>
         </button>
       </div>
-    }
+      }
+    </div>
   `
 })
 export class LessonDetailComponent implements OnInit {
