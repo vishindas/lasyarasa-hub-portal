@@ -105,8 +105,12 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
        tokens already used for the chips/elsewhere in this app rather
        than inventing new colors -- .row-awaiting reuses the identical
        --sp-primary-bg wash Learning Path's own "Current" row uses, for
-       the closest possible echo of that reference screen. */
-    .row.row-overdue { background: var(--sp-tone-negative-bg, #fee2e2); }
+       the closest possible echo of that reference screen.
+       Correction: Overdue deliberately has NO row tint -- error/urgent
+       semantic color stays in the chip only, not washing the whole row,
+       per the architect's explicit direction that status color must not
+       dominate the row. An overdue row renders identically to a plain
+       To-do row (rowSurfaceClass() returns 'row-neutral' for both). */
     .row.row-awaiting { background: var(--sp-primary-bg, #eef0fb); }
     .row.row-revision { background: var(--sp-tone-attention-bg, #fef3c7); }
     .row.row-validated { background: var(--sp-tone-positive-bg, #d1fae5); }
@@ -261,9 +265,15 @@ export class StudentAssignmentSummaryComponent implements OnInit {
    * tone today, but need visually distinct row surfaces (indigo-tinted
    * "awaiting" vs. muted "closed"), so this is derived from status/overdue
    * directly rather than reusing the chip's own tone value.
+   *
+   * Overdue is deliberately excluded from the tint system: it always
+   * renders 'row-neutral' (plain white), same as a non-overdue To-do row
+   * -- the red "Overdue" chip alone communicates urgency, per the
+   * architect's direction that error/urgent color must live in the chip,
+   * not wash the whole row.
    */
   rowSurfaceClass(a: StudentAssignmentSummaryDTO): string {
-    if (a.status === 'DRAFT') return this.overdue(a) ? 'row-overdue' : 'row-neutral';
+    if (a.status === 'DRAFT') return 'row-neutral';
     switch (a.status) {
       case 'SUBMITTED': return 'row-awaiting';
       case 'REVISION_REQUESTED': return 'row-revision';
