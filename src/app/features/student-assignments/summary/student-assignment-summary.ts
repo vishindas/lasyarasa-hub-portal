@@ -11,7 +11,7 @@ import { StudentAssignmentApiService } from '../data-access/student-assignment-a
 import { StudentAssignmentSummaryDTO, StudentAssignmentStatus } from '../data-access/student-assignment.model';
 import { StudentAssignmentUiError, toStudentAssignmentUiError } from '../data-access/student-assignment-ui-error.util';
 import { StudentAssignmentMessageComponent } from '../shared/student-assignment-message';
-import { studentAssignmentChip, isOverdue } from '../shared/student-assignment-status.util';
+import { studentAssignmentChip, isOverdue, spToneClass } from '../shared/student-assignment-status.util';
 
 type AssignmentTab = 'todo' | 'awaiting' | 'revision' | 'validated' | 'closed';
 
@@ -54,29 +54,29 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
     /* UX-01 refinement: widened from 720px -- container only, the tab/list
        layout itself is unchanged ahead of its own future redesign slice. */
     :host { display: block; max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.5rem; color: #1C1A16; margin: 0 0 16px; }
+    /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
+    h1 { font-size: 1.5rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 16px; }
     .tab-body { padding: 20px 4px; }
-    .empty-note { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: #6B6255; padding: 40px 16px; }
-    .empty-note mat-icon { font-size: 32px; width: 32px; height: 32px; color: #A3762C; }
+    .empty-note { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--sp-text-muted, #52596b); padding: 40px 16px; }
+    .empty-note mat-icon { font-size: 32px; width: 32px; height: 32px; color: var(--sp-text-faint, #9ba3b8); }
     .card {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 14px 16px; margin-bottom: 10px; border: 1px solid #E3DCC8; border-radius: 8px; background: #fff;
+      padding: 14px 16px; margin-bottom: 10px; border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); background: var(--sp-surface, #fff);
     }
     .card-main { min-width: 0; }
-    .card-title { font-weight: 600; color: #1C1A16; margin: 0 0 2px; }
-    .card-meta { font-size: 0.82rem; color: #6B6255; margin: 0 0 4px; }
-    .card-due { font-size: 0.8rem; color: #6B6255; }
-    .card-due.overdue { color: #991b1b; font-weight: 600; }
-    .chip {
-      display: inline-block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
-      padding: 3px 10px; border-radius: 20px; white-space: normal; max-width: 100%; margin-top: 4px;
-    }
-    .tone-warning { background: #fff3cd; color: #7A5419; }
-    .tone-error { background: #fdf1f1; color: #7a1f1f; }
-    .tone-neutral { background: #F3EEDE; color: #6B6255; }
-    .tone-success { background: #e6f4ea; color: #1e4620; }
+    .card-title { font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 2px; }
+    .card-meta { font-size: 0.82rem; color: var(--sp-text-muted, #52596b); margin: 0 0 4px; }
+    .card-due { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); }
+    .card-due.overdue { color: var(--sp-tone-negative-text, #991b1b); font-weight: 600; }
+    /* UX-5/Finding 7: migrated onto the shared .sp-chip/.sp-tone-* system
+       (styles-student.scss, UX-1) -- spToneClass() maps this feature's own
+       unchanged tone logic (warning/error/neutral/success) onto it. This
+       local modifier only adds the row-specific spacing/wrapping .sp-chip
+       itself doesn't define -- the tone colors come entirely from the
+       shared classes. */
+    .card-chip { margin-top: 4px; white-space: normal; max-width: 100%; }
     .card-action button { min-height: 44px; }
-    .frozen-note { font-size: 0.75rem; color: #6B6255; margin-top: 4px; }
+    .frozen-note { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin-top: 4px; }
   `],
   template: `
     <h1 tabindex="-1">Assignments</h1>
@@ -101,7 +101,7 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
                     <div class="card-main">
                       <p class="card-title">{{ a.title }}</p>
                       <p class="card-due" [class.overdue]="overdue(a)">{{ dueLabel(a) }}</p>
-                      <span class="chip tone-{{ chipFor(a).tone }}">{{ chipFor(a).label }}</span>
+                      <span class="sp-chip card-chip {{ spToneClass(chipFor(a).tone) }}">{{ chipFor(a).label }}</span>
                     </div>
                     <div class="card-action">
                       <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'assignments', a.id]"
@@ -131,6 +131,7 @@ export class StudentAssignmentSummaryComponent implements OnInit {
   mode = inject(ClassroomLiteModeService);
 
   readonly tabOrder = TAB_ORDER;
+  protected readonly spToneClass = spToneClass;
 
   studentId = signal<number>(0);
   assignments = signal<StudentAssignmentSummaryDTO[]>([]);

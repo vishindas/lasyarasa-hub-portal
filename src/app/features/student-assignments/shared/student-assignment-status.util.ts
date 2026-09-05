@@ -40,6 +40,22 @@ export function studentAssignmentChip(params: {
   }
 }
 
+/**
+ * UX-5/Finding 7: maps this feature's own logical tone (unchanged --
+ * still drives the visible label/copy logic above and every existing
+ * test) onto the shared `.sp-tone-*` chip system from styles-student.scss
+ * (UX-1) for rendering only. Purely additive -- studentAssignmentChip()/
+ * outcomeChip() and their consumers are untouched.
+ */
+export function spToneClass(tone: StudentAssignmentChipTone): string {
+  switch (tone) {
+    case 'success': return 'sp-tone-positive';
+    case 'warning': return 'sp-tone-attention';
+    case 'error': return 'sp-tone-negative';
+    case 'neutral': return 'sp-tone-neutral';
+  }
+}
+
 export function isOverdue(dueAt: string, now: Date = new Date()): boolean {
   return !!dueAt && new Date(dueAt).getTime() < now.getTime();
 }

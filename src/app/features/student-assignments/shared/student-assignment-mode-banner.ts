@@ -14,11 +14,13 @@ import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-
   standalone: true,
   imports: [MatIconModule],
   styles: [`
+    /* UX-5: recolored onto the shared attention tone (same family the
+       revision-feedback boxes on Answer/Attempt History now use). */
     .banner {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 16px; border-radius: 8px; margin-bottom: 16px;
       font-size: 0.85rem; font-weight: 500;
-      background: #fff8e1; color: #7A5419; border: 1px solid #E3DCC8;
+      background: var(--sp-tone-attention-bg, #fef3c7); color: var(--sp-tone-attention-text, #92400e); border: 1px solid #fde68a;
     }
     mat-icon { font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
     @media (prefers-reduced-motion: reduce) { .banner { transition: none; } }

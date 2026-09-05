@@ -14,7 +14,7 @@ import {
 import { StudentAssignmentUiError, toStudentAssignmentUiError } from '../data-access/student-assignment-ui-error.util';
 import { StudentAssignmentMessageComponent } from '../shared/student-assignment-message';
 import { StudentAssignmentModeBannerComponent } from '../shared/student-assignment-mode-banner';
-import { outcomeChip } from '../shared/student-assignment-status.util';
+import { outcomeChip, spToneClass } from '../shared/student-assignment-status.util';
 import { StudentAttemptHistoryComponent } from './student-attempt-history';
 
 /**
@@ -48,28 +48,32 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
   ],
   styles: [`
     :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; }
-    .back-link { display: inline-flex; align-items: center; gap: 4px; color: #6B6255; text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; color: #1C1A16; margin: 0 0 4px; }
-    .meta { color: #6B6255; font-size: 0.85rem; margin: 0 0 16px; }
+    .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
+    .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
+    /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
+    .meta { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 16px; }
+    /* UX-5: default/success/warning banners recolored onto the shared
+       neutral/positive/attention tones (same family CurriculumMessage-
+       Component's own not-found/validation states already use). */
     .banner {
       padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem;
-      border: 1px solid #E3DCC8; background: #F3EEDE; color: #1C1A16;
+      border: 1px solid #e2e8f0; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text, #1a1f36);
     }
-    .banner.success { background: #e6f4ea; border-color: #b7dcc0; color: #1e4620; }
-    .banner.warning { background: #fff8e1; border-color: #f0dfa8; color: #7A5419; }
-    .q-card { border: 1px solid #E3DCC8; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; background: #fff; }
-    .q-card.flagged { border-color: #A3762C; border-width: 2px; background: #fffaf0; }
-    .q-meta { font-size: 0.75rem; color: #6B6255; margin: 0 0 4px; }
-    .q-prompt { font-weight: 600; margin: 0 0 8px; color: #1C1A16; }
-    .q-answer { margin: 0; color: #1C1A16; }
-    .q-flag-note { font-size: 0.78rem; color: #A3762C; font-weight: 600; margin-top: 6px; }
-    .outcome-chip { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-left: 8px; }
-    .tone-success { background: #e6f4ea; color: #1e4620; }
-    .tone-error { background: #fdf1f1; color: #7a1f1f; }
-    .tone-warning { background: #fff3cd; color: #7A5419; }
+    .banner.success { background: var(--sp-tone-positive-bg, #d1fae5); border-color: #a7f3d0; color: var(--sp-tone-positive-text, #065f46); }
+    .banner.warning { background: var(--sp-tone-attention-bg, #fef3c7); border-color: #fde68a; color: var(--sp-tone-attention-text, #92400e); }
+    .q-card { border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); padding: 14px 16px; margin-bottom: 12px; background: var(--sp-surface, #fff); }
+    /* UX-5/wireframe 9: flagged state moves from gold/ivory to indigo. */
+    .q-card.flagged { border-color: var(--sp-primary, #3d4ed8); border-width: 2px; background: var(--sp-primary-bg, #eef0fb); }
+    .q-meta { font-size: 0.75rem; color: var(--sp-text-muted, #52596b); margin: 0 0 4px; }
+    .q-prompt { font-weight: 600; margin: 0 0 8px; color: var(--sp-text, #1a1f36); }
+    .q-answer { margin: 0; color: var(--sp-text, #1a1f36); }
+    .q-flag-note { font-size: 0.78rem; color: var(--sp-primary, #3d4ed8); font-weight: 600; margin-top: 6px; }
+    /* UX-5/Finding 7: migrated onto the shared .sp-chip/.sp-tone-* system -- see student-assignment-summary.ts. */
+    .outcome-chip { margin-left: 8px; }
     .actions { margin-top: 16px; }
     button, a[mat-flat-button], a[mat-stroked-button] { min-height: 44px; }
-    .empty-note { color: #6B6255; padding: 24px 0; }
+    .empty-note { color: var(--sp-text-muted, #52596b); padding: 24px 0; }
   `],
   template: `
     <a class="back-link" [routerLink]="['/my-students', studentId(), 'assignments']">
@@ -111,7 +115,7 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
               <div class="q-card">
                 <p class="q-meta">Question {{ q.questionOrder }} · {{ typeLabel(q) }}</p>
                 <p class="q-prompt">{{ q.prompt }}
-                  @if (outcomeForCurrent(q); as o) { <span class="outcome-chip tone-{{ o.tone }}">{{ o.label }}</span> }
+                  @if (outcomeForCurrent(q); as o) { <span class="sp-chip outcome-chip {{ spToneClass(o.tone) }}">{{ o.label }}</span> }
                 </p>
                 <p class="q-answer">{{ currentAnswerText(q) }}</p>
               </div>
@@ -123,7 +127,7 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
               <div class="q-card">
                 <p class="q-meta">Question {{ q.questionOrder }} · {{ typeLabel(q) }}</p>
                 <p class="q-prompt">{{ q.prompt }}
-                  @if (outcomeForCurrent(q); as o) { <span class="outcome-chip tone-{{ o.tone }}">{{ o.label }}</span> }
+                  @if (outcomeForCurrent(q); as o) { <span class="sp-chip outcome-chip {{ spToneClass(o.tone) }}">{{ o.label }}</span> }
                 </p>
                 <p class="q-answer">{{ currentAnswerText(q) }}</p>
               </div>
@@ -135,13 +139,13 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
               <div class="q-card" [class.flagged]="q.editable">
                 <p class="q-meta">Question {{ q.questionOrder }} · {{ typeLabel(q) }}</p>
                 <p class="q-prompt">{{ q.prompt }}
-                  @if (outcomeForCurrent(q); as o) { <span class="outcome-chip tone-{{ o.tone }}">{{ o.label }}</span> }
+                  @if (outcomeForCurrent(q); as o) { <span class="sp-chip outcome-chip {{ spToneClass(o.tone) }}">{{ o.label }}</span> }
                 </p>
                 <p class="q-answer">{{ currentAnswerText(q) }}</p>
                 @if (q.editable) {
                   <p class="q-flag-note">Flagged for revision — see feedback above</p>
                 } @else {
-                  <p class="q-flag-note" style="color:#6B6255">Already validated — no changes needed</p>
+                  <p class="q-flag-note" style="color:var(--sp-text-muted, #52596b)">Already validated — no changes needed</p>
                 }
               </div>
             }
@@ -160,7 +164,7 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
                 <div class="q-card">
                   <p class="q-meta">Question {{ q.questionOrder }} · {{ typeLabel(q) }}</p>
                   <p class="q-prompt">{{ q.prompt }}
-                    @if (outcomeForCurrent(q); as o) { <span class="outcome-chip tone-{{ o.tone }}">{{ o.label }}</span> }
+                    @if (outcomeForCurrent(q); as o) { <span class="sp-chip outcome-chip {{ spToneClass(o.tone) }}">{{ o.label }}</span> }
                   </p>
                   <p class="q-answer">{{ currentAnswerText(q) }}</p>
                 </div>
@@ -192,6 +196,7 @@ export class StudentAssignmentDetailComponent implements OnInit {
   private api = inject(StudentAssignmentApiService);
   private destroyRef = inject(DestroyRef);
   mode = inject(ClassroomLiteModeService);
+  protected readonly spToneClass = spToneClass;
 
   studentId = signal<number>(0);
   studentAssignmentId = signal<number>(0);

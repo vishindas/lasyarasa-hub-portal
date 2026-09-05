@@ -24,19 +24,24 @@ interface ReviewRow {
   imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule, StudentAssignmentMessageComponent, StudentAssignmentModeBannerComponent],
   styles: [`
     :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 88px; }
-    .back-link { display: inline-flex; align-items: center; gap: 4px; color: #6B6255; text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; color: #1C1A16; margin: 0 0 4px; }
-    .meta { color: #6B6255; font-size: 0.85rem; margin: 0 0 16px; }
-    .warn-banner { background: #fdf1f1; border: 1px solid #f5c6c6; color: #7a1f1f; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
-    .row { border: 1px solid #E3DCC8; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; background: #fff; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-    .row.unanswered { border-color: #f5c6c6; background: #fffaf9; }
+    .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
+    .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
+    /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
+    .meta { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 16px; }
+    /* UX-5/Finding 7: recolored onto the shared negative tone -- same
+       bg/text/border combo CurriculumMessageComponent's own .validation
+       state already uses. */
+    .warn-banner { background: var(--sp-tone-negative-bg, #fee2e2); border: 1px solid #fecaca; color: var(--sp-tone-negative-text, #991b1b); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+    .row { border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); padding: 12px 16px; margin-bottom: 10px; background: var(--sp-surface, #fff); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .row.unanswered { border-color: #fecaca; background: var(--sp-tone-negative-bg, #fee2e2); }
     .row-main { min-width: 0; }
-    .row-prompt { font-weight: 600; margin: 0 0 4px; color: #1C1A16; }
-    .row-answer { margin: 0; color: #1C1A16; }
-    .row-answer.missing { color: #7a1f1f; }
+    .row-prompt { font-weight: 600; margin: 0 0 4px; color: var(--sp-text, #1a1f36); }
+    .row-answer { margin: 0; color: var(--sp-text, #1a1f36); }
+    .row-answer.missing { color: var(--sp-tone-negative-text, #991b1b); }
     button, a[mat-flat-button], a[mat-stroked-button] { min-height: 44px; }
-    .bottom-bar { position: sticky; bottom: 0; background: #FBF7EC; border-top: 1px solid #E3DCC8; padding: 12px 0; margin-top: 8px; }
-    .frozen-note { font-size: 0.8rem; color: #6B6255; }
+    .bottom-bar { position: sticky; bottom: 0; background: var(--sp-bg, #f8f9fb); border-top: 1px solid var(--sp-border-subtle, #edf0f7); padding: 12px 0; margin-top: 8px; }
+    .frozen-note { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); }
   `],
   template: `
     <a class="back-link" [routerLink]="['/my-students', studentId(), 'assignments', studentAssignmentId(), 'answer']">
