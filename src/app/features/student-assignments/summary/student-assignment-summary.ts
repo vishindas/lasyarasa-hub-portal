@@ -60,7 +60,13 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
   imports: [RouterLink, MatTabsModule, MatIconModule, MatButtonModule, MatProgressSpinnerModule, StudentAssignmentMessageComponent],
   styles: [`
     /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
-    h1 { font-size: 1.5rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 16px; }
+    /* UX-7A: margin-top compensates for this screen's own class-context bar
+       being hidden (student-wide, not class-scoped -- see hideClassContext
+       on this feature's routes). Same fix/value as student-fees.ts's own
+       h1 -- the bar occupies exactly 65px (measured live in UX-6); without
+       this, the heading sits 65px higher than on every class-scoped
+       screen, a visible jump when navigating here. */
+    h1 { font-size: 1.5rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 65px 0 16px; }
     /* UX-5 correction: this h1 is never reached via Tab (tabindex="-1") --
        it exists solely as the route-change screen-reader announcement
        target the shell's focusPageHeading() focuses on every navigation
