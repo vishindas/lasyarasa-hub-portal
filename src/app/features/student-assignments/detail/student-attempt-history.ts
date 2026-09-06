@@ -1,7 +1,7 @@
 import { Component, input } from '@angular/core';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { AttemptDTO, StudentAssignmentQuestionDTO } from '../data-access/student-assignment.model';
-import { outcomeChip } from '../shared/student-assignment-status.util';
+import { outcomeChip, spToneClass } from '../shared/student-assignment-status.util';
 
 /**
  * Sub-component of S10 (SUBMITTED read-only) -- only ever rendered when
@@ -16,16 +16,16 @@ import { outcomeChip } from '../shared/student-assignment-status.util';
   imports: [MatExpansionModule],
   styles: [`
     :host { display: block; margin: 12px 0; }
-    mat-expansion-panel { background: #F3EEDE !important; }
-    .attempt-feedback { background: #fff8e1; border: 1px solid #E3DCC8; border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 0.85rem; }
-    .q-row { padding: 10px 0; border-bottom: 1px solid #E3DCC8; }
+    mat-expansion-panel { background: var(--sp-tone-neutral-bg, #f1f5f9) !important; }
+    /* UX-5: recolored onto the shared attention tone (same family the
+       mode-banner and answer-screen revision feedback box now use). */
+    .attempt-feedback { background: var(--sp-tone-attention-bg, #fef3c7); color: var(--sp-tone-attention-text, #92400e); border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 0.85rem; }
+    .q-row { padding: 10px 0; border-bottom: 1px solid var(--sp-border-subtle, #edf0f7); }
     .q-row:last-child { border-bottom: none; }
     .q-prompt { font-weight: 600; margin: 0 0 4px; }
-    .q-answer { color: #1C1A16; margin: 0; }
-    .chip { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-left: 6px; }
-    .tone-success { background: #e6f4ea; color: #1e4620; }
-    .tone-error { background: #fdf1f1; color: #7a1f1f; }
-    .tone-warning { background: #fff3cd; color: #7A5419; }
+    .q-answer { color: var(--sp-text, #1a1f36); margin: 0; }
+    /* UX-5/Finding 7: migrated onto the shared .sp-chip/.sp-tone-* system -- see student-assignment-summary.ts. */
+    .chip-margin { margin-left: 6px; }
   `],
   template: `
     <mat-accordion multi>
@@ -43,7 +43,7 @@ import { outcomeChip } from '../shared/student-assignment-status.util';
               <p class="q-answer">
                 {{ answerText(q, attempt) }}
                 @if (outcomeFor(q, attempt); as o) {
-                  <span class="chip tone-{{ o.tone }}">{{ o.label }}</span>
+                  <span class="sp-chip chip-margin {{ spToneClass(o.tone) }}">{{ o.label }}</span>
                 }
               </p>
             </div>
@@ -54,6 +54,7 @@ import { outcomeChip } from '../shared/student-assignment-status.util';
   `
 })
 export class StudentAttemptHistoryComponent {
+  protected readonly spToneClass = spToneClass;
   history = input.required<AttemptDTO[]>();
   questions = input.required<StudentAssignmentQuestionDTO[]>();
   currentAttemptNumber = input.required<number>();

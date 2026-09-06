@@ -21,24 +21,51 @@ interface ReviewRow {
 @Component({
   selector: 'app-student-assignment-review',
   standalone: true,
+  // UX-5 geometry correction: was `:host { max-width: 720px; margin: 0
+  // auto; padding: 24px 20px 88px; }` -- same independently-centered
+  // container class of bug fixed elsewhere. `.sp-page` (styles-student.scss)
+  // gives the same flush gutter, no local width cap. The extra bottom
+  // padding is preserved below via an !important override -- load-bearing
+  // clearance for this screen's own sticky `.bottom-bar`.
+  host: { class: 'sp-page' },
   imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule, StudentAssignmentMessageComponent, StudentAssignmentModeBannerComponent],
   styles: [`
-    :host { display: block; max-width: 720px; margin: 0 auto; padding: 24px 20px 88px; }
-    .back-link { display: inline-flex; align-items: center; gap: 4px; color: #6B6255; text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.4rem; color: #1C1A16; margin: 0 0 4px; }
-    .meta { color: #6B6255; font-size: 0.85rem; margin: 0 0 16px; }
-    .warn-banner { background: #fdf1f1; border: 1px solid #f5c6c6; color: #7a1f1f; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
-    .row { border: 1px solid #E3DCC8; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; background: #fff; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-    .row.unanswered { border-color: #f5c6c6; background: #fffaf9; }
+    :host { padding-bottom: 88px !important; }
+    /* Correction: a shared left-aligned content boundary -- same technique
+       as answer/student-assignment-answer.ts's own .answer-content --
+       covering the back-link, heading/context, question rows, and the
+       bottom action bar, so none of them spread across the full .sp-page
+       workspace on wide desktop screens. No margin:auto (left-aligned, not
+       centered). Below 1050px this has no effect -- max-width only ever
+       constrains a wider container, so smaller screens already render at
+       100% available width with no separate code path needed for it. */
+    .review-content { max-width: 1050px; }
+    .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
+    .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
+    /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
+    .meta { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 16px; }
+    /* UX-5/Finding 7: recolored onto the shared negative tone -- same
+       bg/text/border combo CurriculumMessageComponent's own .validation
+       state already uses. */
+    .warn-banner { background: var(--sp-tone-negative-bg, #fee2e2); border: 1px solid #fecaca; color: var(--sp-tone-negative-text, #991b1b); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+    /* Correction: an unanswered row previously filled the entire card red
+       (border-color #fecaca, background --sp-tone-negative-bg) on top of
+       the already-red top banner and the row's own red "Not answered yet"
+       text -- three overlapping red signals for one condition. Restrained
+       to Learning Path's own row language: every row (answered or not)
+       shares the same plain neutral/white surface; the localized red
+       .row-answer.missing text below is the only per-row indicator. */
+    .row { border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); padding: 12px 16px; margin-bottom: 10px; background: var(--sp-surface, #fff); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
     .row-main { min-width: 0; }
-    .row-prompt { font-weight: 600; margin: 0 0 4px; color: #1C1A16; }
-    .row-answer { margin: 0; color: #1C1A16; }
-    .row-answer.missing { color: #7a1f1f; }
+    .row-prompt { font-weight: 600; margin: 0 0 4px; color: var(--sp-text, #1a1f36); }
+    .row-answer { margin: 0; color: var(--sp-text, #1a1f36); }
+    .row-answer.missing { color: var(--sp-tone-negative-text, #991b1b); }
     button, a[mat-flat-button], a[mat-stroked-button] { min-height: 44px; }
-    .bottom-bar { position: sticky; bottom: 0; background: #FBF7EC; border-top: 1px solid #E3DCC8; padding: 12px 0; margin-top: 8px; }
-    .frozen-note { font-size: 0.8rem; color: #6B6255; }
+    .bottom-bar { position: sticky; bottom: 0; background: var(--sp-bg, #f8f9fb); border-top: 1px solid var(--sp-border-subtle, #edf0f7); padding: 12px 0; margin-top: 8px; }
   `],
   template: `
+    <div class="review-content">
     <a class="back-link" [routerLink]="['/my-students', studentId(), 'assignments', studentAssignmentId(), 'answer']">
       <mat-icon aria-hidden="true">arrow_back</mat-icon> Back to answers
     </a>
@@ -52,7 +79,7 @@ interface ReviewRow {
       <p class="meta">{{ d.title }}</p>
 
       @if (unansweredCount() > 0) {
-        <div class="warn-banner" role="alert">{{ unansweredCount() }} question(s) need an answer before you can submit.</div>
+        <div class="warn-banner" role="alert">{{ unansweredCount() }} question{{ unansweredCount() === 1 ? '' : 's' }} need{{ unansweredCount() === 1 ? 's' : '' }} an answer before you can submit.</div>
       }
 
       @for (row of rows(); track row.question.id) {
@@ -69,13 +96,12 @@ interface ReviewRow {
 
       <div class="bottom-bar">
         <app-student-assignment-mode-banner />
-        @if (mode.mutationsDisabled()) {
-          <p class="frozen-note">Reading remains available; writing is paused while learning is read-only.</p>
-        } @else {
+        @if (!mode.mutationsDisabled()) {
           <button mat-flat-button color="primary" type="button" [disabled]="unansweredCount() > 0" (click)="submit()">Submit</button>
         }
       </div>
     }
+    </div>
   `
 })
 export class StudentAssignmentReviewComponent implements OnInit {

@@ -17,15 +17,18 @@ import { StudentAssignmentUiError } from '../data-access/student-assignment-ui-e
   standalone: true,
   imports: [MatButtonModule, MatIconModule],
   styles: [`
+    /* UX-5: recolored onto the shared neutral/negative tones -- same
+       bg/text/border combo CurriculumMessageComponent's own
+       not-found/validation states already use. */
     .msg {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
       padding: 10px 14px; border-radius: 8px; margin: 8px 0; font-size: 0.85rem;
-      border: 1px solid #E3DCC8; background: #F3EEDE; color: #1C1A16;
+      border: 1px solid #e2e8f0; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-tone-neutral-text, #64748b);
     }
     .msg-text { display: flex; align-items: center; gap: 8px; }
-    mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; color: #A3762C; }
-    .msg.error mat-icon { color: #991b1b; }
-    .msg.error { border-color: #f5c6c6; background: #fdf1f1; color: #7a1f1f; }
+    mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; color: var(--sp-tone-neutral-text, #64748b); }
+    .msg.error mat-icon { color: var(--sp-tone-negative-text, #991b1b); }
+    .msg.error { border-color: #fecaca; background: var(--sp-tone-negative-bg, #fee2e2); color: var(--sp-tone-negative-text, #991b1b); }
     button { min-height: 44px; }
   `],
   template: `
