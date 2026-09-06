@@ -31,6 +31,37 @@ function maxUtf8Bytes(maxBytes: number) {
   standalone: true,
   imports: [ReactiveFormsModule, MatCardModule, MatButtonModule,
             MatFormFieldModule, MatInputModule, MatIconModule, MatSnackBarModule],
+  // UX-6: neutral restyle, safe in both render contexts this component is
+  // genuinely shared across -- the Provider/Admin routed /settings/
+  // change-password page (no MatDialogRef, no .sp-scope ancestor) and the
+  // Student account-menu dialog (MatDialogRef present). --sp-* custom
+  // properties only resolve where a .sp-scope ancestor exists in the DOM;
+  // a MatDialog's content renders inside Angular CDK's own overlay
+  // container, appended directly to <body> as a sibling of the app root,
+  // so it is NOT a descendant of .sp-scope either -- neither context
+  // actually resolves the live token today, both render the fallback
+  // value. Tokens are used anyway for consistency with the rest of the
+  // codebase and so this component picks up the real value for free if it
+  // is ever rendered inside .sp-scope in the future. No context-specific
+  // branching needed: every value below is deliberately safe for both.
+  styles: [`
+    :host { display: block; }
+    .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    h2 { font-size: 1.25rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
+    .page-subtitle { font-size: 0.85rem; color: var(--sp-text-muted, #52596b); margin: 0; }
+    /* Pre-existing 480px cap, unchanged and still applied identically in
+       both contexts -- not a new dialog-specific geometry. The dialog's
+       own panel width/maxWidth is set by account-menu.ts's dialog.open()
+       call (untouched, out of scope here). */
+    .card { max-width: 480px; border: 1px solid var(--sp-border-subtle, #edf0f7); box-shadow: none; }
+    .card-content { padding: 24px; }
+    mat-form-field { width: 100%; }
+    .field-spaced { margin-top: 8px; }
+    .field-error { color: var(--sp-tone-negative-text, #991b1b); font-size: 0.8rem; margin: -4px 0 8px 14px; display: flex; align-items: center; gap: 4px; }
+    .field-error mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .actions { margin-top: 24px; }
+    button[mat-flat-button] mat-icon { margin-right: 4px; }
+  `],
   template: `
     <div class="page-header">
       <div>
@@ -44,11 +75,11 @@ function maxUtf8Bytes(maxBytes: number) {
       }
     </div>
 
-    <mat-card style="max-width:480px">
-      <mat-card-content style="padding:24px">
+    <mat-card class="card">
+      <mat-card-content class="card-content">
         <form [formGroup]="form" (ngSubmit)="submit()">
 
-          <mat-form-field appearance="outline" style="width:100%">
+          <mat-form-field appearance="outline">
             <mat-label>Current Password</mat-label>
             <input matInput [type]="showCurrent() ? 'text' : 'password'" formControlName="currentPassword"
                    autocomplete="current-password"
@@ -64,13 +95,13 @@ function maxUtf8Bytes(maxBytes: number) {
           </mat-form-field>
 
           @if (wrongPassword()) {
-            <div style="color:#dc2626;font-size:0.8rem;margin:-4px 0 8px 14px;display:flex;align-items:center;gap:4px">
-              <mat-icon style="font-size:14px;width:14px;height:14px">error</mat-icon>
+            <div class="field-error">
+              <mat-icon aria-hidden="true">error</mat-icon>
               Current password is incorrect
             </div>
           }
 
-          <mat-form-field appearance="outline" style="width:100%;margin-top:8px">
+          <mat-form-field appearance="outline" class="field-spaced">
             <mat-label>New Password</mat-label>
             <input matInput [type]="showNew() ? 'text' : 'password'" formControlName="newPassword"
                    autocomplete="new-password">
@@ -93,7 +124,7 @@ function maxUtf8Bytes(maxBytes: number) {
             }
           </mat-form-field>
 
-          <mat-form-field appearance="outline" style="width:100%;margin-top:8px">
+          <mat-form-field appearance="outline" class="field-spaced">
             <mat-label>Confirm New Password</mat-label>
             <input matInput [type]="showConfirm() ? 'text' : 'password'" formControlName="confirmPassword"
                    autocomplete="new-password">
@@ -108,13 +139,13 @@ function maxUtf8Bytes(maxBytes: number) {
           </mat-form-field>
 
           @if (form.hasError('mismatch') && form.get('confirmPassword')?.touched) {
-            <div style="color:#dc2626;font-size:0.8rem;margin:-4px 0 8px 14px;display:flex;align-items:center;gap:4px">
-              <mat-icon style="font-size:14px;width:14px;height:14px">error</mat-icon>
+            <div class="field-error">
+              <mat-icon aria-hidden="true">error</mat-icon>
               Passwords do not match
             </div>
           }
 
-          <div style="margin-top:24px">
+          <div class="actions">
             <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || saving()">
               <mat-icon>lock_reset</mat-icon>
               {{ saving() ? 'Saving...' : 'Update Password' }}
