@@ -72,7 +72,12 @@ const DEBOUNCE_MS = 800;
        constrains a wider container, so 375px/mobile already renders at
        100% available width with no code path needed for it. */
     .answer-content { max-width: 1050px; }
-    .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
+    /* UX-7A: margin-top compensates for this screen's own class-context bar
+       being hidden (student-wide, not class-scoped) -- see the identical
+       fix on student-fees.ts's own h1 and student-fee-history.ts's own
+       .back-link. Applied here to .back-link since it's this screen's
+       first element (inside .answer-content). */
+    .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin: 65px 0 8px; min-height: 44px; }
     .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
     /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
     h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
