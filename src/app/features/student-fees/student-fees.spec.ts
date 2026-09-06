@@ -155,33 +155,23 @@ describe('StudentFeesComponent (D3 Student Fees)', () => {
     expect(classLines).toEqual(['Saturday Beginners', 'Weekday Technique']);
   });
 
-  it('payment history: only shows fees with an actual paidAt or invoice number -- never allocates or infers an amount', () => {
+  it('UX-6: shows a secondary "View payment history" action linking to the separate history route', () => {
     const fixture = setup();
     httpMock.expectOne(feesUrl).flush([
-      { feeId: 11, amount: 500, currency: 'INR', status: 'PAID', outstandingAmount: 0, outstandingAmountUnknown: false, paidAt: '2026-08-05', invoiceNumber: 'INV-2026-0042' },
-      { feeId: 12, amount: 200, currency: 'INR', status: 'PENDING', outstandingAmount: 200, outstandingAmountUnknown: false }
+      { feeId: 11, amount: 500, currency: 'INR', status: 'PAID', outstandingAmount: 0, outstandingAmountUnknown: false, paidAt: '2026-08-05', invoiceNumber: 'INV-2026-0042' }
     ]);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.paymentHistory().length).toBe(1);
-    expect(fixture.componentInstance.paymentHistory()[0].feeId).toBe(11);
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Payment History');
-    expect(text).toContain('INV-2026-0042');
+    const el = fixture.nativeElement as HTMLElement;
+    const link = Array.from(el.querySelectorAll('a')).find(a => a.textContent?.includes('View payment history')) as HTMLAnchorElement | undefined;
+    expect(link).toBeTruthy();
+    expect(link!.getAttribute('href')).toBe('/my-students/117/fees/history');
+    // UX-6: paid fees no longer render a second, duplicative payment-transaction section on this page.
+    expect(el.textContent).not.toContain('Payment History');
+    expect(el.textContent).not.toContain('INV-2026-0042');
   });
 
-  it('payment history: renders its own empty state when no fee has ever been paid or invoiced', () => {
-    const fixture = setup();
-    httpMock.expectOne(feesUrl).flush([
-      { feeId: 13, amount: 200, currency: 'INR', status: 'PENDING', outstandingAmount: 200, outstandingAmountUnknown: false }
-    ]);
-    fixture.detectChanges();
-
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('No payments recorded yet.');
-  });
-
-  it('accessibility: H1 is present and both sections are properly labelled lists', () => {
+  it('accessibility: H1 is present and the fee list is properly labelled', () => {
     const fixture = setup();
     httpMock.expectOne(feesUrl).flush([
       { feeId: 14, amount: 500, currency: 'INR', status: 'PAID', outstandingAmount: 0, outstandingAmountUnknown: false, paidAt: '2026-08-05' }
@@ -191,7 +181,7 @@ describe('StudentFeesComponent (D3 Student Fees)', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('h1')?.textContent).toBe('Fees');
     const lists = el.querySelectorAll('ul[aria-labelledby]');
-    expect(lists.length).toBe(2);
+    expect(lists.length).toBe(1);
   });
 
   it('no payment button, checkout, or edit control anywhere on the page', () => {
