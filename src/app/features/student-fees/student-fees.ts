@@ -55,15 +55,28 @@ import { backLabelFor, navigateForRecovery } from '../student-learning/student-l
   host: { class: 'sp-page' },
   imports: [RouterLink, CurrencyPipe, DatePipe, MatProgressSpinnerModule, MatButtonModule, MatIconModule, CurriculumMessageComponent],
   styles: [`
-    /* UX-6: Fraunces retired, matching every other student screen's h1. */
-    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 20px; }
+    /* UX-6: Fraunces retired, matching every other student screen's h1.
+       margin-top compensates for this screen's own class-context bar
+       being hidden (student-wide, not class-scoped -- see
+       student-learning-shell.ts's hideClassContext). The bar occupies
+       exactly 65px (measured live: class-context-bar.ts's own .bar --
+       10px+10px padding plus its 0.85rem text line-height, plus its 1px
+       border-bottom); without this, the heading sits 65px higher than on
+       every other student screen, a visible vertical jump when
+       navigating here. If class-context-bar.ts's own dimensions ever
+       change, this value must be re-measured and updated to match. */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 65px 0 20px; }
     /* UX-6: gold eyebrow label retired onto the neutral shared text-muted
        token -- same migration class-info.ts's own .section-title already
        went through (uppercase/letter-spacing/weight kept, color only). */
-    .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--sp-text-muted, #52596b); font-weight: 700; margin: 28px 0 10px; }
-    .section-title:first-of-type { margin-top: 0; }
-    .page-actions { margin-bottom: 16px; }
-    .page-actions a { min-height: 44px; }
+    .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--sp-text-muted, #52596b); font-weight: 700; margin: 0; }
+    /* UX-6 correction: "View payment history" previously floated in its
+       own block between h1 and this section, disconnected from the
+       content it actually relates to. Paired into one row instead --
+       label left, action right, matching the title-left/action-right
+       convention already used throughout Assignments/Learning Path. */
+    .section-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; }
+    .section-row a { min-height: 44px; }
     .fee-list { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0; padding: 0; }
     .fee-row { border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); background: var(--sp-surface, #fff); padding: 14px 16px; min-height: 44px; }
     .class-line { margin: 0 0 4px; font-size: 0.8rem; color: var(--sp-text-muted, #52596b); }
@@ -83,12 +96,12 @@ import { backLabelFor, navigateForRecovery } from '../student-learning/student-l
     } @else if (fees().length === 0) {
       <p class="empty-note" role="status">No fees on record for this student yet.</p>
     } @else {
-      <div class="page-actions">
+      <div class="section-row">
+        <p class="section-title" id="fees-balances-heading">Fees & Balances</p>
         <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'fees', 'history']">
           <mat-icon aria-hidden="true">receipt_long</mat-icon> View payment history
         </a>
       </div>
-      <p class="section-title" id="fees-balances-heading">Fees & Balances</p>
       <ul class="fee-list" aria-labelledby="fees-balances-heading">
         @for (f of fees(); track f.feeId) {
           <li class="fee-row">

@@ -27,7 +27,11 @@ import { backLabelFor, navigateForRecovery } from '../student-learning/student-l
   host: { class: 'sp-page' },
   imports: [RouterLink, CurrencyPipe, DatePipe, MatProgressSpinnerModule, MatIconModule, CurriculumMessageComponent],
   styles: [`
-    .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin-bottom: 8px; min-height: 44px; }
+    /* UX-6: margin-top compensates for this screen's own class-context bar
+       being hidden (student-wide, not class-scoped) -- see the identical
+       fix/comment on student-fees.ts's own h1. Applied here instead of to
+       h1 since .back-link is this page's first element. */
+    .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin: 65px 0 8px; min-height: 44px; }
     .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
     h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 20px; }
     .payment-list { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0; padding: 0; }
