@@ -145,7 +145,9 @@ import { StudentShellNavComponent } from './shell-nav/student-shell-nav';
           @if (accessLoss.lostAccessFor() === studentId()) {
             <app-lost-access-block (backToMyStudents)="backToMyStudents()" />
           } @else {
-            <app-class-context-bar [classes]="context.classes()" [selectedClassId]="context.selectedClassId()" (classSelected)="onClassSelected($event)" />
+            @if (!hideClassContext()) {
+              <app-class-context-bar [classes]="context.classes()" [selectedClassId]="context.selectedClassId()" (classSelected)="onClassSelected($event)" />
+            }
             <main id="main-content" tabindex="-1">
               <router-outlet />
             </main>
@@ -170,6 +172,17 @@ export class StudentLearningShellComponent implements OnInit {
   studentId = signal<number>(0);
   isMobile = signal(false);
   mobileNavOpen = signal(false);
+  /**
+   * UX-6: true on routes whose data sets `hideClassContext` (Fees/Payment
+   * History) -- student-wide screens where showing a selected class would
+   * falsely imply the content is filtered by it. Purely a rendering
+   * suppression: StudentLearningContextService's own selection is never
+   * touched here, so returning to a class-scoped screen still has the
+   * previous selection intact. Seeded synchronously from the current route
+   * snapshot (correct on first paint, no flash) and recomputed on every
+   * NavigationEnd below.
+   */
+  hideClassContext = signal(this.computeHideClassContext());
 
   constructor() {
     // v1.1.2 verified contract: selecting a switcher option moves focus to
@@ -183,6 +196,7 @@ export class StudentLearningShellComponent implements OnInit {
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
       takeUntilDestroyed()
     ).subscribe(() => {
+      this.hideClassContext.set(this.computeHideClassContext());
       if (this.isMobile()) this.mobileNavOpen.set(false);
       afterNextRender(() => this.focusPageHeading(), { injector: this.injector });
     });
@@ -224,6 +238,12 @@ export class StudentLearningShellComponent implements OnInit {
 
   closeMobileNav() {
     this.mobileNavOpen.set(false);
+  }
+
+  private computeHideClassContext(): boolean {
+    let r = this.route.snapshot;
+    while (r.firstChild) r = r.firstChild;
+    return r.data?.['hideClassContext'] === true;
   }
 
   private focusPageHeading() {

@@ -71,9 +71,25 @@ export const STUDENT_LEARNING_ROUTES: Routes = [
     // D3: student-scoped, not class-scoped -- fees span all of the
     // student's classes regardless of which one is currently selected via
     // the switcher, so this is a sibling of dashboard/classes rather than
-    // nested under classes/:classId.
+    // nested under classes/:classId. UX-6: hideClassContext suppresses the
+    // shell's persistent class-context bar on this screen -- showing a
+    // selected class here would falsely imply the fee data is filtered by
+    // it, when it is actually student-wide across every class. See
+    // student-learning-shell.ts's own use of this route data.
     path: 'fees',
-    loadComponent: () => import('../student-fees/student-fees').then(m => m.StudentFeesComponent)
+    loadComponent: () => import('../student-fees/student-fees').then(m => m.StudentFeesComponent),
+    data: { hideClassContext: true }
+  },
+  {
+    // UX-6: split off Fees' own page -- a paid fee previously appeared
+    // twice on one screen (once as a charge/status, again as a payment
+    // transaction). Flat sibling path, matching this file's own existing
+    // convention (classes/:classId/path, classes/:classId/modules/:moduleId,
+    // etc.) rather than a nested child-route/second outlet under 'fees'.
+    // Same hideClassContext rationale as 'fees' above -- also student-wide.
+    path: 'fees/history',
+    loadComponent: () => import('../student-fees/student-fee-history').then(m => m.StudentFeeHistoryComponent),
+    data: { hideClassContext: true }
   },
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
 ];
