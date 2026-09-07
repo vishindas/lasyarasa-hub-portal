@@ -62,6 +62,13 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
     /* UX-5: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
     h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
     .meta { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 16px; }
+    /* UX-7B: plain muted subtitle beneath the title, same treatment as
+       .meta -- reads as hierarchy/context (which module this assignment
+       belongs to), not status, so no chip/tone color. Rendered once,
+       before the status-branch switch, so it appears identically across
+       every status (DRAFT/SUBMITTED/VALIDATED/REVISION_REQUESTED/CLOSED),
+       not just the one branch that already had its own .meta line. */
+    .module-context { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 4px; }
     /* UX-5: default/success/warning banners recolored onto the shared
        neutral/positive/attention tones (same family CurriculumMessage-
        Component's own not-found/validation states already use). */
@@ -113,6 +120,7 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
       <mat-spinner diameter="36" />
     } @else if (!loadError() && detail(); as d) {
       <h1 tabindex="-1">{{ d.title }}</h1>
+      @if (d.moduleTitle) { <p class="module-context">Module: {{ d.moduleTitle }}</p> }
 
       @if (unavailable()) {
         <div class="banner" role="status">

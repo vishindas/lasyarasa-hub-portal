@@ -15,7 +15,15 @@ export type StudentAssignmentStatus = 'DRAFT' | 'SUBMITTED' | 'REVISION_REQUESTE
 export type AssignmentInstanceStatus = 'ACTIVE' | 'CLOSED' | 'WITHDRAWN';
 export type StudentAssignmentQuestionType = 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'SHORT_TEXT' | 'LONG_TEXT';
 
-/** GET /assignments -- summary-list item. Structurally cannot contain answer-key data. */
+/**
+ * GET /assignments -- summary-list item. Structurally cannot contain
+ * answer-key data.
+ *
+ * UX-7B: moduleId/moduleTitle expose the module relationship that already
+ * existed on the backend entity but was never projected to the student
+ * before now. moduleTitle may be null/undefined if the module row
+ * couldn't be resolved server-side -- never treat its absence as an error.
+ */
 export interface StudentAssignmentSummaryDTO {
   id: number;
   instanceId: number;
@@ -23,6 +31,8 @@ export interface StudentAssignmentSummaryDTO {
   dueAt: string;
   status: StudentAssignmentStatus;
   attemptNumber: number;
+  moduleId?: number;
+  moduleTitle?: string | null;
 }
 
 /** Deliberately has no isCorrect field -- structurally cannot leak the answer key. */
@@ -47,7 +57,13 @@ export interface StudentAssignmentQuestionDTO {
   editable: boolean;
 }
 
-/** GET /assignments/{id}. No response/answer content field -- see DraftResponseDTO/ResponseSummaryDTO for that. */
+/**
+ * GET /assignments/{id}. No response/answer content field -- see
+ * DraftResponseDTO/ResponseSummaryDTO for that.
+ *
+ * UX-7B: see StudentAssignmentSummaryDTO's own doc comment for the
+ * moduleId/moduleTitle rationale.
+ */
 export interface StudentAssignmentDetailDTO {
   id: number;
   instanceId: number;
@@ -58,6 +74,8 @@ export interface StudentAssignmentDetailDTO {
   rowVersion: number;
   instanceStatus: AssignmentInstanceStatus;
   questions: StudentAssignmentQuestionDTO[];
+  moduleId?: number;
+  moduleTitle?: string | null;
 }
 
 /**

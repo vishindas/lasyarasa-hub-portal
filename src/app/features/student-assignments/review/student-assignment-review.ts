@@ -81,7 +81,9 @@ interface ReviewRow {
       <mat-spinner diameter="36" />
     } @else if (detail(); as d) {
       <h1 tabindex="-1">Review before submitting</h1>
-      <p class="meta">{{ d.title }}</p>
+      <!-- UX-7B: module context folded into the existing meta line, same
+           principle as Answer -- preserve the working layout, no new card/banner. -->
+      <p class="meta">{{ d.title }}{{ d.moduleTitle ? ' · Module: ' + d.moduleTitle : '' }}</p>
 
       @if (unansweredCount() > 0) {
         <div class="warn-banner" role="alert">{{ unansweredCount() }} question{{ unansweredCount() === 1 ? '' : 's' }} need{{ unansweredCount() === 1 ? 's' : '' }} an answer before you can submit.</div>

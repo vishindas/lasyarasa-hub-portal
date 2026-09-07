@@ -138,7 +138,10 @@ const DEBOUNCE_MS = 800;
       <mat-spinner diameter="36" />
     } @else if (!loadError() && detail(); as d) {
       <h1 tabindex="-1">{{ d.title }}</h1>
-      <p class="meta">{{ questionStates().length }} question{{ questionStates().length === 1 ? '' : 's' }}</p>
+      <!-- UX-7B: module context folded into the existing meta line rather than
+           a new line/card/banner -- this is the working answer screen, and the
+           instruction is to add context without cluttering it. -->
+      <p class="meta">{{ questionStates().length }} question{{ questionStates().length === 1 ? '' : 's' }}{{ d.moduleTitle ? ' · Module: ' + d.moduleTitle : '' }}</p>
 
       @if (mode.mode() === 'WRITE_FROZEN') {
         <div class="frozen-banner" role="status" aria-live="assertive">

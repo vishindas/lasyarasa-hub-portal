@@ -456,4 +456,14 @@ describe('StudentAssignmentAnswerComponent', () => {
     expect(html).not.toContain('iscorrect');
     expect(html).not.toContain('correctoption');
   });
+
+  it('UX-7B: folds module context into the existing meta line, no new line/card/banner', () => {
+    const fixture = setup();
+    httpMock.expectOne(DETAIL_URL).flush({ ...detailWithQuestions(), moduleTitle: 'Foundations' });
+    httpMock.expectOne(DRAFTS_URL).flush([]);
+    fixture.detectChanges();
+
+    const meta = (fixture.nativeElement as HTMLElement).querySelector('.meta');
+    expect(meta?.textContent?.trim()).toBe('4 questions · Module: Foundations');
+  });
 });

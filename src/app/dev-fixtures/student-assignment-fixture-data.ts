@@ -14,13 +14,19 @@ import {
 } from '../features/student-assignments/data-access/student-assignment.model';
 
 // ---- a1: DRAFT, never started -- full 4-question-type answering flow ----
+// UX-7B: moduleId/moduleTitle present here (and on a2 below) so the new
+// module-context UI is genuinely visually reachable via this dev-only
+// fixture; other fixtures below deliberately omit it to also exercise the
+// graceful-absence path live, not just in unit tests.
 export const FIXTURE_SA_1_SUMMARY: StudentAssignmentSummaryDTO = {
   id: 5001, instanceId: 6001, title: 'Posture and Terminology Review',
-  dueAt: '2026-09-20T23:59:00', status: 'DRAFT', attemptNumber: 0
+  dueAt: '2026-09-20T23:59:00', status: 'DRAFT', attemptNumber: 0,
+  moduleId: 40, moduleTitle: 'Foundations'
 };
 export const FIXTURE_SA_1_DETAIL: StudentAssignmentDetailDTO = {
   id: 5001, instanceId: 6001, title: 'Posture and Terminology Review',
   dueAt: '2026-09-20T23:59:00', status: 'DRAFT', attemptNumber: 0, rowVersion: 0, instanceStatus: 'ACTIVE',
+  moduleId: 40, moduleTitle: 'Foundations',
   questions: [
     { id: 7001, questionType: 'SHORT_TEXT', prompt: 'Name a basic adavu.', questionOrder: 1, maxSelections: null, options: [], editable: true },
     {
@@ -39,10 +45,12 @@ export const FIXTURE_SA_1_DETAIL: StudentAssignmentDetailDTO = {
 
 // ---- a2: DRAFT, overdue ----
 export const FIXTURE_SA_2_SUMMARY: StudentAssignmentSummaryDTO = {
-  id: 5002, instanceId: 6002, title: 'Basic Terminology Quiz', dueAt: '2026-08-01T23:59:00', status: 'DRAFT', attemptNumber: 0
+  id: 5002, instanceId: 6002, title: 'Basic Terminology Quiz', dueAt: '2026-08-01T23:59:00', status: 'DRAFT', attemptNumber: 0,
+  moduleId: 41, moduleTitle: 'Technique Basics'
 };
 export const FIXTURE_SA_2_DETAIL: StudentAssignmentDetailDTO = {
   id: 5002, instanceId: 6002, title: 'Basic Terminology Quiz', dueAt: '2026-08-01T23:59:00', status: 'DRAFT', attemptNumber: 0, rowVersion: 0, instanceStatus: 'ACTIVE',
+  moduleId: 41, moduleTitle: 'Technique Basics',
   questions: [{ id: 7010, questionType: 'SHORT_TEXT', prompt: 'What does "adavu" mean?', questionOrder: 1, maxSelections: null, options: [], editable: true }]
 };
 
