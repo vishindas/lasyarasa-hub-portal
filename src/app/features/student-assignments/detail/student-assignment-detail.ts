@@ -110,11 +110,20 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
     .empty-note { color: var(--sp-text-muted, #52596b); padding: 24px 0; }
   `],
   template: `
-    <a class="back-link" [routerLink]="['/my-students', studentId(), 'assignments']">
-      <mat-icon aria-hidden="true">arrow_back</mat-icon> Back to Assignments
+    <!-- UX-7D (revised): DRAFT/REVISION_REQUESTED still belong on the
+         primary To Do inbox, so "back" returns there; SUBMITTED/VALIDATED/
+         CLOSED no longer appear on that page at all (moved to the
+         secondary Assignment Activity destination), so "back" for those
+         must go there instead, with the matching tab pre-selected via the
+         same ?tab= mechanism the rest of this feature already uses.
+         Before the detail loads (or on a load error, where the status is
+         unknown), this safely defaults to the primary page -- the same
+         behavior this link always had. -->
+    <a class="back-link" [routerLink]="backRoute()" [queryParams]="backQueryParams()">
+      <mat-icon aria-hidden="true">arrow_back</mat-icon> {{ backLabel() }}
     </a>
 
-    <app-student-assignment-message [error]="loadError()" (retry)="load()" (back)="backToSummary()" backLabel="Back to Assignments" />
+    <app-student-assignment-message [error]="loadError()" (retry)="load()" (back)="backToSummary()" backLabel="Back to To Do" />
 
     @if (loading()) {
       <mat-spinner diameter="36" />
@@ -262,6 +271,38 @@ export class StudentAssignmentDetailComponent implements OnInit {
 
   revisionFeedback = computed(() => this.currentAttempt()?.feedback ?? null);
 
+  /**
+   * UX-7D (revised): status-aware "back" destination. DRAFT and
+   * REVISION_REQUESTED are the only statuses the primary To Do inbox
+   * shows (student-assignment-summary.ts), so those -- and the unknown-
+   * status default before load/on error -- return there. SUBMITTED/
+   * VALIDATED/CLOSED were moved off that page entirely, so returning a
+   * student there after viewing one of those would land them nowhere
+   * near what they just looked at; they go to Assignment Activity
+   * instead, with the tab that actually contains this assignment's
+   * status pre-selected.
+   */
+  private isActivityStatus = computed(() => {
+    const s = this.detail()?.status;
+    return s === 'SUBMITTED' || s === 'VALIDATED' || s === 'CLOSED';
+  });
+
+  /** UX-7D route cleanup: the primary To Do inbox's canonical route is now 'todo' (was 'assignments', now only a backward-compat redirect) -- Assignment Activity stays under 'assignments/history', still genuinely assignment-specific. */
+  backRoute = computed((): (string | number)[] => {
+    return this.isActivityStatus()
+      ? ['/my-students', this.studentId(), 'assignments', 'history']
+      : ['/my-students', this.studentId(), 'todo'];
+  });
+
+  backQueryParams = computed((): Record<string, string> | undefined => {
+    const status = this.detail()?.status;
+    if (status === 'SUBMITTED') return { tab: 'awaiting' };
+    if (status === 'VALIDATED' || status === 'CLOSED') return { tab: 'history' };
+    return undefined;
+  });
+
+  backLabel = computed(() => this.isActivityStatus() ? 'Back to Assignment Activity' : 'Back to To Do');
+
   ngOnInit() {
     this.studentId.set(Number(this.route.snapshot.paramMap.get('studentId')));
     this.studentAssignmentId.set(Number(this.route.snapshot.paramMap.get('studentAssignmentId')));
@@ -346,7 +387,8 @@ export class StudentAssignmentDetailComponent implements OnInit {
     if (this.mode.mutationsDisabled()) event.preventDefault();
   }
 
+  /** UX-7D route cleanup: canonical To Do route is now 'todo' (was 'assignments', now only a backward-compat redirect). Status is unknown on a load error, so this always defaults to the primary inbox, same as before. */
   backToSummary() {
-    this.router.navigate(['/my-students', this.studentId(), 'assignments']);
+    this.router.navigate(['/my-students', this.studentId(), 'todo']);
   }
 }

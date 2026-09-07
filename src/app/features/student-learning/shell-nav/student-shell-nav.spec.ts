@@ -21,7 +21,7 @@ describe('StudentShellNavComponent', () => {
         provideRouter([
           { path: 'my-students/:studentId/dashboard', component: StubPage },
           { path: 'my-students/:studentId/classes', component: StubPage },
-          { path: 'my-students/:studentId/assignments', component: StubPage },
+          { path: 'my-students/:studentId/todo', component: StubPage },
           { path: 'my-students/:studentId/fees', component: StubPage }
         ])
       ]
@@ -76,9 +76,29 @@ describe('StudentShellNavComponent', () => {
     const labels = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a.nav-item')).map(a => a.textContent?.trim());
     expect(labels.some(l => l?.includes('Dashboard'))).toBe(true);
     expect(labels.some(l => l?.includes('My Classes'))).toBe(true);
-    expect(labels.some(l => l?.includes('Assignments'))).toBe(true);
+    // UX-7D: "Assignments" -> "To Do" label/icon. UX-7D route cleanup: canonical route is now /todo (was /assignments, now only a backward-compat redirect).
+    expect(labels.some(l => l?.includes('To Do'))).toBe(true);
     expect(labels.some(l => l?.includes('Fees'))).toBe(true);
     expect(labels.length).toBe(4);
+  });
+
+  /**
+   * UX-7D refinement: Dashboard=overview, To Do=actions requiring
+   * attention, My Classes=learning structure, Fees=finance, in that
+   * priority order -- To Do moved directly under Dashboard (was below My
+   * Classes).
+   */
+  it('UX-7D: nav order is Dashboard, To Do, My Classes, Fees', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    flushSwitcher();
+    fixture.detectChanges();
+
+    const labels = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a.nav-item')).map(a => a.textContent?.trim());
+    expect(labels[0]).toContain('Dashboard');
+    expect(labels[1]).toContain('To Do');
+    expect(labels[2]).toContain('My Classes');
+    expect(labels[3]).toContain('Fees');
   });
 
   it('marks "My Classes" active while routed to a nested classes/** screen -- Learning Path/Module/Lesson have no top-level link of their own', async () => {

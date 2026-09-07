@@ -26,8 +26,13 @@ import { MatIconModule } from '@angular/material/icon';
   template: `
     <mat-icon class="success" aria-hidden="true">check_circle</mat-icon>
     <h1 tabindex="-1">{{ resubmitted() ? 'Resubmitted' : 'Submitted' }}</h1>
-    <p>Your teacher will review it and you'll see the result under Assignments.</p>
-    <a mat-flat-button color="primary" [routerLink]="['/my-students', studentId(), 'assignments']" [queryParams]="{ tab: 'awaiting' }">Back to Assignments</a>
+    <p>Your teacher will review it and you can check its status anytime.</p>
+    <!-- UX-7D (revised): SUBMITTED lives on the secondary Assignment
+         Activity destination now, not the primary To Do inbox (a
+         submitted assignment requires no further student action, so it
+         no longer appears there) -- link and label updated together so
+         neither promises a stop the student won't actually land on. -->
+    <a mat-flat-button color="primary" [routerLink]="['/my-students', studentId(), 'assignments', 'history']" [queryParams]="{ tab: 'awaiting' }">View submission status</a>
   `
 })
 export class StudentAssignmentConfirmComponent implements OnInit {

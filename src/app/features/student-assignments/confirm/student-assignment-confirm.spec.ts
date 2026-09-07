@@ -27,9 +27,16 @@ describe('StudentAssignmentConfirmComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Resubmitted');
   });
 
-  it('links back to Assignments with the awaiting tab selected', () => {
+  /**
+   * UX-7D (revised): SUBMITTED no longer lives on the primary To Do inbox
+   * (a submitted assignment requires no further student action), so this
+   * links to the secondary Assignment Activity destination instead, with
+   * its Awaiting validation tab pre-selected -- not "Back to To Do".
+   */
+  it('links to Assignment Activity with the Awaiting validation tab selected, labeled "View submission status"', () => {
     const fixture = setup({});
     const link = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toContain('/my-students/201/assignments');
+    expect(link.textContent?.trim()).toBe('View submission status');
+    expect(link.getAttribute('href')).toBe('/my-students/201/assignments/history?tab=awaiting');
   });
 });
