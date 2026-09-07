@@ -54,7 +54,10 @@ import { studentAssignmentChip, isOverdue, spToneClass } from '../shared/student
        on this feature's routes). Same fix/value as student-fees.ts's own
        h1 -- the bar occupies exactly 65px (measured live in UX-6). */
     h1 { font-size: 1.5rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 65px 0 16px; }
-    h1:focus-visible { outline: none; }
+    /* UX-8 P1-B: was outline: none with no replacement -- the route-change
+       focus mechanism (student-learning-shell.ts's focusPageHeading()) moved
+       focus here on every navigation with no visible indicator at all. */
+    h1:focus-visible { outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: 2px; }
     /* UX-7D: the source-level grouping container -- deliberately one
        visual step lighter than the white bordered cards inside it
        (--sp-hover-bg, the same very-light neutral wash already used
@@ -176,7 +179,16 @@ import { studentAssignmentChip, isOverdue, spToneClass } from '../shared/student
         </div>
         <div class="row-meta">
           <span class="sp-chip {{ spToneClass(chipFor(a).tone) }}">{{ chipFor(a).label }}</span>
-          <a mat-stroked-button class="row-action" [routerLink]="['/my-students', studentId(), 'assignments', a.id]"
+          <!-- UX-8 P1-C: routerLink is null while frozen, not just left
+               pointing at the write screen with aria-disabled beside it --
+               RouterLink navigates from its own click listener regardless of
+               a (click) handler's preventDefault() on the same element (that
+               only stops the anchor's native href navigation), so a real
+               mouse click still reached the write screen. A null routerLink
+               makes RouterLink itself inert; onCardClick() stays as a
+               second guard. -->
+          <a mat-stroked-button class="row-action"
+             [routerLink]="ctaDisabled(a) ? null : ['/my-students', studentId(), 'assignments', a.id]"
              [attr.aria-disabled]="ctaDisabled(a) || null" [tabIndex]="ctaDisabled(a) ? -1 : 0"
              (click)="onCardClick($event, a)">
             {{ ctaLabel(a) }}

@@ -33,7 +33,7 @@ import { isOverdue, spToneClass, studentAssignmentChip } from '../../student-ass
     .row-due { font-size: 0.78rem; color: var(--sp-text-muted, #52596b); margin: 2px 0 0; }
     .row-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .row-action {
-      display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 12px;
+      display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 12px;
       border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px);
       color: var(--sp-primary, #3d4ed8); text-decoration: none; font-size: 0.82rem; font-weight: 600;
     }
@@ -53,7 +53,14 @@ import { isOverdue, spToneClass, studentAssignmentChip } from '../../student-ass
       </div>
       <div class="row-meta">
         <span class="sp-chip {{ spToneClass(chip().tone) }}">{{ chip().label }}</span>
-        <a class="row-action" [routerLink]="['/my-students', studentId(), 'assignments', assignment().id]"
+        <!-- UX-8 P1-C: routerLink is null while frozen, matching the same
+             fix in student-assignment-summary.ts/student-assignment-detail.ts
+             -- RouterLink navigates from its own click listener regardless
+             of a (click) handler's preventDefault(), so aria-disabled alone
+             (even with this row's own pointer-events:none) wasn't a
+             consistent guarantee against every activation path. -->
+        <a class="row-action"
+           [routerLink]="ctaDisabled() ? null : ['/my-students', studentId(), 'assignments', assignment().id]"
            [attr.aria-disabled]="ctaDisabled() || null" [tabIndex]="ctaDisabled() ? -1 : 0"
            (click)="onClick($event)">
           {{ ctaLabel() }}
