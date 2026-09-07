@@ -11,10 +11,13 @@ import { MatButtonModule } from '@angular/material/button';
   selector: 'app-offline-block',
   standalone: true,
   imports: [MatIconModule, MatButtonModule],
+  // UX-8 P2-7: last remaining legacy-hex text color migrated onto the
+  // shared --sp-* token system (the icon's own neutral gray was already
+  // not part of the retired ivory/gold palette, so it's left as-is).
   styles: [`
     .block {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 14px; padding: 64px 24px; text-align: center; color: #6B6255; min-height: 320px;
+      gap: 14px; padding: 64px 24px; text-align: center; color: var(--sp-text-muted, #52596b); min-height: 320px;
     }
     mat-icon { font-size: 40px; width: 40px; height: 40px; color: #adb5bd; }
     .block p { max-width: 420px; font-size: 0.95rem; margin: 0; }

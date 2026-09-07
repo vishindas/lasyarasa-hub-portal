@@ -127,7 +127,7 @@ const DEBOUNCE_MS = 800;
   `],
   template: `
     <div class="answer-content">
-    <a class="back-link" role="button" tabindex="0" [attr.aria-disabled]="navigating() || null"
+    <a class="back-link" role="button" [tabIndex]="navigating() ? -1 : 0" [attr.aria-disabled]="navigating() || null"
        (click)="onExitClick($event)" (keydown.enter)="onExitClick($event)" (keydown.space)="onExitClick($event)">
       <mat-icon aria-hidden="true">arrow_back</mat-icon> {{ isRevising() ? 'Cancel revise' : 'Save and exit' }}
     </a>

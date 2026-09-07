@@ -95,7 +95,13 @@ import { StudentShellNavComponent } from './shell-nav/student-shell-nav';
        content) still sets its own smaller max-width, which wins over this
        outer bound automatically since width constraints only ever shrink. */
     main { flex: 1; min-width: 0; max-width: 1600px; width: 100%; margin: 0 auto; }
-    main:focus-visible { outline: none; }
+    /* UX-8 P1-B: was outline: none with no replacement -- suppressed the
+       only visible confirmation a keyboard user gets that the skip link
+       actually moved focus here. Inward offset (same convention the
+       back-link focus rules across student-assignments/* already use) since
+       main is a large container abutting the rail/topbar, where an
+       outward outline would be clipped or overlap them. */
+    main:focus-visible { outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
 
     @media (max-width: 860px) {
       .rail {
@@ -136,7 +142,8 @@ import { StudentShellNavComponent } from './shell-nav/student-shell-nav';
             <header class="topbar">
               <button
                 class="menu-toggle" type="button" (click)="toggleMobileNav()"
-                [attr.aria-expanded]="mobileNavOpen()" aria-controls="student-shell-rail" aria-label="Open navigation">
+                [attr.aria-expanded]="mobileNavOpen()" aria-controls="student-shell-rail"
+                [attr.aria-label]="mobileNavOpen() ? 'Close navigation' : 'Open navigation'">
                 <mat-icon aria-hidden="true">menu</mat-icon>
               </button>
               <span class="topbar-brand">LasyaRasa</span>

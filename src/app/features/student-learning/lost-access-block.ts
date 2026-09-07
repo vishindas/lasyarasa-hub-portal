@@ -12,13 +12,17 @@ import { MatButtonModule } from '@angular/material/button';
   selector: 'app-lost-access-block',
   standalone: true,
   imports: [MatIconModule, MatButtonModule],
+  // UX-8 P1-A: presentation migrated onto the shared --sp-* token system
+  // (was the pre-redesign ivory/Fraunces/gold palette) -- no change to the
+  // approved copy, the security-driven state-clearing behavior in
+  // student-learning-shell.ts, or the "Back to My Students" action.
   styles: [`
     .block {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 14px; padding: 64px 24px; text-align: center; color: #6B6255; min-height: 320px;
+      gap: 14px; padding: 64px 24px; text-align: center; color: var(--sp-text-muted, #52596b); min-height: 320px;
     }
-    mat-icon { font-size: 40px; width: 40px; height: 40px; color: #A3762C; }
-    .block p { max-width: 420px; font-size: 0.95rem; margin: 0; color: #1C1A16; }
+    mat-icon { font-size: 40px; width: 40px; height: 40px; color: var(--sp-text-faint, #9ba3b8); }
+    .block p { max-width: 420px; font-size: 0.95rem; margin: 0; color: var(--sp-text, #1a1f36); }
     button { min-height: 44px; }
     @media (prefers-reduced-motion: reduce) { .block { transition: none; } }
   `],

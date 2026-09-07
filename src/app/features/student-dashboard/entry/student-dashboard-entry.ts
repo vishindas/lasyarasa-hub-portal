@@ -14,11 +14,15 @@ import { environment } from '../../../../environments/environment';
  * D1 foundation, D6 promotion: this is now the canonical CLIENT landing
  * screen at /my-students (see app.routes.ts), replacing the retired
  * MyStudentsComponent -- same route, same guards (authGuard, clientGuard),
- * same StudentAccessApiService.list() call, no new endpoint. Restyled to
- * the shell's own ivory/Fraunces/gold language (previously a generic
- * Material light theme) and given the shell's account menu (email/change
- * password/sign out), since a student/parent landing here before choosing
- * a student had no way to sign out either.
+ * same StudentAccessApiService.list() call, no new endpoint. Given the
+ * shell's account menu (email/change password/sign out), since a
+ * student/parent landing here before choosing a student had no way to
+ * sign out either.
+ *
+ * UX-8 P1-A: visual content migrated onto the shared --sp-* token system
+ * (was the last .sp-scope root still on the pre-redesign ivory/Fraunces/
+ * gold palette) -- Fraunces retained only on the wordmark, per the
+ * portal-wide exception.
  *
  * Behavior: exactly one accessible student -> redirect straight to that
  * student's dashboard overview (SELF-single direct entry), never lingering
@@ -50,28 +54,41 @@ import { environment } from '../../../../environments/environment';
   // UX-1: hooks this screen into the shared student token system (.sp-scope,
   // src/styles-student.scss) so AccountMenuComponent's var(--sp-*) rules
   // resolve here too, since this screen sits outside StudentLearningShellComponent's
-  // own subtree. This is infrastructure only -- this screen's own visual
-  // content (header, cards) is deliberately untouched in this slice; every
-  // rule below still uses its own literal ivory/gold values unchanged.
+  // own subtree.
+  // UX-8 P1-A: this screen's own visual content (header, cards) is now
+  // migrated onto that same token system -- previously it was the one
+  // .sp-scope root left on the pre-redesign ivory/black/gold/Fraunces
+  // palette. Token/color/font/radius/elevation only: no change to
+  // student-selection logic, auto-redirect behavior, or geometry (the
+  // .content max-width/centering is unchanged).
   host: { class: 'sp-scope' },
   imports: [MatCardModule, MatProgressSpinnerModule, CurriculumMessageComponent, AccountMenuComponent],
   styles: [`
-    :host { display: block; min-height: 100vh; background: #FBF7EC; }
+    :host { display: block; min-height: 100vh; background: var(--sp-bg, #f8f9fb); }
     .header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 16px; background: #1C1A16; color: #FAF6EC;
+      padding: 10px 16px; background: var(--sp-surface, #fff); color: var(--sp-text, #1a1f36);
+      border-bottom: 1px solid var(--sp-border, #e8eaf0);
     }
+    /* Fraunces stays here -- this is the LasyaRasa wordmark, the one
+       approved exception to the portal-wide sans-serif heading rule. */
     .brand { font-family: Fraunces, Georgia, serif; font-weight: 700; }
     .content { max-width: 720px; margin: 0 auto; padding: 24px 20px 48px; }
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.5rem; color: #1C1A16; margin: 0 0 20px; }
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 20px; }
     .cards { display: grid; gap: 12px; }
-    .student-card { border-radius: 0 !important; border: 1px solid #E3DCC8 !important; min-height: 44px; }
+    .student-card {
+      border-radius: var(--sp-radius, 12px) !important;
+      border: 1px solid var(--sp-border-subtle, #edf0f7) !important;
+      background: var(--sp-surface, #fff);
+      box-shadow: none !important;
+      min-height: 44px;
+    }
     .student-card.navigable { cursor: pointer; }
-    .student-card.navigable:focus-visible, .student-card.navigable:hover { outline: 2px solid #7A5419; outline-offset: 2px; }
-    .student-name { margin: 0 0 4px; font-weight: 700; color: #1C1A16; }
-    .school-name { margin: 0 0 4px; font-size: 0.85rem; color: #6B6255; }
-    .relationship { font-size: 0.78rem; color: #6B6255; text-transform: capitalize; }
-    .empty-note { color: #6B6255; }
+    .student-card.navigable:focus-visible, .student-card.navigable:hover { outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: 2px; }
+    .student-name { margin: 0 0 4px; font-weight: 700; color: var(--sp-text, #1a1f36); }
+    .school-name { margin: 0 0 4px; font-size: 0.85rem; color: var(--sp-text-muted, #52596b); }
+    .relationship { font-size: 0.78rem; color: var(--sp-text-muted, #52596b); text-transform: capitalize; }
+    .empty-note { color: var(--sp-text-muted, #52596b); }
   `],
   template: `
     <header class="header">

@@ -110,6 +110,15 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
     .empty-note { color: var(--sp-text-muted, #52596b); padding: 24px 0; }
   `],
   template: `
+    <!-- UX-8 P1-C: [routerLink] is set to null while frozen, not just left
+         pointing at the destination with aria-disabled/tabIndex=-1 beside
+         it -- RouterLink navigates from its own click listener independent
+         of any (click) handler's preventDefault() on the same element (that
+         only stops the anchor's native href navigation), so a real mouse
+         click still reached the write screen even with aria-disabled set.
+         A null routerLink makes RouterLink itself inert (no navigateByUrl
+         call, no href rendered), which is what actually stops mouse
+         activation; onWriteNavClick() stays as a second guard. -->
     <!-- UX-7D (revised): DRAFT/REVISION_REQUESTED still belong on the
          primary To Do inbox, so "back" returns there; SUBMITTED/VALIDATED/
          CLOSED no longer appear on that page at all (moved to the
@@ -142,8 +151,10 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
             <p class="meta">Due {{ d.dueAt | date }}{{ started() ? ' · draft saved — you can pick up where you left off' : '' }}</p>
             <app-student-assignment-mode-banner />
             <div class="actions">
-              <a mat-flat-button color="primary" [routerLink]="['/my-students', studentId(), 'assignments', d.id, 'answer']"
-                 [attr.aria-disabled]="mode.mutationsDisabled() || null" (click)="onWriteNavClick($event)">
+              <a mat-flat-button color="primary"
+                 [routerLink]="mode.mutationsDisabled() ? null : ['/my-students', studentId(), 'assignments', d.id, 'answer']"
+                 [attr.aria-disabled]="mode.mutationsDisabled() || null" [tabIndex]="mode.mutationsDisabled() ? -1 : 0"
+                 (click)="onWriteNavClick($event)">
                 {{ started() ? 'Continue' : 'Start' }}
               </a>
             </div>
@@ -198,8 +209,10 @@ import { StudentAttemptHistoryComponent } from './student-attempt-history';
             }
             <div class="actions">
               <app-student-assignment-mode-banner />
-              <a mat-flat-button color="primary" [routerLink]="['/my-students', studentId(), 'assignments', d.id, 'answer']"
-                 [attr.aria-disabled]="mode.mutationsDisabled() || null" (click)="onWriteNavClick($event)">
+              <a mat-flat-button color="primary"
+                 [routerLink]="mode.mutationsDisabled() ? null : ['/my-students', studentId(), 'assignments', d.id, 'answer']"
+                 [attr.aria-disabled]="mode.mutationsDisabled() || null" [tabIndex]="mode.mutationsDisabled() ? -1 : 0"
+                 (click)="onWriteNavClick($event)">
                 Revise and resubmit
               </a>
             </div>

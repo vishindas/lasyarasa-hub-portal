@@ -46,14 +46,17 @@ const TAB_ORDER: ActivityTab[] = ['awaiting', 'history'];
     .back-link { display: inline-flex; align-items: center; gap: 4px; color: var(--sp-text-muted, #52596b); text-decoration: none; font-size: 0.85rem; margin: 65px 0 8px; min-height: 44px; }
     .back-link:hover, .back-link:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
     h1 { font-size: 1.5rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 16px; }
-    h1:focus-visible { outline: none; }
+    /* UX-8 P1-B: was outline: none with no replacement -- the route-change
+       focus mechanism (student-learning-shell.ts's focusPageHeading()) moved
+       focus here on every navigation with no visible indicator at all. */
+    h1:focus-visible { outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: 2px; }
     .tab-body { padding: 12px 4px 20px; }
     .empty-note { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--sp-text-muted, #52596b); padding: 40px 16px; }
     .empty-note mat-icon { font-size: 32px; width: 32px; height: 32px; color: var(--sp-text-faint, #9ba3b8); }
     .row {
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
       min-height: 44px; padding: 12px 14px; margin-bottom: 8px;
-      border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); background: var(--sp-surface, #fff);
+      border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius, 12px); background: var(--sp-surface, #fff);
     }
     .row.row-awaiting { background: var(--sp-primary-bg, #eef0fb); }
     /* UX-7D polish: was a full --sp-tone-positive-bg (green) fill -- made
