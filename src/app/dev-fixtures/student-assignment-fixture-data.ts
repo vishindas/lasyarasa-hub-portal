@@ -18,15 +18,20 @@ import {
 // module-context UI is genuinely visually reachable via this dev-only
 // fixture; other fixtures below deliberately omit it to also exercise the
 // graceful-absence path live, not just in unit tests.
+// UX-7C: moduleId 401/moduleTitle 'Basic Adavus' -- realigned from the
+// original 40/'Foundations' (an id with no matching FIXTURE_MODULE_DETAIL
+// entry) to a REAL module-detail fixture, so this assignment is also
+// visually reachable from Module Detail's own new Related Assignments
+// section, not only from the Assignments list/detail screens.
 export const FIXTURE_SA_1_SUMMARY: StudentAssignmentSummaryDTO = {
   id: 5001, instanceId: 6001, title: 'Posture and Terminology Review',
   dueAt: '2026-09-20T23:59:00', status: 'DRAFT', attemptNumber: 0,
-  moduleId: 40, moduleTitle: 'Foundations'
+  moduleId: 401, moduleTitle: 'Basic Adavus'
 };
 export const FIXTURE_SA_1_DETAIL: StudentAssignmentDetailDTO = {
   id: 5001, instanceId: 6001, title: 'Posture and Terminology Review',
   dueAt: '2026-09-20T23:59:00', status: 'DRAFT', attemptNumber: 0, rowVersion: 0, instanceStatus: 'ACTIVE',
-  moduleId: 40, moduleTitle: 'Foundations',
+  moduleId: 401, moduleTitle: 'Basic Adavus',
   questions: [
     { id: 7001, questionType: 'SHORT_TEXT', prompt: 'Name a basic adavu.', questionOrder: 1, maxSelections: null, options: [], editable: true },
     {
@@ -44,13 +49,16 @@ export const FIXTURE_SA_1_DETAIL: StudentAssignmentDetailDTO = {
 };
 
 // ---- a2: DRAFT, overdue ----
+// UX-7C: moduleId realigned 41 -> 411 ('Jatis and Rhythm'), a second real
+// module-detail fixture with fewer lessons (2) than 401's (5) -- exercises
+// a different lessons+assignments combination on Module Detail.
 export const FIXTURE_SA_2_SUMMARY: StudentAssignmentSummaryDTO = {
   id: 5002, instanceId: 6002, title: 'Basic Terminology Quiz', dueAt: '2026-08-01T23:59:00', status: 'DRAFT', attemptNumber: 0,
-  moduleId: 41, moduleTitle: 'Technique Basics'
+  moduleId: 411, moduleTitle: 'Jatis and Rhythm'
 };
 export const FIXTURE_SA_2_DETAIL: StudentAssignmentDetailDTO = {
   id: 5002, instanceId: 6002, title: 'Basic Terminology Quiz', dueAt: '2026-08-01T23:59:00', status: 'DRAFT', attemptNumber: 0, rowVersion: 0, instanceStatus: 'ACTIVE',
-  moduleId: 41, moduleTitle: 'Technique Basics',
+  moduleId: 411, moduleTitle: 'Jatis and Rhythm',
   questions: [{ id: 7010, questionType: 'SHORT_TEXT', prompt: 'What does "adavu" mean?', questionOrder: 1, maxSelections: null, options: [], editable: true }]
 };
 
@@ -133,20 +141,32 @@ export const FIXTURE_SA_5_ATTEMPTS: AttemptDTO[] = [
 ];
 
 // ---- a6: CLOSED, never started ----
+// UX-7C: moduleId 402 ('Namaskaram', a real module-detail fixture with
+// exactly 1 lesson) -- exercises a module with both lessons and a single
+// CLOSED related assignment.
 export const FIXTURE_SA_6_SUMMARY: StudentAssignmentSummaryDTO = {
-  id: 5006, instanceId: 6006, title: 'Missed Assignment', dueAt: '2026-07-01T23:59:00', status: 'CLOSED', attemptNumber: 0
+  id: 5006, instanceId: 6006, title: 'Missed Assignment', dueAt: '2026-07-01T23:59:00', status: 'CLOSED', attemptNumber: 0,
+  moduleId: 402, moduleTitle: 'Namaskaram'
 };
 export const FIXTURE_SA_6_DETAIL: StudentAssignmentDetailDTO = {
   id: 5006, instanceId: 6006, title: 'Missed Assignment', dueAt: '2026-07-01T23:59:00', status: 'CLOSED', attemptNumber: 0, rowVersion: 1, instanceStatus: 'ACTIVE',
+  moduleId: 402, moduleTitle: 'Namaskaram',
   questions: [{ id: 7050, questionType: 'SHORT_TEXT', prompt: 'What is a jati?', questionOrder: 1, maxSelections: null, options: [], editable: false }]
 };
 
 // ---- a7: CLOSED, had draft answers, never submitted ----
+// UX-7C: moduleId 421 -- a module-detail fixture deliberately given zero
+// published lessons (see FIXTURE_MODULE_DETAIL[421] in
+// student-learning-fixture-data.ts), so Module Detail's "assignments
+// exist but no lessons" combination is genuinely reachable for visual
+// review, not just asserted in a unit test.
 export const FIXTURE_SA_7_SUMMARY: StudentAssignmentSummaryDTO = {
-  id: 5007, instanceId: 6007, title: 'Late Submission Window', dueAt: '2026-07-15T23:59:00', status: 'CLOSED', attemptNumber: 0
+  id: 5007, instanceId: 6007, title: 'Late Submission Window', dueAt: '2026-07-15T23:59:00', status: 'CLOSED', attemptNumber: 0,
+  moduleId: 421, moduleTitle: 'No-Lesson Module'
 };
 export const FIXTURE_SA_7_DETAIL: StudentAssignmentDetailDTO = {
   id: 5007, instanceId: 6007, title: 'Late Submission Window', dueAt: '2026-07-15T23:59:00', status: 'CLOSED', attemptNumber: 0, rowVersion: 1, instanceStatus: 'ACTIVE',
+  moduleId: 421, moduleTitle: 'No-Lesson Module',
   questions: [{ id: 7060, questionType: 'SHORT_TEXT', prompt: 'What is a jathi?', questionOrder: 1, maxSelections: null, options: [], editable: false }]
 };
 export const FIXTURE_SA_7_DRAFTS: DraftResponseDTO[] = [

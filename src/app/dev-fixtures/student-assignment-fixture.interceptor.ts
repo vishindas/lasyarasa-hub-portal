@@ -44,6 +44,15 @@ export const studentAssignmentFixtureInterceptor: HttpInterceptorFn = (req: Http
   const listMatch = path.match(/^\/account\/students\/\d+\/learning\/assignments$/);
   if (listMatch && req.method === 'GET') return ok(FIXTURE_STUDENT_ASSIGNMENTS_LIST);
 
+  // UX-7C: Module Detail's Related Assignments -- mirrors the real
+  // backend's listByModule() filtering (no status/instance filtering,
+  // just scoped to one moduleId).
+  const byModuleMatch = path.match(/^\/account\/students\/\d+\/learning\/assignments\/by-module\/(\d+)$/);
+  if (byModuleMatch && req.method === 'GET') {
+    const moduleId = Number(byModuleMatch[1]);
+    return ok(FIXTURE_STUDENT_ASSIGNMENTS_LIST.filter(a => a.moduleId === moduleId));
+  }
+
   const idMatch = path.match(/^\/account\/students\/\d+\/learning\/assignments\/(\d+)$/);
   if (idMatch && req.method === 'GET') {
     const id = Number(idMatch[1]);
