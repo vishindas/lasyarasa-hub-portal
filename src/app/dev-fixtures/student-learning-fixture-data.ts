@@ -107,6 +107,27 @@ export const FIXTURE_MODULE_DETAIL: Record<number, ModuleDetailDTO> = {
       { lessonId: 520, title: 'Jati 1', contentType: 'VIDEO', lessonOrder: 1, videoAvailability: 'AVAILABLE' },
       { lessonId: 521, title: 'Jati 2', contentType: 'VIDEO', lessonOrder: 2, videoAvailability: 'AVAILABLE' }
     ]
+  },
+  // UX-7C: reachable only by direct URL (not part of any FIXTURE_LEARNING_PATH
+  // list) -- exists purely so Module Detail's "assignments exist, no lessons
+  // published" combination has a real fixture to visit. See
+  // FIXTURE_SA_7_SUMMARY (moduleId 421) in student-assignment-fixture-data.ts.
+  421: {
+    moduleId: 421,
+    title: 'No-Lesson Module',
+    moduleOrder: 1,
+    status: 'RELEASED',
+    objectives: 'Assignments-only module, for UX-7C visual review.',
+    lessons: []
+  },
+  // UX-7C: neither lessons nor related assignments -- no fixture assignment
+  // points at moduleId 422. Direct-URL only, same as 421.
+  422: {
+    moduleId: 422,
+    title: 'Empty Module',
+    moduleOrder: 2,
+    status: 'RELEASED',
+    lessons: []
   }
 };
 

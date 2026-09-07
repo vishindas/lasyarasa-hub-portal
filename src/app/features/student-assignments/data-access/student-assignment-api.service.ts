@@ -32,6 +32,11 @@ export class StudentAssignmentApiService {
     return this.http.get<StudentAssignmentDetailDTO>(`${this.base(studentId)}/${studentAssignmentId}`);
   }
 
+  /** UX-7C: Module Detail's Related Assignments section. Same summary shape as list(), scoped to one module. */
+  listByModule(studentId: number, moduleId: number) {
+    return this.http.get<StudentAssignmentSummaryDTO[]>(`${this.base(studentId)}/by-module/${moduleId}`);
+  }
+
   getAttemptHistory(studentId: number, studentAssignmentId: number) {
     return this.http.get<AttemptDTO[]>(`${this.base(studentId)}/${studentAssignmentId}/attempts`);
   }
