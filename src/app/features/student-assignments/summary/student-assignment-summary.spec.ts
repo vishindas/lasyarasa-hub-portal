@@ -119,4 +119,25 @@ describe('StudentAssignmentSummaryComponent', () => {
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Assignments are not available right now.');
   });
+
+  it('UX-7B: renders "Module: {title}" when moduleTitle is present, never as a status chip', () => {
+    const fixture = setup();
+    httpMock.expectOne(LIST_URL).flush([row({ id: 1, title: 'Quiz', moduleId: 30, moduleTitle: 'Foundations' })]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.row-module')?.textContent?.trim()).toBe('Module: Foundations');
+    // Never rendered as a chip -- hierarchy/context, not status.
+    expect(Array.from(el.querySelectorAll('.sp-chip')).some(c => c.textContent?.includes('Foundations'))).toBe(false);
+  });
+
+  it('UX-7B: omits the module line entirely when moduleTitle is absent -- never renders "Module: null/undefined"', () => {
+    const fixture = setup();
+    httpMock.expectOne(LIST_URL).flush([row({ id: 1, title: 'Quiz' })]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.row-module')).toBeNull();
+    expect(el.textContent).not.toContain('Module:');
+  });
 });

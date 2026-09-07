@@ -97,4 +97,14 @@ describe('StudentAssignmentReviewComponent', () => {
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('paused while learning is read-only');
   });
+
+  it('UX-7B: folds module context into the existing meta line alongside the assignment title', () => {
+    const fixture = setup();
+    httpMock.expectOne(DETAIL_URL).flush({ ...detail(), moduleTitle: 'Foundations' });
+    httpMock.expectOne(DRAFTS_URL).flush([]);
+    fixture.detectChanges();
+
+    const meta = (fixture.nativeElement as HTMLElement).querySelector('.meta');
+    expect(meta?.textContent?.trim()).toBe('Quiz · Module: Foundations');
+  });
 });

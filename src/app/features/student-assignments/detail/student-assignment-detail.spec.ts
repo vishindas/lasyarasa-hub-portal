@@ -245,4 +245,40 @@ describe('StudentAssignmentDetailComponent', () => {
     expect(html).not.toContain('iscorrect');
     expect(html).not.toContain('correctoption');
   });
+
+  it('UX-7B: renders "Module: {title}" beneath the heading for a DRAFT assignment', () => {
+    const fixture = setup();
+    httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'DRAFT', moduleId: 30, moduleTitle: 'Foundations' }));
+    httpMock.expectOne(DRAFTS_URL).flush([]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.module-context')?.textContent?.trim()).toBe('Module: Foundations');
+  });
+
+  it('UX-7B: module context also renders for a non-DRAFT status (VALIDATED), which has no separate .meta line of its own', () => {
+    const fixture = setup();
+    httpMock.expectOne(DETAIL_URL).flush(detail({
+      status: 'VALIDATED', attemptNumber: 1, moduleId: 30, moduleTitle: 'Foundations',
+      questions: [{ id: 1, questionType: 'SHORT_TEXT', prompt: 'Explain?', questionOrder: 1, maxSelections: null, options: [], editable: false }]
+    }));
+    httpMock.expectOne(ATTEMPTS_URL).flush([
+      { attemptNumber: 1, submittedAt: '2026-01-01T00:00:00', reviewDecision: 'VALIDATED', reviewedAt: '2026-01-02T00:00:00', reviewedBy: 9, feedback: null,
+        responses: [{ questionId: 1, outcome: 'ACCEPTED', textResponse: 'x', selectedOptionIds: [] }] }
+    ]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.module-context')?.textContent?.trim()).toBe('Module: Foundations');
+  });
+
+  it('UX-7B: omits the module-context line entirely when moduleTitle is absent', () => {
+    const fixture = setup();
+    httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'DRAFT' }));
+    httpMock.expectOne(DRAFTS_URL).flush([]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.module-context')).toBeNull();
+    expect(el.textContent).not.toContain('Module:');
+  });
 });

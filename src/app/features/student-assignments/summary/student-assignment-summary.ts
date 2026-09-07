@@ -148,6 +148,10 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
        already reads "Overdue", so no separate red duplicate text here
        (Finding 7's redundant-status-presentation correction). */
     .row-due { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); margin: 2px 0 0; }
+    /* UX-7B: plain muted text, same treatment as .row-due -- reads as
+       hierarchy/context (which module this belongs to), not status, so it
+       deliberately does not use .sp-chip or any tone color. */
+    .row-module { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); margin: 2px 0 0; }
     .row-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .row-action { min-height: 44px; }
     /* Mobile correction: sharing the row (the fix directly above) still
@@ -196,6 +200,7 @@ const EMPTY_COPY: Record<AssignmentTab, { icon: string; text: string }> = {
                   <div class="row {{ rowSurfaceClass(a) }}">
                     <div class="row-main">
                       <p class="row-title">{{ a.title }}</p>
+                      @if (a.moduleTitle) { <p class="row-module">Module: {{ a.moduleTitle }}</p> }
                       @if (secondaryLabel(a); as s) { <p class="row-due">{{ s }}</p> }
                     </div>
                     <div class="row-meta">
