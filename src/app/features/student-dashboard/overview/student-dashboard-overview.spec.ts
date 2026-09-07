@@ -582,7 +582,7 @@ describe('StudentDashboardOverviewComponent', () => {
     });
   });
 
-  describe('UX-01 second refinement: responsive card grid + 8px card radius', () => {
+  describe('UX-01 second refinement: responsive card grid + card radius (UX-7: 8px -> 12px --sp-radius)', () => {
     it('the grid is an auto-fit/minmax responsive layout, not a hardcoded 1-then-2-column breakpoint -- column count scales with available width instead of a fixed number', () => {
       const fixture = setup();
       fixture.detectChanges();
@@ -598,7 +598,24 @@ describe('StudentDashboardOverviewComponent', () => {
       expect(columns).toContain('minmax');
     });
 
-    it('renders cards with the standard 8px student-portal card radius, not the old square (0px) corners', () => {
+    /**
+     * UX-7 visual alignment correction: was asserting the 8px --sp-radius-sm
+     * value (the token reserved for compact rows, e.g. module-summary-row.ts)
+     * -- these are full mat-card surfaces, so they use --sp-radius (12px,
+     * "Provider's mat-card radius"), the same token .sp-card
+     * (styles-student.scss) already uses for exactly this category of
+     * surface. Not a regression -- 8px read as "sharper card corners" than
+     * Learning Path's own approved surfaces, which this corrects.
+     *
+     * Asserts the raw var() expression rather than a resolved pixel value:
+     * jsdom's CSS engine (this test environment) does not resolve
+     * CSS custom properties/var() fallbacks the way a real browser does --
+     * getComputedStyle here returns the literal declaration text. That's
+     * actually the more precise proof of intent anyway: it confirms this
+     * rule is wired to the --sp-radius token itself, not merely a value
+     * that happens to coincide with it.
+     */
+    it('renders cards with the standard --sp-radius (12px) student-portal mat-card radius, not the row-scale --sp-radius-sm (8px) or the old square (0px) corners', () => {
       const fixture = setup();
       fixture.detectChanges();
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
@@ -608,7 +625,7 @@ describe('StudentDashboardOverviewComponent', () => {
 
       const card = (fixture.nativeElement as HTMLElement).querySelector('.card') as HTMLElement;
       expect(card).toBeTruthy();
-      expect(getComputedStyle(card).borderRadius).toBe('8px');
+      expect(getComputedStyle(card).borderRadius).toBe('var(--sp-radius, 12px)');
     });
   });
 });

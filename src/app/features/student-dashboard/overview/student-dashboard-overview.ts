@@ -81,8 +81,14 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
   host: { class: 'sp-page' },
   imports: [RouterLink, MatCardModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, CurriculumMessageComponent],
   styles: [`
-    h1 { font-family: Fraunces, Georgia, serif; font-size: 1.6rem; color: #1C1A16; margin: 0 0 4px; }
-    .school-name { margin: 0 0 20px; color: #6B6255; font-size: 0.9rem; }
+    /* UX-7 visual alignment correction: h1 matches Learning Path's own h1
+       exactly (learning-path.ts) -- sans-serif, same size/weight/color --
+       instead of this screen's own leftover Fraunces/gold-adjacent legacy
+       treatment (Fraunces was already retired everywhere else per UX-3's
+       own comment on that file; the wordmark in the top nav is the only
+       intentional survivor). Visual-only: no template/structure change. */
+    h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 4px; }
+    .school-name { margin: 0 0 20px; color: var(--sp-text-muted, #52596b); font-size: 0.9rem; }
     /* Second UX-01 refinement: a rigid "always exactly 2 columns" grid left
        each card wide but sparse at this container's new width, reading as
        "small cluster, mostly empty" rather than "using the space" -- a
@@ -100,7 +106,28 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
        column behavior at every width this was already verified at (1920/
        1440/1024/768px), zero change to card content/count/gap/typography. */
     .grid { container-type: inline-size; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
-    .card { border-radius: 8px !important; border: 1px solid #E3DCC8 !important; }
+    /* UX-7 visual alignment correction: was border-radius: 8px -- that's
+       --sp-radius-sm, the token this design system reserves for compact
+       ROWS (module-summary-row.ts's own .row, lesson-summary-row.ts) --
+       these are full mat-card surfaces, the same category .sp-card
+       (styles-student.scss) already exists for, which uses --sp-radius
+       (12px, "Provider's mat-card radius" per that token's own comment).
+       Border color/surface/shadow corrected to the same shared tokens
+       Learning Path's rows use (var(--sp-border-subtle)/var(--sp-surface))
+       instead of this screen's own leftover warm/gold-adjacent hex
+       (#E3DCC8) -- box-shadow: none flattens Material's default mat-card
+       elevation, the same explicit flattening change-password.ts's shared
+       .card rule already does, so this reads as a flat bordered surface
+       like every other restyled student screen, not a shadowed widget.
+       !important retained on radius/border only because it was already
+       necessary to override MatCard's own theme specificity before this
+       change -- not newly introduced here. */
+    .card {
+      border-radius: var(--sp-radius, 12px) !important;
+      border: 1px solid var(--sp-border-subtle, #edf0f7) !important;
+      background: var(--sp-surface, #fff);
+      box-shadow: none !important;
+    }
     /* UX-2: priority re-weighting -- Current Learning spans two grid tracks
        when the grid actually has two to give. An earlier version of this
        rule applied grid-column: span 2 unconditionally on the assumption
@@ -122,17 +149,22 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
       .card.priority { grid-column: span 2; }
     }
     .card a, .card button { min-height: 44px; }
-    .card-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: #A3762C; font-weight: 700; margin: 0 0 6px; }
-    .schedule-line { margin: 2px 0; font-size: 0.9rem; color: #1C1A16; }
-    .schedule-unavailable { color: #6B6255; font-style: italic; }
-    .empty-note { color: #6B6255; font-size: 0.85rem; }
+    /* UX-7 visual alignment correction: was uppercase/gold (#A3762C,
+       700 weight, letter-spacing) -- the specific "gold/brown heading
+       treatment" this correction removes. Same dark/navy hierarchy as
+       Learning Path's own title text (module-summary-row.ts's .title)
+       instead, just without inheriting that row-specific class directly. */
+    .card-title { font-size: 0.8rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 8px; }
+    .schedule-line { margin: 2px 0; font-size: 0.9rem; color: var(--sp-text, #1a1f36); }
+    .schedule-unavailable { color: var(--sp-text-muted, #52596b); font-style: italic; }
+    .empty-note { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; }
     /* UX-2: replaces the retired "Choose a class" friction card -- points at
        the persistent class-context bar (rendered by the shell, above this
        page) instead of duplicating it with a second picker. */
-    .context-hint { color: #6B6255; font-size: 0.85rem; margin: 0 0 14px; }
-    .no-classes { border: 1px solid #E3DCC8; border-radius: 8px; padding: 20px; max-width: 480px; }
-    .no-classes h2 { font-family: Fraunces, Georgia, serif; font-size: 1.1rem; color: #1C1A16; margin: 0 0 8px; }
-    .no-classes p { margin: 0; color: #6B6255; font-size: 0.9rem; }
+    .context-hint { color: var(--sp-text-muted, #52596b); font-size: 0.85rem; margin: 0 0 14px; }
+    .no-classes { border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius, 12px); padding: 20px; max-width: 480px; }
+    .no-classes h2 { font-size: 1.1rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 8px; }
+    .no-classes p { margin: 0; color: var(--sp-text-muted, #52596b); font-size: 0.9rem; }
   `],
   template: `
     <h1 tabindex="-1">{{ studentName() || 'Dashboard' }}</h1>
