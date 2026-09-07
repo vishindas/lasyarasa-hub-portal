@@ -82,6 +82,24 @@ export class AccountMenuComponent {
   expanded = input(false);
 
   openChangePassword(): void {
-    this.dialog.open(ChangePasswordComponent, { width: '480px', maxWidth: '95vw' });
+    // UX-7 correction: panelClass backfills outer padding onto this one
+    // dialog's chrome (see styles-student.scss's own comment for why --
+    // MatDialog's surface has zero built-in padding for a component that
+    // doesn't use the mat-dialog-title/-content/-actions directives, and
+    // ChangePasswordComponent can't adopt those now without also
+    // restyling the Provider/Admin routed page that shares it). Width
+    // bumped 480->520 to keep the fields comfortable now that real outer
+    // padding eats into that space. disableClose: true means only the X
+    // button or a successful submit can close this -- backdrop click and
+    // Escape no longer do (previously both did, via MatDialog's default;
+    // confirmed no other dialog in this codebase sets disableClose either,
+    // so there is no existing pattern requiring Escape to keep working
+    // independently of backdrop-dismissal here).
+    this.dialog.open(ChangePasswordComponent, {
+      width: '520px',
+      maxWidth: '95vw',
+      panelClass: 'change-password-dialog-panel',
+      disableClose: true
+    });
   }
 }

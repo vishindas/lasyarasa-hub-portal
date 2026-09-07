@@ -60,7 +60,24 @@ describe('AccountMenuComponent', () => {
 
     fixture.componentInstance.openChangePassword();
 
-    expect(openSpy).toHaveBeenCalledWith(ChangePasswordComponent, expect.objectContaining({ width: '480px' }));
+    expect(openSpy).toHaveBeenCalledWith(ChangePasswordComponent, expect.objectContaining({ width: '520px' }));
+  });
+
+  /**
+   * UX-7 correction: backdrop click and Escape previously both dismissed this
+   * dialog (MatDialog's default). Neither should now -- only the X button or
+   * a successful submit (ChangePasswordComponent's own existing
+   * dialogRef?.close() on success, unchanged) can close it.
+   */
+  it('Change password dialog cannot be dismissed by backdrop click or Escape (disableClose)', () => {
+    const fixture = setup();
+    fixture.detectChanges();
+    const dialog = TestBed.inject(MatDialog);
+    const openSpy = vi.spyOn(dialog, 'open');
+
+    fixture.componentInstance.openChangePassword();
+
+    expect(openSpy).toHaveBeenCalledWith(ChangePasswordComponent, expect.objectContaining({ disableClose: true }));
   });
 
   // UX-01: the `expanded` input is a new, opt-in trigger presentation for the

@@ -61,6 +61,16 @@ function maxUtf8Bytes(maxBytes: number) {
     .field-error mat-icon { font-size: 14px; width: 14px; height: 14px; }
     .actions { margin-top: 24px; }
     button[mat-flat-button] mat-icon { margin-right: 4px; }
+    /* UX-7 correction: this button only ever renders when dialogRef is
+       present (the CLIENT account-menu dialog) -- the Provider/Admin
+       routed page never has this element in its DOM at all, so shrinking
+       its visual footprint here cannot affect that page. The button box
+       itself stays exactly at the 44px touch-target floor (down from
+       Material's 48px default, not below it); only the icon glyph shrinks
+       (24px -> 18px), which is what actually reads as "oversized" next to
+       the small header text. */
+    .close-btn { width: 44px; height: 44px; padding: 10px; }
+    .close-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
   `],
   template: `
     <div class="page-header">
@@ -69,7 +79,7 @@ function maxUtf8Bytes(maxBytes: number) {
         <p class="page-subtitle">Update your login password</p>
       </div>
       @if (dialogRef) {
-        <button mat-icon-button type="button" aria-label="Close" (click)="dialogRef.close()">
+        <button mat-icon-button type="button" class="close-btn" aria-label="Close" (click)="dialogRef.close()">
           <mat-icon>close</mat-icon>
         </button>
       }

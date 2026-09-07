@@ -126,3 +126,32 @@
   &.sp-tone-info      { background: var(--sp-tone-info-bg);      color: var(--sp-tone-info-text); }
   &.sp-tone-neutral   { background: var(--sp-tone-neutral-bg);   color: var(--sp-tone-neutral-text); }
 }
+
+// ─── Change Password dialog framing correction ──────────────────────────
+// Deliberately NOT nested under `.sp-scope` like everything else in this
+// file -- a MatDialog's overlay pane renders as a sibling of the app root
+// (Angular CDK appends it directly to <body>), so it is never a descendant
+// of `.sp-scope` and a nested rule here would simply never match. Scoping
+// safety instead comes from the class name itself: `.change-password-
+// dialog-panel` is only ever applied by account-menu.ts's dialog.open()
+// call, which only the student account menu invokes.
+//
+// Measured live before this fix: ChangePasswordComponent doesn't use the
+// mat-dialog-title/-content/-actions structural directives (every other
+// dialog in this codebase does, which is what normally supplies a dialog's
+// internal padding for free) -- it's a plain custom layout instead, shared
+// with the Provider/Admin routed settings page. Angular Material's own
+// dialog surface has zero padding of its own in that case, so the header
+// and card both rendered flush against the dialog's true edges (measured
+// 0px inset). This backfills equivalent padding for the student dialog
+// invocation only, without touching ChangePasswordComponent's shared
+// template/styles and so without any Provider/Admin visual change at all.
+.change-password-dialog-panel .mat-mdc-dialog-surface {
+  padding: 24px;
+}
+
+@media (max-width: 599px) {
+  .change-password-dialog-panel .mat-mdc-dialog-surface {
+    padding: 20px 16px;
+  }
+}
