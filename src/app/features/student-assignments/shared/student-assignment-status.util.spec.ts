@@ -17,8 +17,9 @@ describe('studentAssignmentChip', () => {
     expect(studentAssignmentChip({ status: 'SUBMITTED', attemptNumber: 2, overdue: false }).label).toBe('Resubmitted — awaiting review');
   });
 
-  it('REVISION_REQUESTED -> "Revise and resubmit"', () => {
-    expect(studentAssignmentChip({ status: 'REVISION_REQUESTED', attemptNumber: 1, overdue: false }).label).toBe('Revise and resubmit');
+  /** UX-7D correction: the chip states, it doesn't instruct -- "Revise and resubmit" is the action button's own label, not the chip's. */
+  it('REVISION_REQUESTED -> "Revision requested" (state, not the action)', () => {
+    expect(studentAssignmentChip({ status: 'REVISION_REQUESTED', attemptNumber: 1, overdue: false }).label).toBe('Revision requested');
   });
 
   it('VALIDATED -> "Completed"', () => {

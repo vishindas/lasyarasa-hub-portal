@@ -31,8 +31,15 @@ export function studentAssignmentChip(params: {
       return params.attemptNumber > 1
         ? { label: 'Resubmitted — awaiting review', tone: 'neutral' }
         : { label: 'Submitted — awaiting review', tone: 'neutral' };
+    // UX-7D correction: the chip describes STATE ("Revision requested"),
+    // never the action -- "Revise and resubmit" is the primary-action
+    // button's own label (student-assignment-summary.ts's/related-
+    // assignment-row.ts's/student-assignment-detail.ts's own ctaLabel()),
+    // unaffected by this change. Chip and button previously said the
+    // exact same words, which read as the chip issuing an instruction
+    // rather than reporting status.
     case 'REVISION_REQUESTED':
-      return { label: 'Revise and resubmit', tone: 'warning' };
+      return { label: 'Revision requested', tone: 'warning' };
     case 'VALIDATED':
       return { label: 'Completed', tone: 'success' };
     case 'CLOSED':

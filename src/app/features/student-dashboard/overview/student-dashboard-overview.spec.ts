@@ -367,7 +367,14 @@ describe('StudentDashboardOverviewComponent', () => {
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 assignment needs your attention.');
     });
 
-    it('links to the existing Assignments route only when there is something to show, as a real anchor', () => {
+    /**
+     * UX-7D (revised): the primary To Do page shows the same actionable
+     * (DRAFT/REVISION_REQUESTED) set this card's own count is derived
+     * from by default, so no ?tab= param is needed at all.
+     * UX-7D route cleanup: canonical route is now /todo (was /assignments,
+     * now only a backward-compat redirect).
+     */
+    it('links to the To Do route only when there is something to show, as a real anchor', () => {
       const fixture = setup();
       fixture.detectChanges();
       httpMock.expectOne(`${environment.apiUrl}/account/students`).flush([]);
@@ -377,10 +384,10 @@ describe('StudentDashboardOverviewComponent', () => {
       ]);
       fixture.detectChanges();
 
-      const link = (fixture.nativeElement as HTMLElement).querySelector('a[href*="/assignments"]') as HTMLAnchorElement;
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a[href*="/todo"]') as HTMLAnchorElement;
       expect(link).toBeTruthy();
       expect(link.tagName).toBe('A'); // a real, keyboard-focusable anchor, not a click handler on a div
-      expect(link.getAttribute('href')).toBe('/my-students/117/assignments');
+      expect(link.getAttribute('href')).toBe('/my-students/117/todo');
     });
 
     it('does not render an Assignments link in the empty state', () => {
@@ -391,7 +398,7 @@ describe('StudentDashboardOverviewComponent', () => {
       httpMock.expectOne(ASSIGNMENTS_URL).flush([]);
       fixture.detectChanges();
 
-      expect((fixture.nativeElement as HTMLElement).querySelector('a[href*="/assignments"]')).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('a[href*="/todo"]')).toBeNull();
     });
 
     it('feature-unavailable/load-failure: shows an undifferentiated unavailable message with a working Retry -- never a dead end', () => {

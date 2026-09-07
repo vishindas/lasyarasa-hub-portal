@@ -5,18 +5,36 @@ import { Routes } from '@angular/router';
 // entries and student-learning-shell.ts's computeHideClassContext()) --
 // Assignments is student-wide, not filtered by the selected class, so the
 // persistent class-context bar is just as misleading here as it was on
-// Fees before UX-6. Set individually on all five leaf routes below, not
-// once on the parent 'assignments' mount in student-learning.routes.ts:
-// the app's paramsInheritanceStrategy is 'emptyOnly', so a non-empty-path
+// Fees before UX-6. Set individually on every leaf route below, not once
+// on the parent 'assignments' mount in student-learning.routes.ts: the
+// app's paramsInheritanceStrategy is 'emptyOnly', so a non-empty-path
 // child (':studentAssignmentId', '.../answer', etc.) would not inherit
-// route `data` from an ancestor -- only the '' (Summary) leaf would.
+// route `data` from an ancestor.
 // Presentation-only: does not touch StudentLearningContextService, so a
 // previously selected class is untouched and reappears on any class-scoped
 // screen visited afterward.
+//
+// UX-7D: the bare '' (Summary/To Do) leaf that used to live here moved out
+// to its own top-level 'todo' route in student-learning.routes.ts, with a
+// pathMatch: 'full' redirect from bare 'assignments' to 'todo' for
+// backward compatibility -- that redirect intercepts a bare /assignments
+// request before it ever reaches this loadChildren mount, so there is no
+// '' route here to remove a duplicate of. Everything below (Assignment
+// Detail/Answer/Review/Confirm, and Assignment Activity at 'history')
+// stays under this 'assignments' mount unchanged -- all still genuinely
+// assignment-specific, not generic To Do concepts.
 export const STUDENT_ASSIGNMENTS_ROUTES: Routes = [
   {
-    path: '',
-    loadComponent: () => import('./summary/student-assignment-summary').then(m => m.StudentAssignmentSummaryComponent),
+    // UX-7D: the secondary "Assignment Activity" destination (Awaiting
+    // validation + History) for the now-generic To Do inbox. Placed
+    // BEFORE the ':studentAssignmentId' route below deliberately --
+    // Angular matches sibling routes in array order, and 'history' is a
+    // literal segment that would otherwise be swallowed by that route's
+    // wildcard param (a request for /assignments/history would try to
+    // load assignment id "history", not this screen, if the order were
+    // reversed).
+    path: 'history',
+    loadComponent: () => import('./activity/student-assignment-activity').then(m => m.StudentAssignmentActivityComponent),
     data: { hideClassContext: true }
   },
   {

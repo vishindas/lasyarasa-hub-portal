@@ -79,13 +79,29 @@ import { AccountMenuComponent } from '../../../shared/account-menu/account-menu'
           <mat-icon aria-hidden="true">space_dashboard</mat-icon>
           Dashboard
         </a>
+        <!-- UX-7D: relabeled "Assignments" -> "To Do" -- the route itself
+             (/my-students/:id/assignments) deliberately stays unchanged;
+             only the student-facing name/icon changed, matching the
+             restructured destination (see student-assignment-summary.ts's
+             own comment) that now distinguishes actionable work from
+             history rather than listing every status as an equal tab.
+             UX-7D refinement: moved directly under Dashboard (was below
+             My Classes) -- product direction is Dashboard=overview,
+             To Do=actions requiring attention, My Classes=learning
+             structure, Fees=finance, in that priority order. To Do is
+             deliberately assignment-backed only for now but not named or
+             icon'd as assignment-specific, since other actionable item
+             types (forms, fee reminders, etc.) may live here later.
+             UX-7D route cleanup: canonical route is now 'todo' (was
+             'assignments', which now exists only as a backward-compat
+             redirect -- see student-learning.routes.ts). -->
+        <a class="nav-item" [routerLink]="['/my-students', studentId(), 'todo']" routerLinkActive="active">
+          <mat-icon aria-hidden="true">task_alt</mat-icon>
+          To Do
+        </a>
         <a class="nav-item" [routerLink]="['/my-students', studentId(), 'classes']" routerLinkActive="active">
           <mat-icon aria-hidden="true">groups</mat-icon>
           My Classes
-        </a>
-        <a class="nav-item" [routerLink]="['/my-students', studentId(), 'assignments']" routerLinkActive="active">
-          <mat-icon aria-hidden="true">assignment</mat-icon>
-          Assignments
         </a>
         <a class="nav-item" [routerLink]="['/my-students', studentId(), 'fees']" routerLinkActive="active">
           <mat-icon aria-hidden="true">receipt_long</mat-icon>

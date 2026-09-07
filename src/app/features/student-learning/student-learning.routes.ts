@@ -52,10 +52,35 @@ export const STUDENT_LEARNING_ROUTES: Routes = [
     loadComponent: () => import('./lesson-detail/lesson-detail').then(m => m.LessonDetailComponent)
   },
   {
+    // UX-7D: To Do is now a genuine top-level student destination (the
+    // generic action inbox), not a page living under the assignments
+    // feature's own path -- canonical URL moves here from 'assignments'.
+    // Same student-wide (not class-scoped) reasoning as 'fees' below, so
+    // hideClassContext applies for the same reason.
+    path: 'todo',
+    loadComponent: () => import('../student-assignments/summary/student-assignment-summary').then(m => m.StudentAssignmentSummaryComponent),
+    data: { hideClassContext: true }
+  },
+  {
+    // UX-7D: backward-compat redirect for the old canonical URL and any
+    // bookmarked/cached /assignments deep links. pathMatch: 'full' is
+    // load-bearing here -- it only intercepts the EXACT bare '/assignments'
+    // request; a longer path (assignments/history, assignments/:id, etc.)
+    // does not match 'full' and falls through to the loadChildren mount
+    // immediately below, which still owns all of those routes unchanged.
+    path: 'assignments',
+    pathMatch: 'full',
+    redirectTo: 'todo'
+  },
+  {
     // Slice 16: real assignment feature, under its own approved
     // features/student-assignments/** directory (answer-key isolation
     // boundary, scripts/check-assignment-import-boundary.mjs) -- replaces
     // the Slice 12 placeholder that lived at ./assignments/assignment-summary.
+    // UX-7D: the bare '' (Summary/To Do) leaf moved out to the 'todo'
+    // route above -- Assignment Detail/Answer/Review/Confirm and
+    // Assignment Activity ('history') all stay here, since they're
+    // genuinely assignment-specific, not generic To Do concepts.
     path: 'assignments',
     loadChildren: () => import('../student-assignments/student-assignments.routes').then(m => m.STUDENT_ASSIGNMENTS_ROUTES)
   },

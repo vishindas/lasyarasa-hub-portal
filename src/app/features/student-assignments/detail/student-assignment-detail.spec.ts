@@ -281,4 +281,65 @@ describe('StudentAssignmentDetailComponent', () => {
     expect(el.querySelector('.module-context')).toBeNull();
     expect(el.textContent).not.toContain('Module:');
   });
+
+  describe('UX-7D (revised): status-aware back-link', () => {
+    it('before the detail loads, "back" defaults to the primary To Do inbox', () => {
+      const fixture = setup();
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a.back-link') as HTMLAnchorElement;
+      expect(link.textContent).toContain('Back to To Do');
+      expect(link.getAttribute('href')).toBe('/my-students/201/todo');
+      httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'DRAFT' }));
+      httpMock.expectOne(DRAFTS_URL).flush([]);
+    });
+
+    it('DRAFT -> "Back to To Do", the primary inbox', () => {
+      const fixture = setup();
+      httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'DRAFT' }));
+      httpMock.expectOne(DRAFTS_URL).flush([]);
+      fixture.detectChanges();
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a.back-link') as HTMLAnchorElement;
+      expect(link.textContent).toContain('Back to To Do');
+      expect(link.getAttribute('href')).toBe('/my-students/201/todo');
+    });
+
+    it('REVISION_REQUESTED -> "Back to To Do", the primary inbox', () => {
+      const fixture = setup();
+      httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'REVISION_REQUESTED', attemptNumber: 1 }));
+      httpMock.expectOne(ATTEMPTS_URL).flush([]);
+      fixture.detectChanges();
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a.back-link') as HTMLAnchorElement;
+      expect(link.textContent).toContain('Back to To Do');
+      expect(link.getAttribute('href')).toBe('/my-students/201/todo');
+    });
+
+    it('SUBMITTED -> "Back to Assignment Activity", with Awaiting validation pre-selected', () => {
+      const fixture = setup();
+      httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'SUBMITTED', attemptNumber: 1 }));
+      httpMock.expectOne(ATTEMPTS_URL).flush([]);
+      fixture.detectChanges();
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a.back-link') as HTMLAnchorElement;
+      expect(link.textContent).toContain('Back to Assignment Activity');
+      expect(link.getAttribute('href')).toBe('/my-students/201/assignments/history?tab=awaiting');
+    });
+
+    it('VALIDATED -> "Back to Assignment Activity", with History pre-selected', () => {
+      const fixture = setup();
+      httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'VALIDATED', attemptNumber: 1 }));
+      httpMock.expectOne(ATTEMPTS_URL).flush([]);
+      fixture.detectChanges();
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a.back-link') as HTMLAnchorElement;
+      expect(link.textContent).toContain('Back to Assignment Activity');
+      expect(link.getAttribute('href')).toBe('/my-students/201/assignments/history?tab=history');
+    });
+
+    it('CLOSED (with a real attempt) -> "Back to Assignment Activity", with History pre-selected', () => {
+      const fixture = setup();
+      httpMock.expectOne(DETAIL_URL).flush(detail({ status: 'CLOSED', attemptNumber: 1 }));
+      httpMock.expectOne(ATTEMPTS_URL).flush([]);
+      fixture.detectChanges();
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a.back-link') as HTMLAnchorElement;
+      expect(link.textContent).toContain('Back to Assignment Activity');
+      expect(link.getAttribute('href')).toBe('/my-students/201/assignments/history?tab=history');
+    });
+  });
 });

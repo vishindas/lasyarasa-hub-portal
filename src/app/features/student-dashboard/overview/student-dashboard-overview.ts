@@ -239,7 +239,14 @@ import { StudentAssignmentApiService } from '../../student-assignments/data-acce
               <p class="empty-note">No open assignments right now.</p>
             } @else {
               <p class="empty-note">{{ assignmentsAttentionLabel() }}</p>
-              <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'assignments']">View assignments</a>
+              <!-- UX-7D (revised): the primary To Do inbox shows exactly
+                   the same actionable set this count is derived from
+                   (DRAFT + REVISION_REQUESTED, see
+                   assignmentsAttentionCount() below) by default, with no
+                   query param needed at all.
+                   UX-7D route cleanup: canonical route is now 'todo' (was
+                   'assignments', now only a backward-compat redirect). -->
+              <a mat-stroked-button [routerLink]="['/my-students', studentId(), 'todo']">View assignments</a>
             }
           </mat-card-content>
         </mat-card>

@@ -42,7 +42,17 @@ export const studentAssignmentFixtureInterceptor: HttpInterceptorFn = (req: Http
   }
 
   const listMatch = path.match(/^\/account\/students\/\d+\/learning\/assignments$/);
-  if (listMatch && req.method === 'GET') return ok(FIXTURE_STUDENT_ASSIGNMENTS_LIST);
+  if (listMatch && req.method === 'GET') {
+    // UX-7D verification aid: the shared fixture list always has at least
+    // one DRAFT/REVISION_REQUESTED row (other UX-7B/7C visual states rely
+    // on it), so there's no route that naturally shows an empty To Do tab.
+    // Same sessionStorage-toggle convention as assignmentFixtureFeatureDisabled
+    // above -- dev/verify-build only, no production code path.
+    if (sessionStorage.getItem('assignmentFixtureEmptyTodo') === '1') {
+      return ok(FIXTURE_STUDENT_ASSIGNMENTS_LIST.filter(a => a.status !== 'DRAFT' && a.status !== 'REVISION_REQUESTED'));
+    }
+    return ok(FIXTURE_STUDENT_ASSIGNMENTS_LIST);
+  }
 
   // UX-7C: Module Detail's Related Assignments -- mirrors the real
   // backend's listByModule() filtering (no status/instance filtering,

@@ -309,7 +309,8 @@ describe('StudentLearningShellComponent -- UX-01 persistent shell', () => {
     const targets = links.map(a => a.getAttribute('href'));
     expect(targets).toContain('/my-students/117/dashboard');
     expect(targets).toContain('/my-students/117/classes');
-    expect(targets).toContain('/my-students/117/assignments');
+    // UX-7D route cleanup: canonical route is now /todo (was /assignments, now only a backward-compat redirect).
+    expect(targets).toContain('/my-students/117/todo');
     expect(targets).toContain('/my-students/117/fees');
     // No invented top-level "Learning" or "Account" route -- Account stays a
     // menu (rendered separately below), Learning is reached via My Classes.
