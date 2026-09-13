@@ -18,7 +18,7 @@ import { StudentFormDialog } from './student-form-dialog';
 import { FeeFormDialog, FeeDialogData } from '../fees/fee-form-dialog';
 import { FeeOverrideDialog, FeeOverrideDialogData } from './fee-override-dialog';
 import { ConfirmDialog } from '../../../shared/confirm-dialog';
-import { SendOnlineAccessDialog, SendOnlineAccessDialogData } from './send-online-access-dialog';
+import { PortalAccessCard, PortalAccessGuardianOption } from './portal-access-card';
 
 interface EnrollmentDetail {
   id: number; classId: number; className: string; danceStyleId: number; danceStyleName: string;
@@ -68,7 +68,8 @@ interface FeeRecord {
   selector: 'app-student-profile',
   standalone: true,
   imports: [CurrencyPipe, DatePipe, TitleCasePipe, MatButtonModule, MatIconModule,
-            MatCardModule, MatDividerModule, MatTableModule, MatDialogModule, MatMenuModule, MatSnackBarModule],
+            MatCardModule, MatDividerModule, MatTableModule, MatDialogModule, MatMenuModule, MatSnackBarModule,
+            PortalAccessCard],
   styles: [`
     .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .section-label {
@@ -123,9 +124,6 @@ interface FeeRecord {
           </div>
         </div>
         <div style="display:flex;gap:8px">
-          <button mat-stroked-button (click)="openSendOnlineAccess(d)">
-            <mat-icon>mail_outline</mat-icon> Send Online Access Invitation
-          </button>
           <button mat-flat-button color="primary" (click)="openEdit()">
             <mat-icon>edit</mat-icon> Edit Student
           </button>
@@ -267,6 +265,11 @@ interface FeeRecord {
               }
             </mat-card-content>
           </mat-card>
+
+          <app-portal-access-card
+            [studentId]="d.student.id"
+            [studentEmail]="d.student.email"
+            [guardians]="portalAccessGuardianOptions(d.guardians)" />
 
         </div>
 
@@ -523,15 +526,10 @@ export class StudentProfileComponent implements OnInit {
       });
   }
 
-  openSendOnlineAccess(d: StudentDetailData) {
-    const data: SendOnlineAccessDialogData = {
-      studentId: d.student.id,
-      studentEmail: d.student.email ?? null,
-      guardians: d.guardians.map(g => ({
-        id: g.id, firstName: g.firstName, lastName: g.lastName, email: g.email, relationship: g.relationship
-      }))
-    };
-    this.dialog.open(SendOnlineAccessDialog, { width: '480px', data });
+  portalAccessGuardianOptions(guardians: GuardianDetail[]): PortalAccessGuardianOption[] {
+    return guardians.map(g => ({
+      id: g.id, firstName: g.firstName, lastName: g.lastName, email: g.email, relationship: g.relationship
+    }));
   }
 
   openEdit() {
