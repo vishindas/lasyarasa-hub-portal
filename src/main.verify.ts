@@ -16,6 +16,7 @@ import { App } from './app/app';
 import { curriculumFixtureInterceptor } from './app/dev-fixtures/curriculum-fixture.interceptor';
 import { assignmentFixtureInterceptor } from './app/dev-fixtures/assignment-fixture.interceptor';
 import { studentAssignmentFixtureInterceptor } from './app/dev-fixtures/student-assignment-fixture.interceptor';
+import { studentProfileFixtureInterceptor } from './app/dev-fixtures/student-profile-fixture.interceptor';
 import { curriculumModeInterceptor } from './app/core/services/curriculum-mode.interceptor';
 import { studentLearningAccessInterceptor } from './app/core/services/student-learning-access.interceptor';
 import { environment } from './environments/environment';
@@ -89,7 +90,10 @@ bootstrapApplication(App, {
     // it needs to observe the fixture's thrown STUDENT_CONTEXT_UNAVAILABLE
     // response, which only reaches it if it wraps (comes before) the
     // fixture in this array.
-    provideHttpClient(withInterceptors([curriculumModeInterceptor, studentLearningAccessInterceptor, assignmentFixtureInterceptor, studentAssignmentFixtureInterceptor, curriculumFixtureInterceptor])),
+    // studentProfileFixtureInterceptor (Portal Access Onboarding Slice 3)
+    // must also come before curriculumFixtureInterceptor, for the same
+    // catch-all-shadowing reason as the two assignment interceptors above.
+    provideHttpClient(withInterceptors([curriculumModeInterceptor, studentLearningAccessInterceptor, assignmentFixtureInterceptor, studentAssignmentFixtureInterceptor, studentProfileFixtureInterceptor, curriculumFixtureInterceptor])),
     provideAnimationsAsync(),
     provideNativeDateAdapter()
   ]
