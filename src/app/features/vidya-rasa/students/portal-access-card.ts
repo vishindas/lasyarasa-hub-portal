@@ -30,6 +30,15 @@ type DisplayRow = PortalAccessDisplayRow;
     }
     .row-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .row-label { font-weight: 600; font-size: 0.88rem; color: #1a1f36; }
+    /* .status-chip is a flex item of .row-main (column direction); without
+       this, align-items' default of 'stretch' forces the chip's own
+       background/border-radius box to fill the row's full width instead of
+       hugging its own label text -- reading as a colored bar rather than a
+       compact chip. Applies to every state's chip identically (Active/
+       Pending/Needs Setup were stretched the same way, just visually less
+       alarming than red); this is a layout correction, not a
+       REVOKED-specific style. */
+    .row-main .status-chip { align-self: flex-start; }
     .row-copy { font-size: 0.8rem; color: #6c757d; }
     .row-cta { flex-shrink: 0; }
     @media (max-width: 768px) {
