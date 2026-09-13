@@ -328,6 +328,11 @@ mat-card {
   &.status-waived      { background: #f1f5f9; color: #64748b; }
   &.status-dropped          { background: #f1f5f9; color: #64748b; }
   &.status-needs_attention  { background: #fee2e2; color: #991b1b; }
+  // Portal Access Onboarding Slice 3: Revoked is deliberately its own label
+  // (not reused as inactive/needs_attention text) even though it shares
+  // needs_attention's color -- "never had access" and "had it, lost it"
+  // are semantically different facts.
+  &.status-revoked          { background: #fee2e2; color: #991b1b; }
 }
 
 // ─── Dialog ────────────────────────────────────────────────────────────────────
