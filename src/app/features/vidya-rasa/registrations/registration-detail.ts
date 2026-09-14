@@ -31,6 +31,15 @@ interface Registration {
   createdAt: string;
 }
 
+// Slice 4 — additive, per-invocation approve() outcome (RegistrationApprovalOutcome
+// on the backend). Never implies a portal-access row exists: access is created
+// later, at invitation acceptance, not at approval or dispatch time.
+type RegistrationApprovalOutcome = 'APPROVED' | 'APPROVED_AND_INVITED' | 'APPROVED_INVITATION_FAILED';
+
+interface ApproveRegistrationResponse {
+  outcome: RegistrationApprovalOutcome | null;
+}
+
 @Component({
   selector: 'app-registration-detail',
   standalone: true,
@@ -286,16 +295,35 @@ export class RegistrationDetailComponent implements OnInit {
       .afterClosed().subscribe(result => {
         if (result === undefined) return;
         const id = this.reg()!.id;
-        this.http.post(`${environment.apiUrl}/school/registrations/${id}/approve`,
+        this.http.post<ApproveRegistrationResponse>(`${environment.apiUrl}/school/registrations/${id}/approve`,
                        { classId: result.classId })
           .subscribe({
-            next: () => {
-              this.snack.open('Registration approved — student created', 'OK', { duration: 3000 });
+            next: (res) => {
               this.reg.update(r => r ? { ...r, status: 'APPROVED' } : r);
+              this.snack.open(this.approvalMessage(res?.outcome ?? null), 'OK', { duration: 4500 });
             },
             error: (e) => this.snack.open(e.error?.message || 'Failed to approve', 'OK', { duration: 3000 })
           });
       });
+  }
+
+  /**
+   * Slice 4: maps the additive, typed approval outcome to an admin-facing
+   * message. None of these messages may imply the registration failed or
+   * was rolled back — approval always succeeded by the time any of these
+   * three cases is reached. APPROVED_INVITATION_FAILED points the admin at
+   * the student's own Portal Access area rather than offering a resend
+   * mechanism here.
+   */
+  private approvalMessage(outcome: RegistrationApprovalOutcome | null): string {
+    switch (outcome) {
+      case 'APPROVED_AND_INVITED':
+        return 'Registration approved — student created and a portal access invitation was sent.';
+      case 'APPROVED_INVITATION_FAILED':
+        return 'Registration approved — student created, but the portal invitation could not be delivered. You can manage portal access from the student’s Portal Access area.';
+      default:
+        return 'Registration approved — student created.';
+    }
   }
 
   reject() {
