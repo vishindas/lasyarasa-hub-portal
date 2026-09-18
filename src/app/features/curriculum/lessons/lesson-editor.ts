@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { LowerCasePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -7,11 +8,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
-  Lesson, LessonContentType, CurriculumVersion, CurriculumModule, CreateLessonRequest, UpdateLessonRequest
+  Lesson, CurriculumVersion, CurriculumModule, CreateLessonRequest, UpdateLessonRequest
 } from '../../../core/models/curriculum.model';
 import { LessonApiService } from '../../../core/services/lesson-api.service';
 import { CurriculumApiService } from '../../../core/services/curriculum-api.service';
@@ -25,13 +25,7 @@ import { YouTubeUrlValidatorComponent, YouTubeValidatedEvent } from './youtube-u
 import { PublishAttestationDialog, PublishAttestationDialogData, PublishAttestationDialogResult } from './publish-attestation-dialog';
 import { UnpublishConfirmLessonDialog } from './unpublish-confirm-lesson-dialog';
 import { ArchiveConfirmLessonDialog } from './archive-confirm-lesson-dialog';
-
-const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
-  { value: 'VIDEO', label: 'Video' },
-  { value: 'TEXT', label: 'Text' },
-  { value: 'PDF_LINK', label: 'PDF Link' },
-  { value: 'EXTERNAL_LINK', label: 'External Link' }
-];
+import { LessonBlockListComponent } from './lesson-block-list';
 
 /**
  * Figure 2 (Lesson Editor), create and edit in one component (route-param
@@ -41,27 +35,39 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
  * exactly the same data-composition rule ModuleDetailPanelComponent
  * already uses.
  *
- * Repair/Republish (Slice 7 §6.1's added transition row, Slice 8 correction
- * 1): whenever videoAvailability is UNAVAILABLE, the video field always
- * routes through the dedicated repair-video endpoint + a fresh attestation
- * -- never the ordinary update() call -- since only repair-video clears the
- * availability flag and re-attests. This holds regardless of the parent
- * curriculum version's DRAFT/ACTIVE status (the one guarded lesson
- * mutation permitted after activation).
+ * MC-3 clean-slate architecture: metadata-only (title + practice notes).
+ * The old content-type toggle and per-type content form are gone entirely
+ * -- CreateLessonRequest/UpdateLessonRequest no longer carry content
+ * fields at all; a lesson's actual content is now zero or more
+ * lesson_content_blocks, authored below via LessonBlockListComponent
+ * (block-native, no 0-vs->=1-block branching -- architect decision 5).
+ * The block list only applies in edit mode (a block needs a real lessonId
+ * + lesson rowVersion to guard against); a brand-new lesson must be saved
+ * once as metadata first, exactly like the old flow required a first save
+ * before any lifecycle action.
+ *
+ * A pre-MC-3 legacy lesson (contentType still non-null) keeps its frozen
+ * single-content fields entirely read-only here -- no editing UI for them
+ * exists any more (the deliberate "no legacy-content echo workaround"
+ * fix: the fields were removed from the DTOs, not kept-and-blanked). Its
+ * one remaining legacy-specific affordance, Repair/Republish Video, stays
+ * lesson-level and unchanged, gated strictly on `contentType === 'VIDEO'`
+ * -- a block-native lesson's own VIDEO blocks repair independently, one
+ * level down, inside LessonBlockListComponent/LessonBlockRowComponent.
  */
 @Component({
   selector: 'app-lesson-editor',
   standalone: true,
   imports: [
-    FormsModule, MatButtonModule, MatIconModule, MatCardModule, MatFormFieldModule, MatInputModule,
-    MatButtonToggleModule, MatDialogModule, MatSnackBarModule,
-    ClassroomLiteBannerComponent, CurriculumMessageComponent, FullOutageBlockComponent, YouTubeUrlValidatorComponent
+    FormsModule, LowerCasePipe, MatButtonModule, MatIconModule, MatCardModule, MatFormFieldModule, MatInputModule,
+    MatDialogModule, MatSnackBarModule,
+    ClassroomLiteBannerComponent, CurriculumMessageComponent, FullOutageBlockComponent, YouTubeUrlValidatorComponent,
+    LessonBlockListComponent
   ],
   styles: [`
     button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     :host { display: block; }
     .panel { max-width: 720px; display: flex; flex-direction: column; gap: 16px; }
-    .field-row { display: flex; flex-direction: column; gap: 4px; }
     mat-form-field { width: 100%; }
     .repair-banner {
       display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px;
@@ -97,7 +103,7 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
             <p class="readonly-note">Archived lesson — this lesson is read-only.</p>
           } @else if (moduleArchived()) {
             <p class="readonly-note">This lesson's module is archived — its content is read-only.</p>
-          } @else if (!parentDraft() && needsRepair()) {
+          } @else if (!parentDraft() && needsLegacyRepair()) {
             <p class="readonly-note">The parent curriculum version is no longer DRAFT — structural edits require a new cloned draft. Only video repair remains available for this lesson.</p>
           } @else if (!parentDraft()) {
             <p class="readonly-note">The parent curriculum version is no longer DRAFT — structural edits require a new cloned draft.</p>
@@ -108,70 +114,25 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
             <input matInput [(ngModel)]="form.title" maxlength="120" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
           </mat-form-field>
 
-          <div class="field-row">
-            <label id="content-type-label" style="font-size:0.82rem;color:#52596b">Content type</label>
-            <mat-button-toggle-group aria-labelledby="content-type-label" [ngModel]="contentType()" (ngModelChange)="onContentTypeChange($event)" [disabled]="isEdit() || readOnly() || mode.mutationsDisabled() || saving()">
-              @for (t of contentTypes; track t.value) {
-                <mat-button-toggle [value]="t.value">{{ t.label }}</mat-button-toggle>
+          @if (isLegacyLesson()) {
+            <p class="readonly-note">
+              This lesson was created before the block content editor. Its original {{ lesson()?.contentType | lowercase }} content is preserved
+              and shown in Preview, but can no longer be edited here.
+            </p>
+            @if (needsLegacyRepair()) {
+              <div class="repair-banner">
+                <mat-icon aria-hidden="true">warning</mat-icon>
+                This video is private, removed, restricted, or currently unavailable. Repair or replace the link.
+              </div>
+              @if (moduleArchived()) {
+                <p class="readonly-note">This lesson's module is archived — video repair is read-only.</p>
               }
-            </mat-button-toggle-group>
-          </div>
-
-          @switch (contentType()) {
-            @case ('VIDEO') {
-              @if (needsRepair()) {
-                <div class="repair-banner">
-                  <mat-icon aria-hidden="true">warning</mat-icon>
-                  This video is private, removed, restricted, or currently unavailable. Repair or replace the link.
-                </div>
-                @if (moduleArchived()) {
-                  <p class="readonly-note">This lesson's module is archived — video repair is read-only.</p>
-                }
-                <app-youtube-url-validator [disabled]="!moduleConfirmedWritable() || mode.mutationsDisabled() || saving()" (validated)="onRepairValidated($event)" />
-                <div class="actions">
-                  <button mat-flat-button color="primary" type="button" [disabled]="!repairReady() || !moduleConfirmedWritable() || mode.mutationsDisabled() || saving()" (click)="openRepairDialog()">
-                    Republish Video
-                  </button>
-                </div>
-              } @else {
-                @if (isEdit() && !isArchived()) {
-                  <p class="readonly-note">
-                    A YouTube video is currently linked. You can save title/practice-note changes as-is, or enter a different YouTube URL and validate it to replace the video.
-                  </p>
-                }
-                <app-youtube-url-validator
-                  [disabled]="readOnly() || mode.mutationsDisabled() || saving()"
-                  [initialUrl]="initialVideoUrlForForm"
-                  [initialVideoId]="initialVideoIdForForm"
-                  (validated)="onVideoValidated($event)"
-                  (cleared)="onVideoCleared()" />
-              }
-            }
-            @case ('TEXT') {
-              <mat-form-field appearance="outline">
-                <mat-label>Lesson text</mat-label>
-                <textarea matInput rows="6" [(ngModel)]="form.textContent" placeholder="Write the lesson content students will read" [disabled]="readOnly() || mode.mutationsDisabled() || saving()"></textarea>
-              </mat-form-field>
-            }
-            @case ('PDF_LINK') {
-              <mat-form-field appearance="outline">
-                <mat-label>PDF URL</mat-label>
-                <input matInput [(ngModel)]="form.externalUrl" placeholder="Link to a PDF your students can open" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
-              </mat-form-field>
-              <mat-form-field appearance="outline">
-                <mat-label>Label</mat-label>
-                <input matInput [(ngModel)]="form.externalLinkLabel" placeholder="Label shown to students" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
-              </mat-form-field>
-            }
-            @case ('EXTERNAL_LINK') {
-              <mat-form-field appearance="outline">
-                <mat-label>External URL</mat-label>
-                <input matInput [(ngModel)]="form.externalUrl" placeholder="Link to a supporting resource" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
-              </mat-form-field>
-              <mat-form-field appearance="outline">
-                <mat-label>Label</mat-label>
-                <input matInput [(ngModel)]="form.externalLinkLabel" placeholder="Label shown to students" [disabled]="readOnly() || mode.mutationsDisabled() || saving()" />
-              </mat-form-field>
+              <app-youtube-url-validator [disabled]="!moduleConfirmedWritable() || mode.mutationsDisabled() || saving()" (validated)="onRepairValidated($event)" (cleared)="onRepairCleared()" />
+              <div class="actions">
+                <button mat-flat-button color="primary" type="button" [disabled]="!repairReady() || !moduleConfirmedWritable() || mode.mutationsDisabled() || saving()" (click)="openRepairDialog()">
+                  Republish Video
+                </button>
+              </div>
             }
           }
 
@@ -182,12 +143,12 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
 
           <div class="actions">
             @if (!isEdit()) {
-              <button mat-flat-button color="primary" type="button" [disabled]="readOnly() || mode.mutationsDisabled() || saving() || !saveReady()" (click)="save()">
+              <button mat-flat-button color="primary" type="button" [disabled]="readOnly() || mode.mutationsDisabled() || saving() || !form.title.trim()" (click)="save()">
                 Save as Draft
               </button>
             } @else {
               @if (!readOnly()) {
-                <button mat-stroked-button type="button" [disabled]="mode.mutationsDisabled() || saving() || !saveReady()" (click)="save()">Save</button>
+                <button mat-stroked-button type="button" [disabled]="mode.mutationsDisabled() || saving() || !form.title.trim()" (click)="save()">Save</button>
               }
               @if (lesson()?.lifecycleStatus === 'DRAFT' && !readOnly()) {
                 <button mat-flat-button color="primary" type="button" [disabled]="mode.mutationsDisabled() || saving() || !publishReady()" (click)="openPublishDialog()">
@@ -202,6 +163,11 @@ const CONTENT_TYPES: { value: LessonContentType; label: string }[] = [
               }
             }
           </div>
+
+          @if (isEdit() && lesson(); as l) {
+            <app-lesson-block-list [lessonId]="l.id" [lessonRowVersion]="l.rowVersion" [disabled]="readOnly() || mode.mutationsDisabled() || saving()"
+              (lessonUpdated)="onLessonUpdated($event)" />
+          }
         </div>
       }
     }
@@ -217,8 +183,6 @@ export class LessonEditorComponent implements OnInit {
   private snack = inject(MatSnackBar);
   mode = inject(ClassroomLiteModeService);
 
-  contentTypes = CONTENT_TYPES;
-
   curriculumId = signal<number | null>(null);
   versionId = signal<number | null>(null);
   moduleId = signal<number | null>(null);
@@ -232,87 +196,47 @@ export class LessonEditorComponent implements OnInit {
   loadError = signal<CurriculumUiError | null>(null);
   actionError = signal<CurriculumUiError | null>(null);
 
-  // Signals, not plain fields: publishReady()/repairReady() are computed()
-  // and only re-evaluate when a signal dependency they read actually
-  // changes -- a plain mutable field here would leave those computeds
-  // cached at their first (empty) value forever. contentType is a signal
-  // for exactly this reason (bug found in the Dev Dance School lesson
-  // pilot: reading a plain `form.contentType` field inside a computed()
-  // left Save permanently disabled after switching off the default VIDEO
-  // type, since the computed had no tracked dependency to re-run on).
-  contentType = signal<LessonContentType>('VIDEO');
-  private validatedVideoId = signal<string | null>(null);
   private repairValidatedUrl: string | null = null;
   private repairValidatedVideoId = signal<string | null>(null);
 
-  // CURR-FUNC-04: the existing lesson's video, reconstructed for display and
-  // pre-seeding <app-youtube-url-validator> (edit mode only -- stays blank
-  // for create). currentVideoUrlForUpdate() compares lastValidatedUrl
-  // against this exact baseline to decide whether Save means "keep the
-  // existing video" (send null, no backend revalidation) or "replace it"
-  // (send the newly validated url).
-  initialVideoUrlForForm = '';
-  initialVideoIdForForm: string | null = null;
+  form = {
+    title: '',
+    practiceNotes: ''
+  };
 
   isEdit = computed(() => this.lessonId() !== null);
   parentDraft = computed(() => this.version()?.status === 'DRAFT');
   /** CURR-FUNC-05: ARCHIVED is terminal and read-only, independent of the parent curriculum version's own status -- an archived lesson stays read-only even while its parent is still DRAFT. */
   isArchived = computed(() => this.lesson()?.lifecycleStatus === 'ARCHIVED');
+  /** MC-3: a non-null legacy contentType means this lesson predates the block editor -- its single-content fields are frozen residue, never editable here again. */
+  isLegacyLesson = computed(() => {
+    const l = this.lesson();
+    return l !== null && l.contentType !== null;
+  });
   /** CURR-FUNC-06: true only once the module is confirmed ARCHIVED -- distinct from moduleConfirmedWritable() below, which also stays false while the module is still loading. */
   moduleArchived = computed(() => this.module()?.contentStatus === 'ARCHIVED');
-  /**
-   * CURR-FUNC-06: fails closed by construction -- `module` stays `null`
-   * until a successful fetch resolves it, so neither a load failure nor the
-   * brief in-flight window before it resolves ever lets this default to
-   * "writable". A direct URL to a lesson under an archived module must
-   * never restore editability, and this is what makes that hold even before
-   * the module fetch itself completes.
-   */
   moduleConfirmedWritable = computed(() => this.module() !== null && this.module()!.contentStatus !== 'ARCHIVED');
   /** Every editable control and Save's visibility key off this, not off parentDraft() alone -- an archived lesson, or an archived module, is read-only regardless of the parent version's own status. */
   readOnly = computed(() => !this.parentDraft() || this.isArchived() || !this.moduleConfirmedWritable());
-  needsRepair = computed(() => {
+  needsLegacyRepair = computed(() => {
     const l = this.lesson();
     return !!l && l.contentType === 'VIDEO' && l.lifecycleStatus === 'PUBLISHED' && l.videoAvailability === 'UNAVAILABLE';
   });
   repairReady = computed(() => !!this.repairValidatedVideoId());
-  // Every VIDEO create/update call re-validates the URL server-side (LessonService
-  // never trusts a stored value on update) -- Publish must always require a fresh
-  // in-session validation, never fall back to the lesson's already-stored videoId.
-  publishReady = computed(() => this.contentType() !== 'VIDEO' || !!this.lesson()?.videoId);
-
-  form = {
-    title: '',
-    textContent: '',
-    externalUrl: '',
-    externalLinkLabel: '',
-    practiceNotes: ''
-  };
-
   /**
-   * Deliberately a plain method, not a computed(): it must react to every
-   * keystroke in title/textContent/externalUrl/externalLinkLabel, which are
-   * plain ngModel-bound fields, not signals. A template-invoked method
-   * re-evaluates on every change-detection tick regardless of whether its
-   * reads are signals, so this needs no caching workaround the way the
-   * contentType-only checks above do.
+   * A block-native lesson's publish-readiness (at least one complete
+   * block, VIDEO reachability re-checked live) is entirely backend-
+   * authoritative (LessonContentBlockService.assertPublishReady) -- there
+   * is no equivalent client-side pre-check here, since block completeness
+   * can change from a child component this one doesn't deeply inspect.
+   * Publish is always offered; a genuinely not-ready lesson is rejected by
+   * the server with a normal actionError, exactly like every other
+   * server-validated action on this page. A legacy VIDEO lesson keeps its
+   * own always-true gate here too -- LessonService.publish()'s legacy
+   * branch does its own reachability/attestation check server-side
+   * regardless.
    */
-  saveReady(): boolean {
-    if (!this.form.title.trim()) return false;
-    switch (this.contentType()) {
-      case 'VIDEO': return !!this.validatedVideoId();
-      case 'TEXT': return !!this.form.textContent.trim();
-      case 'PDF_LINK':
-      case 'EXTERNAL_LINK': return !!this.form.externalUrl.trim() && !!this.form.externalLinkLabel.trim();
-    }
-  }
-
-  /** Switching type must never leak a prior VIDEO validation into a save under a different type, and switching back to VIDEO must always require a fresh Validate. */
-  onContentTypeChange(next: LessonContentType) {
-    this.contentType.set(next);
-    this.validatedVideoId.set(null);
-    this.lastValidatedUrl = null;
-  }
+  publishReady = computed(() => true);
 
   ngOnInit() {
     this.curriculumId.set(Number(this.route.snapshot.paramMap.get('curriculumId')));
@@ -336,11 +260,7 @@ export class LessonEditorComponent implements OnInit {
     });
     // CURR-FUNC-06: no single-module GET endpoint exists -- compose from the
     // existing list endpoint, same established pattern ModuleDetailPanelComponent
-    // and LessonListComponent already use. A failed/empty resolution leaves
-    // `module` null, which moduleConfirmedWritable()/readOnly() treat as
-    // not-writable (fail closed) -- a direct lesson URL under an archived
-    // module (or one whose module fetch fails outright) must never render
-    // as editable.
+    // and LessonListComponent already use.
     this.moduleApi.list(vId).subscribe({
       next: modules => this.module.set(modules.find(m => m.id === mId) ?? null),
       error: () => this.module.set(null)
@@ -357,22 +277,7 @@ export class LessonEditorComponent implements OnInit {
         this.lesson.set(found);
         if (found) {
           this.form.title = found.title;
-          this.contentType.set(found.contentType);
-          this.form.textContent = found.textContent ?? '';
-          this.form.externalUrl = found.externalUrl ?? '';
-          this.form.externalLinkLabel = found.externalLinkLabel ?? '';
           this.form.practiceNotes = found.practiceNotes ?? '';
-          if (found.contentType === 'VIDEO' && found.videoId) {
-            // Reconstructed for display only -- video_id is the only thing actually persisted (CURR-FUNC-04 investigation).
-            const url = `https://www.youtube.com/watch?v=${found.videoId}`;
-            this.initialVideoUrlForForm = url;
-            this.initialVideoIdForForm = found.videoId;
-            this.validatedVideoId.set(found.videoId);
-            this.lastValidatedUrl = url;
-          } else {
-            this.initialVideoUrlForForm = '';
-            this.initialVideoIdForForm = null;
-          }
         } else {
           this.loadError.set({ kind: 'not-found', message: 'This lesson is unavailable.', resource: 'Lesson' });
         }
@@ -380,17 +285,6 @@ export class LessonEditorComponent implements OnInit {
       },
       error: (err: HttpErrorResponse) => { this.loadError.set(toCurriculumUiError(err)); this.loading.set(false); }
     });
-  }
-
-  onVideoValidated(e: YouTubeValidatedEvent) {
-    this.validatedVideoId.set(e.result === 'VALID' ? e.videoId : null);
-    this.lastValidatedUrl = e.result === 'VALID' ? e.url : null;
-  }
-
-  /** CURR-FUNC-04: the child cleared its confirmed state because the url field was edited away from it (whether that was the retained existing video or a prior validation) -- Save must require a fresh Validate & Preview again. */
-  onVideoCleared() {
-    this.validatedVideoId.set(null);
-    this.lastValidatedUrl = null;
   }
 
   onRepairValidated(e: YouTubeValidatedEvent) {
@@ -403,37 +297,41 @@ export class LessonEditorComponent implements OnInit {
     }
   }
 
+  onRepairCleared() {
+    this.repairValidatedUrl = null;
+    this.repairValidatedVideoId.set(null);
+  }
+
+  /** LessonContentBlockMutationResponse/ListMutationResponse's own row-version contract: replace the cached Lesson verbatim, never arithmetic. */
+  onLessonUpdated(updated: Lesson) {
+    this.lesson.set(updated);
+  }
+
   save() {
     const mId = this.moduleId();
     if (mId === null) return;
     // CURR-FUNC-05/06: defense-in-depth -- Save is never rendered while readOnly() is true, but this guards against any stale-DOM/programmatic path reaching here anyway.
     if (this.readOnly()) return;
-    if (!this.saveReady()) {
-      const message = this.contentType() === 'VIDEO' ? 'Validate the YouTube URL before saving.' : 'Fill in the required fields before saving.';
-      this.actionError.set({ kind: 'validation', message, resource: 'Lesson' });
+    if (!this.form.title.trim()) {
+      this.actionError.set({ kind: 'validation', message: 'Enter a title before saving.', resource: 'Lesson' });
       return;
     }
     this.saving.set(true);
     this.actionError.set(null);
 
     if (!this.isEdit()) {
-      const type = this.contentType();
-      // CURR-FUNC-02: no lessonOrder here -- the backend assigns it
-      // atomically (see CreateLessonRequest's own doc comment). This was
-      // previously hardcoded to 1 for every create, which collided with
-      // any lesson already at order 1 in the same module and was
-      // misreported as a stale-version conflict.
       const body: CreateLessonRequest = {
         title: this.form.title.trim(),
-        contentType: type,
-        youtubeUrl: type === 'VIDEO' ? this.currentVideoUrlForCreate() : null,
-        textContent: type === 'TEXT' ? this.form.textContent.trim() : null,
-        externalUrl: (type === 'PDF_LINK' || type === 'EXTERNAL_LINK') ? this.form.externalUrl.trim() : null,
-        externalLinkLabel: (type === 'PDF_LINK' || type === 'EXTERNAL_LINK') ? this.form.externalLinkLabel.trim() : null,
         practiceNotes: this.form.practiceNotes.trim() || null
       };
       this.lessonApi.create(mId, body).subscribe({
-        next: created => { this.saving.set(false); this.snack.open('Saved.', 'OK', { duration: 2000 }); this.goToList(); },
+        next: created => {
+          this.saving.set(false);
+          this.snack.open('Saved.', 'OK', { duration: 2000 });
+          // A brand-new lesson has no blocks yet -- route into edit mode so
+          // LessonBlockListComponent has a real lessonId/rowVersion to work with.
+          this.router.navigate(['/vidya-rasa/curricula', this.curriculumId(), 'versions', this.versionId(), 'modules', mId, 'lessons', created.id, 'edit']);
+        },
         error: (err: HttpErrorResponse) => { this.saving.set(false); this.actionError.set(toCurriculumUiError(err)); }
       });
       return;
@@ -443,10 +341,6 @@ export class LessonEditorComponent implements OnInit {
     if (!l) { this.saving.set(false); return; }
     const body: UpdateLessonRequest = {
       title: this.form.title.trim(),
-      youtubeUrl: l.contentType === 'VIDEO' ? this.currentVideoUrlForUpdate() : null,
-      textContent: l.contentType === 'TEXT' ? this.form.textContent.trim() : null,
-      externalUrl: (l.contentType === 'PDF_LINK' || l.contentType === 'EXTERNAL_LINK') ? this.form.externalUrl.trim() : null,
-      externalLinkLabel: (l.contentType === 'PDF_LINK' || l.contentType === 'EXTERNAL_LINK') ? this.form.externalLinkLabel.trim() : null,
       practiceNotes: this.form.practiceNotes.trim() || null,
       expectedRowVersion: l.rowVersion
     };
@@ -454,12 +348,6 @@ export class LessonEditorComponent implements OnInit {
       next: updated => {
         this.saving.set(false);
         this.lesson.set(updated);
-        if (updated.contentType === 'VIDEO' && updated.videoId) {
-          // Re-baseline so a further save in this same session doesn't treat the just-persisted video as "changed" again.
-          this.initialVideoUrlForForm = `https://www.youtube.com/watch?v=${updated.videoId}`;
-          this.initialVideoIdForForm = updated.videoId;
-          this.lastValidatedUrl = this.initialVideoUrlForForm;
-        }
         this.snack.open('Saved.', 'OK', { duration: 2000 });
       },
       error: (err: HttpErrorResponse) => {
@@ -471,31 +359,13 @@ export class LessonEditorComponent implements OnInit {
     });
   }
 
-  private currentVideoUrlForCreate(): string | null {
-    // The classifier requires a URL, not just an id -- Save is gated on
-    // publishReady()/validatedVideoId, and the validator already POSTed
-    // this exact URL server-side during Validate & Preview.
-    return this.validatedVideoId() ? this.lastValidatedUrl : null;
-  }
-
-  /**
-   * CURR-FUNC-04: null means "keep the existing video, don't revalidate"
-   * (backend contract) -- returned when the confirmed url is exactly the
-   * original, untouched baseline. Any other confirmed url is a real
-   * replacement the admin validated, sent through as-is so the backend
-   * revalidates and persists it.
-   */
-  private currentVideoUrlForUpdate(): string | null {
-    if (!this.validatedVideoId()) return null;
-    if (this.lastValidatedUrl === this.initialVideoUrlForForm) return null;
-    return this.lastValidatedUrl;
-  }
-
-  private lastValidatedUrl: string | null = null;
-
   openPublishDialog() {
     const l = this.lesson();
     if (!l) return;
+    // Attestation applies only to a genuinely legacy VIDEO lesson -- a
+    // block-native lesson's publish has no attestation mechanism at all
+    // (chk_lsn_attestation_video_only still requires content_type = 'VIDEO'
+    // for a non-null attested_at; V46 deliberately left that untouched).
     const data: PublishAttestationDialogData = { mode: 'publish', isVideo: l.contentType === 'VIDEO' };
     this.dialog.open(PublishAttestationDialog, { width: '480px', data })
       .afterClosed().subscribe((result: PublishAttestationDialogResult | null) => {

@@ -57,7 +57,14 @@ export type VideoAvailability = 'AVAILABLE' | 'UNAVAILABLE';
 export interface StudentLearningLessonSummaryDTO {
   lessonId: number;
   title: string;
-  contentType: LessonContentType;
+  /**
+   * MC-3: absent (never a literal `null`, per @JsonInclude(NON_NULL) on the
+   * backend DTO) when this lesson is block-native -- lesson_content_blocks
+   * is its canonical content, and student block-aware summaries are MC-4
+   * scope, not yet built. LessonSummaryRowComponent renders that state as
+   * a non-navigable "Coming soon" row, never a crash or an invented type.
+   */
+  contentType?: LessonContentType;
   lessonOrder: number;
   /** present only for VIDEO lessons */
   videoAvailability?: VideoAvailability;
