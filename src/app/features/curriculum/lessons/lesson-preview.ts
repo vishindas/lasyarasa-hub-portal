@@ -5,13 +5,15 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { Lesson } from '../../../core/models/curriculum.model';
+import { Lesson, LessonContentBlock } from '../../../core/models/curriculum.model';
 import { LessonApiService } from '../../../core/services/lesson-api.service';
+import { LessonContentBlockApiService } from '../../../core/services/lesson-content-block-api.service';
 import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
 import { ClassroomLiteBannerComponent } from '../../../shared/curriculum/classroom-lite-banner';
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
 import { FullOutageBlockComponent } from '../../../shared/curriculum/full-outage-block';
+import { LessonBlockContentRendererComponent } from './lesson-block-content-renderer';
 
 /**
  * Figure 3 (Lesson Preview) -- a non-releasing, read-only rendering of
@@ -30,11 +32,21 @@ import { FullOutageBlockComponent } from '../../../shared/curriculum/full-outage
  * retryable preview error instead -- it is never presented as "video
  * unavailable". Repair/republish (Lesson Editor) always runs its own fresh
  * validation regardless of this preflight's outcome.
+ *
+ * MC-3: a block-native lesson (contentType === null) renders its
+ * lesson_content_blocks instead, in displayOrder, via the shared
+ * LessonBlockContentRendererComponent -- no automatic check-video
+ * preflight for a block-native VIDEO block here (that preflight is
+ * Slice 9's own lesson-level decision for the legacy single-VIDEO case
+ * only; a block's own availability is refreshed through its row's
+ * check-video/repair-video actions in the Editor instead). A pre-MC-3
+ * legacy lesson (contentType !== null) keeps rendering through the
+ * original single-content branch below, completely unchanged.
  */
 @Component({
   selector: 'app-lesson-preview',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatCardModule, ClassroomLiteBannerComponent, CurriculumMessageComponent, FullOutageBlockComponent],
+  imports: [MatButtonModule, MatIconModule, MatCardModule, ClassroomLiteBannerComponent, CurriculumMessageComponent, FullOutageBlockComponent, LessonBlockContentRendererComponent],
   styles: [`
     button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     :host { display: block; }
@@ -86,7 +98,21 @@ import { FullOutageBlockComponent } from '../../../shared/curriculum/full-outage
 
           <h3 style="margin:0 0 12px">{{ l.title }}</h3>
 
-          @if (l.contentType === 'VIDEO') {
+          @if (l.contentType === null) {
+            @if (blocksLoading()) {
+              <p style="color:#adb5bd">Loading content…</p>
+            } @else if (blocksError()) {
+              <app-curriculum-message [error]="blocksError()" (retry)="loadBlocks(l.id)" />
+            } @else if (blocks().length === 0) {
+              <p style="color:#6c757d">This lesson has no content blocks yet.</p>
+            } @else {
+              <div style="display:flex;flex-direction:column;gap:20px">
+                @for (b of blocks(); track b.id) {
+                  <app-lesson-block-content-renderer [block]="b" />
+                }
+              </div>
+            }
+          } @else if (l.contentType === 'VIDEO') {
             @if (checkingVideo()) {
               <div class="unavailable-block"><p style="color:#adb5bd">Checking video…</p></div>
             } @else if (previewError()) {
@@ -136,6 +162,7 @@ export class LessonPreviewComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private lessonApi = inject(LessonApiService);
+  private blockApi = inject(LessonContentBlockApiService);
   private sanitizer = inject(DomSanitizer);
   mode = inject(ClassroomLiteModeService);
 
@@ -150,6 +177,10 @@ export class LessonPreviewComponent implements OnInit {
   checkingVideo = signal(false);
   loadError = signal<CurriculumUiError | null>(null);
   previewError = signal<CurriculumUiError | null>(null);
+
+  blocks = signal<LessonContentBlock[]>([]);
+  blocksLoading = signal(false);
+  blocksError = signal<CurriculumUiError | null>(null);
 
   publishedLessons = computed(() => this.allLessons().filter(l => l.lifecycleStatus === 'PUBLISHED').sort((a, b) => a.lessonOrder - b.lessonOrder));
   private currentIndex = computed(() => this.publishedLessons().findIndex(l => l.id === this.lessonId()));
@@ -195,9 +226,22 @@ export class LessonPreviewComponent implements OnInit {
           this.loadError.set({ kind: 'not-found', message: 'This lesson is unavailable.', resource: 'Lesson' });
           return;
         }
-        this.maybeCheckVideo(found);
+        if (found.contentType === null) {
+          this.loadBlocks(found.id);
+        } else {
+          this.maybeCheckVideo(found);
+        }
       },
       error: (err: HttpErrorResponse) => { this.loadError.set(toCurriculumUiError(err)); this.loading.set(false); }
+    });
+  }
+
+  loadBlocks(lessonId: number) {
+    this.blocksLoading.set(true);
+    this.blocksError.set(null);
+    this.blockApi.list(lessonId).subscribe({
+      next: blocks => { this.blocks.set([...blocks].sort((a, b) => a.displayOrder - b.displayOrder)); this.blocksLoading.set(false); },
+      error: (err: HttpErrorResponse) => { this.blocksError.set(toCurriculumUiError(err)); this.blocksLoading.set(false); }
     });
   }
 

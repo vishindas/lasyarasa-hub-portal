@@ -55,7 +55,21 @@ const ARCHIVED_TEXT_LESSON: Lesson = {
   attestedAt: null, attestedBy: null
 };
 
-describe('LessonEditorComponent -- video-id-in-copy corrections', () => {
+/**
+ * MC-3 architect correction: <app-lesson-block-list> mounts ONLY for a
+ * block-native lesson in edit mode (isEdit() && !isLegacyLesson() &&
+ * lesson() all truthy) -- a legacy lesson (non-null contentType) must not
+ * expose block create/edit/delete/reorder at all, so it never mounts and
+ * never fires the blocks GET. Only block-native-lesson edit-mode tests
+ * below need to flush this request -- an unflushed expected one fails
+ * httpMock.verify() in afterEach, and so does an unexpectedly-fired one
+ * for a legacy lesson (see the dedicated describe block below).
+ */
+function blocksUrl(lessonId: number): string {
+  return `${environment.apiUrl}/school/curricula/versions/modules/lessons/${lessonId}/blocks`;
+}
+
+describe('LessonEditorComponent -- legacy lesson content display', () => {
   let httpMock: HttpTestingController;
 
   function setup(params: Record<string, string>) {
@@ -72,20 +86,42 @@ describe('LessonEditorComponent -- video-id-in-copy corrections', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('ordinary (non-repair) edit mode: shows the id-free linked-video note, never the raw video id', () => {
+  /**
+   * MC-3 regression coverage: the old ordinary-edit-mode replace-video note
+   * ("A YouTube video is currently linked... enter a different YouTube URL
+   * and validate it to replace the video") is gone on purpose --
+   * UpdateLessonRequest can no longer carry a video at all. A legacy VIDEO
+   * lesson not needing repair now shows only the frozen read-only note.
+   */
+  it('legacy VIDEO lesson not needing repair: shows the read-only frozen-content note, never the raw video id, and no replace-video affordance', () => {
     const fixture = setup({ curriculumId: '1', versionId: '10', moduleId: '101', lessonId: '301' });
     fixture.detectChanges();
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(101, 10)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush([AVAILABLE_VIDEO_LESSON]);
     fixture.detectChanges();
+    // No blocks GET is fired -- LessonBlockListComponent never mounts for a legacy lesson (architect correction, item 2). httpMock.verify() would fail below if it were.
+
+    const c = fixture.componentInstance;
+    expect(c.isLegacyLesson()).toBe(true);
+    expect(c.needsLegacyRepair()).toBe(false);
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('A YouTube video is currently linked. You can save title/practice-note changes as-is, or enter a different YouTube URL and validate it to replace the video.');
-    // The raw id itself is never rendered as visible text -- it only ever appears inside the reconstructed URL bound to the input's value property, which textContent does not include.
+    expect(text).toContain('This lesson was created before the block content editor.');
+    expect(text).toContain('can no longer be edited here.');
+    // The raw id itself is never rendered as visible text.
     expect(text).not.toContain('dQw4w9WgXcQ');
-    // The id must still be available internally to drive the repair/embed payload.
-    expect(fixture.componentInstance.lesson()?.videoId).toBe('dQw4w9WgXcQ');
+    // The id must still be available internally (e.g. to drive Preview).
+    expect(c.lesson()?.videoId).toBe('dQw4w9WgXcQ');
+
+    // No replace-video affordance in ordinary (non-repair) edit mode -- there
+    // is no backend field left to send a replacement video through any more.
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-youtube-url-validator')).toBeNull();
+
+    // MC-3 architect correction (item 2): a legacy lesson must not expose
+    // mutable block authoring -- no block list, no Add actions, at all.
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-lesson-block-list')).toBeNull();
+    expect(text).not.toContain('Content Blocks');
   });
 
   it('repair mode: shows the corrected locked unavailable copy, never the raw video id or the old wording', () => {
@@ -95,24 +131,100 @@ describe('LessonEditorComponent -- video-id-in-copy corrections', () => {
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/20/modules`).flush([draftModuleFixture(201, 20)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/201/lessons`).flush([UNAVAILABLE_VIDEO_LESSON]);
     fixture.detectChanges();
+    // No blocks GET is fired here either -- same architect correction (item 2), regardless of needsLegacyRepair().
+
+    const c = fixture.componentInstance;
+    expect(c.isLegacyLesson()).toBe(true);
+    expect(c.needsLegacyRepair()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-lesson-block-list')).toBeNull();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('This video is private, removed, restricted, or currently unavailable. Repair or replace the link.');
     expect(text).not.toContain('It may have been removed or deleted');
     expect(text).not.toContain('AAAAAAAAAAA');
-    expect(fixture.componentInstance.lesson()?.videoId).toBe('AAAAAAAAAAA');
+    expect(c.lesson()?.videoId).toBe('AAAAAAAAAAA');
+  });
+
+  /** Carried over from the old CURR-FUNC-04 coverage: the repair flow's own validator must never be pre-seeded with the existing (unavailable) video -- repair always needs a genuinely new url, never the old (broken) one. */
+  it('repair mode: the validator never pre-seeds the existing unavailable video -- repairReady() starts false', () => {
+    const fixture = setup({ curriculumId: '2', versionId: '20', moduleId: '201', lessonId: '306' });
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/2/versions/20`).flush(ACTIVE_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/20/modules`).flush([draftModuleFixture(201, 20)]);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/201/lessons`).flush([UNAVAILABLE_VIDEO_LESSON]);
+    fixture.detectChanges();
+    // No blocks GET -- legacy lesson, LessonBlockListComponent never mounts.
+
+    expect(fixture.componentInstance.repairReady()).toBe(false);
   });
 });
 
 /**
- * Regression coverage for the Dev Dance School lesson pilot bug: Save
- * stayed permanently disabled after switching off the default VIDEO
- * content type, because the old videoSaveReady computed() read a plain
- * `form.contentType` field instead of a signal. contentType is now a
- * signal and Save-readiness is a plain method (saveReady()), re-evaluated
- * on every change-detection tick rather than cached.
+ * MC-3 architect correction (item 2): the positive-case complement to the
+ * legacy-lesson describe block above -- a block-native lesson (contentType
+ * === null) is exactly where block authoring belongs, and must render it.
  */
-describe('LessonEditorComponent -- create-mode Save enablement (content-type switching)', () => {
+describe('LessonEditorComponent -- block-native lesson exposes block authoring', () => {
+  let httpMock: HttpTestingController;
+
+  const BLOCK_NATIVE_LESSON: Lesson = {
+    id: 701, moduleId: 601, title: 'Block-Native Lesson', contentType: null, lessonOrder: 1, lifecycleStatus: 'DRAFT',
+    videoId: null, videoAvailability: null, textContent: null, externalUrl: null, externalLinkLabel: null,
+    practiceNotes: null, rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null,
+    attestedAt: null, attestedBy: null
+  };
+
+  function setup() {
+    TestBed.configureTestingModule({
+      imports: [LessonEditorComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '601', lessonId: '701' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonEditorComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(601, 10)]);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/601/lessons`).flush([BLOCK_NATIVE_LESSON]);
+    fixture.detectChanges();
+    httpMock.expectOne(blocksUrl(701)).flush([]);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  it('renders LessonBlockListComponent with the four explicit add actions, never the legacy frozen-content note', () => {
+    const fixture = setup();
+    const c = fixture.componentInstance;
+    expect(c.isLegacyLesson()).toBe(false);
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-lesson-block-list')).not.toBeNull();
+    const text = el.textContent ?? '';
+    expect(text).toContain('Content Blocks');
+    expect(text).not.toContain('This lesson was created before the block content editor.');
+  });
+
+  it('Publish stays disabled until the block list confirms readiness (zero blocks here -- architect correction, item 4)', () => {
+    const fixture = setup();
+    const c = fixture.componentInstance;
+    expect(c.publishReady()).toBe(false);
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
+    const publish = buttons.find(b => b.textContent?.trim().includes('Publish')) as HTMLButtonElement;
+    expect(publish.disabled).toBe(true);
+  });
+});
+
+/**
+ * MC-3: the old content-type toggle and its elaborate per-type
+ * save-readiness coverage tested create-mode behavior that no longer
+ * exists -- CreateLessonRequest is metadata-only (title + practiceNotes),
+ * so a create-mode Save only ever depends on a non-blank title.
+ */
+describe('LessonEditorComponent -- create-mode Save enablement', () => {
   let httpMock: HttpTestingController;
 
   function setupCreate() {
@@ -134,250 +246,22 @@ describe('LessonEditorComponent -- create-mode Save enablement (content-type swi
 
   afterEach(() => httpMock.verify());
 
-  it('default VIDEO stays unsaveable until required YouTube validation succeeds', () => {
+  it('Save as Draft stays disabled with a blank title, and enables once a title is entered', () => {
     const fixture = setupCreate();
-    const c = fixture.componentInstance;
-    c.form.title = 'A video lesson';
-    expect(c.contentType()).toBe('VIDEO');
-    expect(c.saveReady()).toBe(false);
+    const el = fixture.nativeElement as HTMLElement;
+    const saveButton = () =>
+      Array.from(el.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Save as Draft') as HTMLButtonElement;
 
-    c.onVideoValidated({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://youtu.be/dQw4w9WgXcQ' });
-    expect(c.saveReady()).toBe(true);
-  });
+    expect(saveButton().disabled).toBe(true);
 
-  it('switching VIDEO -> TEXT enables Save once title and lesson text are valid', () => {
-    const fixture = setupCreate();
-    const c = fixture.componentInstance;
-    c.onContentTypeChange('TEXT');
-    expect(c.saveReady()).toBe(false);
-
-    c.form.title = 'A text lesson';
-    expect(c.saveReady()).toBe(false); // text content still blank
-
-    c.form.textContent = 'Some pilot lesson content.';
-    expect(c.saveReady()).toBe(true);
-  });
-
-  it('PDF_LINK enables Save only once its required fields are valid', () => {
-    const fixture = setupCreate();
-    const c = fixture.componentInstance;
-    c.onContentTypeChange('PDF_LINK');
-    c.form.title = 'A PDF lesson';
-    expect(c.saveReady()).toBe(false);
-
-    c.form.externalUrl = 'https://example.com/handout.pdf';
-    expect(c.saveReady()).toBe(false); // label still blank
-
-    c.form.externalLinkLabel = 'Handout';
-    expect(c.saveReady()).toBe(true);
-  });
-
-  it('EXTERNAL_LINK enables Save only once its required fields are valid', () => {
-    const fixture = setupCreate();
-    const c = fixture.componentInstance;
-    c.onContentTypeChange('EXTERNAL_LINK');
-    c.form.title = 'A reference lesson';
-    c.form.externalUrl = 'https://example.com/reference';
-    expect(c.saveReady()).toBe(false); // label still blank
-
-    c.form.externalLinkLabel = 'Reference page';
-    expect(c.saveReady()).toBe(true);
-  });
-
-  it('switching from a validated VIDEO to another type never sends stale video state', () => {
-    const fixture = setupCreate();
-    const c = fixture.componentInstance;
-    c.form.title = 'Switches away';
-    c.onVideoValidated({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://youtu.be/dQw4w9WgXcQ' });
-
-    c.onContentTypeChange('TEXT');
-    c.form.textContent = 'Text after switching away from video.';
-    c.save();
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`);
-    expect(req.request.body.contentType).toBe('TEXT');
-    expect(req.request.body.youtubeUrl).toBeNull();
-    expect(req.request.body.textContent).toBe('Text after switching away from video.');
-    // Flushed as an error, not a success: a success would call goToList()
-    // and navigate, which needs real routes this test doesn't configure.
-    // Only the outgoing request (already asserted above) is under test here.
-    req.flush({ code: 'IGNORED' }, { status: 500, statusText: 'Server Error' });
-  });
-
-  it('switching back to VIDEO requires a fresh validation, never reusing a prior one', () => {
-    const fixture = setupCreate();
-    const c = fixture.componentInstance;
-    c.onVideoValidated({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://youtu.be/dQw4w9WgXcQ' });
-    c.onContentTypeChange('TEXT');
-    c.onContentTypeChange('VIDEO');
-
-    c.form.title = 'Back to video';
-    expect(c.saveReady()).toBe(false); // must re-validate, not reuse the earlier validation
-
-    c.onVideoValidated({ result: 'VALID', videoId: 'newVideoId1', url: 'https://youtu.be/newVideoId1' });
-    expect(c.saveReady()).toBe(true);
-  });
-
-  it('Save sends the correct content type and type-specific payload for PDF_LINK', () => {
-    const fixture = setupCreate();
-    const c = fixture.componentInstance;
-    c.onContentTypeChange('PDF_LINK');
-    c.form.title = 'A PDF lesson';
-    c.form.externalUrl = 'https://example.com/handout.pdf';
-    c.form.externalLinkLabel = 'Handout';
-    c.save();
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`);
-    expect(req.request.body).toEqual(expect.objectContaining({
-      contentType: 'PDF_LINK',
-      externalUrl: 'https://example.com/handout.pdf',
-      externalLinkLabel: 'Handout',
-      youtubeUrl: null,
-      textContent: null
-    }));
-    // Flushed as an error, not a success: a success would call goToList()
-    // and navigate, which needs real routes this test doesn't configure.
-    // Only the outgoing request (already asserted above) is under test here.
-    req.flush({ code: 'IGNORED' }, { status: 500, statusText: 'Server Error' });
-  });
-});
-
-/**
- * CURR-FUNC-04: editing an existing VIDEO lesson must show the currently
- * linked video and allow a title/practice-notes-only save without any
- * manual "Validate & Preview" click -- but the moment the URL field is
- * actually changed, that retained state must be invalidated until a fresh
- * validation succeeds.
- */
-describe('LessonEditorComponent -- CURR-FUNC-04 existing-video edit behavior', () => {
-  let httpMock: HttpTestingController;
-
-  function setupEdit() {
-    TestBed.configureTestingModule({
-      imports: [LessonEditorComponent],
-      providers: [
-        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
-        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '101', lessonId: '301' }) }
-      ]
-    });
-    httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(LessonEditorComponent);
+    // Simulated as real user input (rather than mutating form.title directly)
+    // so the [(ngModel)] two-way binding updates through its own normal
+    // event path instead of an out-of-band property write.
+    const titleInput = el.querySelector('input[maxlength="120"]') as HTMLInputElement;
+    titleInput.value = 'A new lesson';
+    titleInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
-    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(101, 10)]);
-    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush([AVAILABLE_VIDEO_LESSON]);
-    fixture.detectChanges();
-    return fixture;
-  }
-
-  afterEach(() => httpMock.verify());
-
-  /** Requirements 1 and 2: the reconstructed canonical URL and the stored videoId both initialize from the loaded lesson. */
-  it('initializes the reconstructed current URL and videoId from the loaded lesson', () => {
-    const fixture = setupEdit();
-    const c = fixture.componentInstance;
-
-    expect(c.initialVideoUrlForForm).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-    expect(c.initialVideoIdForForm).toBe('dQw4w9WgXcQ');
-  });
-
-  /** Requirement 3: a title-only change enables Save with no manual Validate & Preview call at all. */
-  it('title-only edit enables Save without pressing Validate & Preview', () => {
-    const fixture = setupEdit();
-    const c = fixture.componentInstance;
-
-    expect(c.saveReady()).toBe(true); // already true on load -- the existing video is implicitly retained
-    c.form.title = 'A renamed video lesson';
-    expect(c.saveReady()).toBe(true);
-  });
-
-  /** Requirement 4: same for a practice-notes-only change. */
-  it('practice-notes-only edit enables Save without pressing Validate & Preview', () => {
-    const fixture = setupEdit();
-    const c = fixture.componentInstance;
-
-    c.form.practiceNotes = 'Some new practice guidance.';
-    expect(c.saveReady()).toBe(true);
-  });
-
-  /** Requirements 3/4/title-only Save payload: the request must send youtubeUrl: null (keep existing), never re-sending the reconstructed URL as if it were a fresh replacement. */
-  it('title-only Save sends youtubeUrl: null -- the backend keeps the existing video, no revalidation', () => {
-    const fixture = setupEdit();
-    const c = fixture.componentInstance;
-    c.form.title = 'A renamed video lesson';
-    c.save();
-
-    const req = httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/lessons/301`);
-    expect(req.request.method).toBe('PUT');
-    expect(req.request.body.title).toBe('A renamed video lesson');
-    expect(req.request.body.youtubeUrl).toBeNull();
-    req.flush({ ...AVAILABLE_VIDEO_LESSON, title: 'A renamed video lesson' });
-  });
-
-  /** Requirement 5: editing the URL field away from the retained value clears the confirmed state -- Save must become disabled again. */
-  it('changing the URL invalidates the retained-video state and disables Save', () => {
-    const fixture = setupEdit();
-    const c = fixture.componentInstance;
-    expect(c.saveReady()).toBe(true);
-
-    c.onVideoCleared(); // the child emits this the instant its url field diverges from the retained value
-    expect(c.saveReady()).toBe(false);
-  });
-
-  /** Requirement 6: once cleared, Save stays disabled until a fresh validation actually succeeds. */
-  it('a changed URL cannot Save until it is successfully validated', () => {
-    const fixture = setupEdit();
-    const c = fixture.componentInstance;
-    c.onVideoCleared();
-    expect(c.saveReady()).toBe(false);
-
-    c.onVideoValidated({ result: 'INVALID', videoId: null, url: 'https://example.com/not-youtube' });
-    expect(c.saveReady()).toBe(false);
-  });
-
-  /** Requirement 7: a successfully validated replacement URL both enables Save and is sent as the real youtubeUrl (not null, not the old one). */
-  it('a successfully validated replacement URL enables Save and sends the new URL', () => {
-    const fixture = setupEdit();
-    const c = fixture.componentInstance;
-    c.onVideoCleared();
-    c.onVideoValidated({ result: 'VALID', videoId: 'newVideoId1', url: 'https://youtu.be/newVideoId1' });
-    expect(c.saveReady()).toBe(true);
-
-    c.save();
-    const req = httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/lessons/301`);
-    expect(req.request.body.youtubeUrl).toBe('https://youtu.be/newVideoId1');
-    req.flush({ ...AVAILABLE_VIDEO_LESSON, videoId: 'newVideoId1' });
-  });
-
-  /** Requirement 8: Publish readiness still depends only on the lesson's stored videoId, exactly as before -- untouched by the retained/validated distinction. */
-  it('Publish readiness is unaffected by the retained-video state', () => {
-    const fixture = setupEdit();
-    const c = fixture.componentInstance;
-    expect(c.publishReady()).toBe(true); // stored videoId present, independent of validatedVideoId/lastValidatedUrl bookkeeping
-
-    c.onVideoCleared(); // even after the retained state is cleared (mid-edit, unsaved), the lesson's own stored videoId is what gates Publish
-    expect(c.publishReady()).toBe(true);
-  });
-
-  /** Requirement 9: the repair-video flow's validator never receives initialUrl/initialVideoId -- repair must always require a fresh URL, never the old (unavailable) one. */
-  it('repair flow never pre-seeds the validator with the existing (unavailable) video', () => {
-    TestBed.configureTestingModule({
-      imports: [LessonEditorComponent],
-      providers: [
-        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
-        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '2', versionId: '20', moduleId: '201', lessonId: '306' }) }
-      ]
-    });
-    httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(LessonEditorComponent);
-    fixture.detectChanges();
-    httpMock.expectOne(`${environment.apiUrl}/school/curricula/2/versions/20`).flush(ACTIVE_VERSION);
-    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/20/modules`).flush([draftModuleFixture(201, 20)]);
-    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/201/lessons`).flush([UNAVAILABLE_VIDEO_LESSON]);
-    fixture.detectChanges();
-
-    const c = fixture.componentInstance;
-    expect(c.repairReady()).toBe(false); // no repair validation performed yet -- must not fall back to the old, broken video
+    expect(saveButton().disabled).toBe(false);
   });
 });
 
@@ -406,6 +290,7 @@ describe('LessonEditorComponent -- CURR-FUNC-05 archived lesson is read-only', (
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(301, 10)]); // module itself not archived -- isolates this test to the lesson's own ARCHIVED status
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/301/lessons`).flush([ARCHIVED_TEXT_LESSON]);
     fixture.detectChanges();
+    // No blocks GET -- legacy lesson, LessonBlockListComponent never mounts.
     return fixture;
   }
 
@@ -422,17 +307,16 @@ describe('LessonEditorComponent -- CURR-FUNC-05 archived lesson is read-only', (
 
   /**
    * Every field's [disabled] binding in the template reads readOnly()
-   * directly (title, TEXT/PDF/EXTERNAL_LINK/VIDEO content controls,
-   * practice notes) -- this asserts that single shared source of truth
-   * rather than each wrapped native control's own DOM state. Angular
-   * Material's MDC-based form-field/input components do not reliably
-   * reflect a `[disabled]` binding onto the native element's `.disabled`
-   * property (or even onto MatFormField's own `mat-form-field-disabled`
-   * host class) within this Vitest+jsdom harness at fixture.detectChanges()
-   * time -- confirmed by manually running this exact archived-lesson
-   * scenario in a real browser (screenshot evidence), where every field is
-   * genuinely, visibly disabled. No other test in this codebase asserts
-   * matInput's raw DOM disabled state for the same reason.
+   * directly (title, practice notes) -- this asserts that single shared
+   * source of truth rather than each wrapped native control's own DOM
+   * state. Angular Material's MDC-based form-field/input components do not
+   * reliably reflect a `[disabled]` binding onto the native element's
+   * `.disabled` property (or even onto MatFormField's own
+   * `mat-form-field-disabled` host class) within this Vitest+jsdom harness
+   * at fixture.detectChanges() time -- confirmed by manually running this
+   * exact archived-lesson scenario in a real browser (screenshot evidence),
+   * where every field is genuinely, visibly disabled. No other test in this
+   * codebase asserts matInput's raw DOM disabled state for the same reason.
    */
   it('every field is disabled (readOnly() is the single shared source every field\'s [disabled] binding reads)', () => {
     const fixture = setupArchived();
@@ -506,6 +390,7 @@ describe('LessonEditorComponent -- CURR-FUNC-06 archived-module lesson is read-o
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([archivedModuleFixture(401, 10)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/401/lessons`).flush([DRAFT_LESSON_UNDER_ARCHIVED_MODULE]);
     fixture.detectChanges();
+    // No blocks GET -- legacy lesson, LessonBlockListComponent never mounts.
     return fixture;
   }
 
@@ -575,6 +460,7 @@ describe('LessonEditorComponent -- CURR-FUNC-06 archived-module lesson is read-o
       .flush({ code: 'SERVER_ERROR' }, { status: 500, statusText: 'Server Error' });
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/401/lessons`).flush([DRAFT_LESSON_UNDER_ARCHIVED_MODULE]);
     fixture.detectChanges();
+    // No blocks GET -- legacy lesson, LessonBlockListComponent never mounts.
 
     const c = fixture.componentInstance;
     expect(c.module()).toBeNull();

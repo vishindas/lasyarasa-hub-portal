@@ -4,12 +4,23 @@ import { MatButtonModule } from '@angular/material/button';
 import { Lesson } from '../../../core/models/curriculum.model';
 import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status-chip-curriculum';
 
-const CONTENT_TYPE_LABEL: Record<Lesson['contentType'], string> = {
+const CONTENT_TYPE_LABEL: Record<NonNullable<Lesson['contentType']>, string> = {
   VIDEO: 'Video', TEXT: 'Text', PDF_LINK: 'PDF Link', EXTERNAL_LINK: 'External Link'
 };
-const CONTENT_TYPE_ICON: Record<Lesson['contentType'], string> = {
+const CONTENT_TYPE_ICON: Record<NonNullable<Lesson['contentType']>, string> = {
   VIDEO: 'play_circle', TEXT: 'article', PDF_LINK: 'picture_as_pdf', EXTERNAL_LINK: 'link'
 };
+/**
+ * MC-3: `contentType == null` does NOT mean the lesson has no content -- it
+ * means the lesson is block-native (its content lives in
+ * lesson_content_blocks, not the legacy single-content columns). A
+ * block-native lesson may already hold several complete blocks while this
+ * legacy field stays null by design, so the fallback below must describe
+ * the new model, never imply the lesson is empty (explicitly not "No
+ * content yet" -- architect correction).
+ */
+const MULTI_CONTENT_LABEL = 'Multi-content lesson';
+const MULTI_CONTENT_ICON = 'view_agenda';
 
 /**
  * One reorderable lesson row (Slice 7 Figure 1: "ordered lesson rows with
@@ -98,6 +109,12 @@ export class LessonListRowComponent {
   moveUp = output<void>();
   moveDown = output<void>();
 
-  typeLabel(): string { return CONTENT_TYPE_LABEL[this.lesson().contentType]; }
-  typeIcon(): string { return CONTENT_TYPE_ICON[this.lesson().contentType]; }
+  typeLabel(): string {
+    const t = this.lesson().contentType;
+    return t !== null ? CONTENT_TYPE_LABEL[t] : MULTI_CONTENT_LABEL;
+  }
+  typeIcon(): string {
+    const t = this.lesson().contentType;
+    return t !== null ? CONTENT_TYPE_ICON[t] : MULTI_CONTENT_ICON;
+  }
 }
