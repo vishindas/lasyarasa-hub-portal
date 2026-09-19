@@ -134,4 +134,72 @@ describe('DeleteBlockConfirmDialog (guarded delete)', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('no longer exists');
   });
+
+  /**
+   * MC-3 architect correction (follow-up): a non-404 re-fetch failure must
+   * land in its OWN loadError state, never fall through to the ordinary
+   * confirm branch (which it previously did -- loading false, notFound
+   * false, so the normal copy rendered and Remove was enabled but silently
+   * no-opped on click, since confirm() saw a null rowVersion).
+   */
+  it('a 500 re-fetch failure shows the load-error copy and disables Remove', () => {
+    const fixture = setup();
+    httpMock.expectOne(`${lessonsBase}/101/lessons`).flush(
+      { code: 'SERVER_ERROR', message: 'boom', resource: null }, { status: 500, statusText: 'Server Error' }
+    );
+    fixture.detectChanges();
+
+    const c = fixture.componentInstance;
+    expect(c.loading()).toBe(false);
+    expect(c.notFound()).toBe(false);
+    expect(c.loadError()).toBe(true);
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain("We couldn't verify the current lesson state. Close this dialog and try again.");
+    expect(text).not.toContain('This block will be permanently removed');
+    expect(text).not.toContain('no longer exists');
+
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
+    const remove = buttons.find(b => b.textContent?.trim() === 'Remove') as HTMLButtonElement;
+    expect(remove.disabled).toBe(true);
+  });
+
+  it('a generic network failure (status 0, no error.code at all) also lands in loadError, not the normal confirm branch', () => {
+    const fixture = setup();
+    httpMock.expectOne(`${lessonsBase}/101/lessons`).error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    fixture.detectChanges();
+
+    const c = fixture.componentInstance;
+    expect(c.loadError()).toBe(true);
+    expect(c.notFound()).toBe(false);
+    expect(c.readyToDelete()).toBe(false);
+
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
+    const remove = buttons.find(b => b.textContent?.trim() === 'Remove') as HTMLButtonElement;
+    expect(remove.disabled).toBe(true);
+  });
+
+  it('confirm() cannot emit a result without a fresh rowVersion, even if called directly (defense-in-depth beyond the disabled button)', () => {
+    const fixture = setup();
+    httpMock.expectOne(`${lessonsBase}/101/lessons`).flush(
+      { code: 'SERVER_ERROR', message: 'boom', resource: null }, { status: 500, statusText: 'Server Error' }
+    );
+    fixture.detectChanges();
+
+    fixture.componentInstance.confirm();
+
+    expect(closeSpy).not.toHaveBeenCalled();
+  });
+
+  it('readyToDelete() is the single source of truth for Remove\'s enablement -- true only once a real rowVersion is fetched', () => {
+    const fixture = setup();
+    const c = fixture.componentInstance;
+    expect(c.readyToDelete()).toBe(false); // loading
+
+    httpMock.expectOne(`${lessonsBase}/101/lessons`).flush([lessonFixture({ rowVersion: 12 })]);
+    httpMock.expectOne(`${blocksBase}/301/blocks`).flush([blockFixture({ id: 1 })]);
+    fixture.detectChanges();
+
+    expect(c.readyToDelete()).toBe(true);
+  });
 });

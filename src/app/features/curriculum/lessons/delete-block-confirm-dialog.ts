@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
 import { A11yModule } from '@angular/cdk/a11y';
@@ -26,6 +26,18 @@ export interface DeleteBlockConfirmResult { expectedLessonRowVersion: number; }
  * of this dialog's own behavior -- this is the same honest, no-worse-than-
  * necessary UX guarantee the question-delete flow already gives, applied
  * consistently one level down.
+ *
+ * <p>MC-3 architect correction (follow-up): a non-404 re-fetch failure
+ * (500, network error) previously fell through to the SAME branch as a
+ * successful fetch -- `loading` false, `notFound` false, so the ordinary
+ * confirm copy rendered and Remove was enabled, but clicking it silently
+ * did nothing (`confirm()` saw a null `freshLessonRowVersion` and
+ * returned). `loadError` is a third, distinct state for exactly this case
+ * -- its own copy, Remove disabled. Remove's enablement is no longer
+ * derived from negating `loading`/`notFound` (which a future added state
+ * could silently fall through, as `loadError` itself just proved) -- it's
+ * `readyToDelete()`, a single positive condition tied directly to having
+ * a real, freshly-fetched row version in hand.
  */
 @Component({
   selector: 'app-delete-block-confirm-dialog',
@@ -39,13 +51,15 @@ export interface DeleteBlockConfirmResult { expectedLessonRowVersion: number; }
         <p>Checking current status…</p>
       } @else if (notFound()) {
         <p>This block (or its lesson) no longer exists. Reload the editor to see its current state.</p>
+      } @else if (loadError()) {
+        <p>We couldn't verify the current lesson state. Close this dialog and try again.</p>
       } @else {
         <p>This block will be permanently removed from the lesson. This cannot be undone.</p>
       }
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-stroked-button type="button" cdkFocusInitial (click)="ref.close(null)">Cancel</button>
-      <button mat-flat-button color="warn" type="button" [disabled]="loading() || notFound()" (click)="confirm()">Remove</button>
+      <button mat-flat-button color="warn" type="button" [disabled]="!readyToDelete()" (click)="confirm()">Remove</button>
     </mat-dialog-actions>
   `
 })
@@ -57,7 +71,11 @@ export class DeleteBlockConfirmDialog implements OnInit {
 
   loading = signal(true);
   notFound = signal(false);
-  private freshLessonRowVersion: number | null = null;
+  loadError = signal(false);
+  private freshLessonRowVersion = signal<number | null>(null);
+
+  /** Positive, structurally-safe gate: true only once a real fresh rowVersion is in hand -- never derived by negating loading()/notFound(), which a future third (or fourth) failure state could silently fall through, exactly as loadError() itself was found to. */
+  readyToDelete = computed(() => this.freshLessonRowVersion() !== null);
 
   ngOnInit() {
     forkJoin({
@@ -69,17 +87,22 @@ export class DeleteBlockConfirmDialog implements OnInit {
         const lesson = lessons.find(l => l.id === this.data.lessonId);
         const block = blocks.find(b => b.id === this.data.blockId);
         if (!lesson || !block) { this.notFound.set(true); return; }
-        this.freshLessonRowVersion = lesson.rowVersion;
+        this.freshLessonRowVersion.set(lesson.rowVersion);
       },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
-        this.notFound.set(err.status === 404 || err.error?.code === 'RESOURCE_NOT_FOUND');
+        if (err.status === 404 || err.error?.code === 'RESOURCE_NOT_FOUND') {
+          this.notFound.set(true);
+        } else {
+          this.loadError.set(true);
+        }
       }
     });
   }
 
   confirm() {
-    if (this.freshLessonRowVersion == null) return;
-    this.ref.close({ expectedLessonRowVersion: this.freshLessonRowVersion });
+    const rowVersion = this.freshLessonRowVersion();
+    if (rowVersion == null) return;
+    this.ref.close({ expectedLessonRowVersion: rowVersion });
   }
 }
