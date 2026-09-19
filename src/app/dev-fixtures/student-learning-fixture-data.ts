@@ -9,6 +9,7 @@ import {
   ModuleDetailDTO,
   StudentAccessDTO,
   StudentClassDTO,
+  StudentContentBlock,
   StudentLearningHomeDTO,
   StudentLessonDetailDTO
 } from '../core/models/student-learning.model';
@@ -80,11 +81,16 @@ export const FIXTURE_MODULE_DETAIL: Record<number, ModuleDetailDTO> = {
     status: 'RELEASED',
     objectives: 'Learn the foundational Adavu sequences.',
     lessons: [
-      { lessonId: 501, title: 'Tattadavu — video walkthrough', contentType: 'VIDEO', lessonOrder: 1, videoAvailability: 'AVAILABLE' },
-      { lessonId: 502, title: 'Tattadavu — this video is currently unavailable', contentType: 'VIDEO', lessonOrder: 2, videoAvailability: 'UNAVAILABLE' },
-      { lessonId: 503, title: 'Counting and rhythm notes', contentType: 'TEXT', lessonOrder: 3 },
-      { lessonId: 504, title: 'Printable practice sheet', contentType: 'PDF_LINK', lessonOrder: 4 },
-      { lessonId: 505, title: 'Reference recording (external)', contentType: 'EXTERNAL_LINK', lessonOrder: 5 }
+      { lessonId: 501, title: 'Tattadavu — video walkthrough', lessonOrder: 1 },
+      { lessonId: 502, title: 'Tattadavu — this video is currently unavailable', lessonOrder: 2 },
+      { lessonId: 503, title: 'Counting and rhythm notes', lessonOrder: 3 },
+      { lessonId: 504, title: 'Printable practice sheet', lessonOrder: 4 },
+      { lessonId: 505, title: 'Reference recording (external)', lessonOrder: 5 },
+      // MC-4: dedicated fixture for the new "content isn't available right
+      // now" state -- every block on this lesson is malformed/missing, same
+      // as UX-7C's 421/422 module-level precedent (a dedicated fixture per
+      // new visual state, reachable by direct URL only).
+      { lessonId: 506, title: 'Content not yet available', lessonOrder: 6 }
     ]
   },
   402: {
@@ -94,7 +100,7 @@ export const FIXTURE_MODULE_DETAIL: Record<number, ModuleDetailDTO> = {
     status: 'COMPLETED',
     objectives: 'The opening invocation sequence.',
     lessons: [
-      { lessonId: 510, title: 'Namaskaram sequence', contentType: 'VIDEO', lessonOrder: 1, videoAvailability: 'AVAILABLE' }
+      { lessonId: 510, title: 'Namaskaram sequence', lessonOrder: 1 }
     ]
   },
   411: {
@@ -104,8 +110,8 @@ export const FIXTURE_MODULE_DETAIL: Record<number, ModuleDetailDTO> = {
     status: 'RELEASED',
     objectives: 'Rhythmic footwork patterns.',
     lessons: [
-      { lessonId: 520, title: 'Jati 1', contentType: 'VIDEO', lessonOrder: 1, videoAvailability: 'AVAILABLE' },
-      { lessonId: 521, title: 'Jati 2', contentType: 'VIDEO', lessonOrder: 2, videoAvailability: 'AVAILABLE' }
+      { lessonId: 520, title: 'Jati 1', lessonOrder: 1 },
+      { lessonId: 521, title: 'Jati 2', lessonOrder: 2 }
     ]
   },
   // UX-7C: reachable only by direct URL (not part of any FIXTURE_LEARNING_PATH
@@ -131,32 +137,53 @@ export const FIXTURE_MODULE_DETAIL: Record<number, ModuleDetailDTO> = {
   }
 };
 
+function textBlock(id: number, textContent: string): StudentContentBlock {
+  return { id, contentType: 'TEXT', textContent };
+}
+function videoBlock(id: number, opts: { videoId?: string; videoAvailability?: 'AVAILABLE' | 'UNAVAILABLE' }): StudentContentBlock {
+  return { id, contentType: 'VIDEO', ...opts };
+}
+function linkBlock(id: number, type: 'PDF_LINK' | 'EXTERNAL_LINK', externalUrl: string, externalLinkLabel: string): StudentContentBlock {
+  return { id, contentType: type, externalUrl, externalLinkLabel };
+}
+
+/** MC-4: block-native. Each lesson is now zero-or-more ordered blocks rather than one flat content shape. */
 export const FIXTURE_LESSON_DETAIL: Record<number, StudentLessonDetailDTO> = {
   501: {
-    lessonId: 501, moduleId: 401, title: 'Tattadavu — video walkthrough', contentType: 'VIDEO', lessonOrder: 1,
-    videoAvailability: 'AVAILABLE', videoId: 'dQw4w9WgXcQ',
+    lessonId: 501, moduleId: 401, title: 'Tattadavu — video walkthrough', lessonOrder: 1,
+    blocks: [videoBlock(9501, { videoId: 'dQw4w9WgXcQ', videoAvailability: 'AVAILABLE' })],
     practiceNotes: 'Practice slowly with a metronome before increasing tempo.',
     nextLessonId: 502
   },
   502: {
-    lessonId: 502, moduleId: 401, title: 'Tattadavu — this video is currently unavailable', contentType: 'VIDEO', lessonOrder: 2,
-    videoAvailability: 'UNAVAILABLE',
+    lessonId: 502, moduleId: 401, title: 'Tattadavu — this video is currently unavailable', lessonOrder: 2,
+    blocks: [videoBlock(9502, { videoAvailability: 'UNAVAILABLE' })],
     previousLessonId: 501, nextLessonId: 503
   },
   503: {
-    lessonId: 503, moduleId: 401, title: 'Counting and rhythm notes', contentType: 'TEXT', lessonOrder: 3,
-    textContent: 'Tattadavu is counted in cycles of eight. Begin with the right foot, keeping the torso still and the arms in a relaxed second position.',
+    lessonId: 503, moduleId: 401, title: 'Counting and rhythm notes', lessonOrder: 3,
+    blocks: [textBlock(9503, 'Tattadavu is counted in cycles of eight. Begin with the right foot, keeping the torso still and the arms in a relaxed second position.')],
     previousLessonId: 502, nextLessonId: 504
   },
   504: {
-    lessonId: 504, moduleId: 401, title: 'Printable practice sheet', contentType: 'PDF_LINK', lessonOrder: 4,
-    externalUrl: 'https://example.test/practice-sheet.pdf', externalLinkLabel: 'Download practice sheet (PDF)',
+    lessonId: 504, moduleId: 401, title: 'Printable practice sheet', lessonOrder: 4,
+    blocks: [linkBlock(9504, 'PDF_LINK', 'https://example.test/practice-sheet.pdf', 'Download practice sheet (PDF)')],
     previousLessonId: 503, nextLessonId: 505
   },
   505: {
-    lessonId: 505, moduleId: 401, title: 'Reference recording (external)', contentType: 'EXTERNAL_LINK', lessonOrder: 5,
-    externalUrl: 'https://example.test/reference-recording', externalLinkLabel: 'Listen to the reference recording',
-    previousLessonId: 504
+    lessonId: 505, moduleId: 401, title: 'Reference recording (external)', lessonOrder: 5,
+    blocks: [linkBlock(9505, 'EXTERNAL_LINK', 'https://example.test/reference-recording', 'Listen to the reference recording')],
+    previousLessonId: 504, nextLessonId: 506
+  },
+  // MC-4: dedicated fixture for the approved "This lesson's content isn't
+  // available right now." copy -- an authorized PUBLISHED lesson with no
+  // usable blocks. Title/practice notes/previous-next nav all stay
+  // available; only the content area shows the message (never a 404).
+  506: {
+    lessonId: 506, moduleId: 401, title: 'Content not yet available', lessonOrder: 6,
+    blocks: [],
+    practiceNotes: 'This fixture demonstrates the approved empty-content state.',
+    previousLessonId: 505
   }
 };
 

@@ -13,7 +13,7 @@ import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/c
 import { ClassroomLiteBannerComponent } from '../../../shared/curriculum/classroom-lite-banner';
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
 import { FullOutageBlockComponent } from '../../../shared/curriculum/full-outage-block';
-import { LessonBlockContentRendererComponent } from './lesson-block-content-renderer';
+import { LessonBlockContentRendererComponent } from '../../../shared/curriculum/lesson-block-content-renderer';
 
 /**
  * Figure 3 (Lesson Preview) -- a non-releasing, read-only rendering of

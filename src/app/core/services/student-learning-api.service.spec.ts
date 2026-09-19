@@ -44,7 +44,7 @@ describe('StudentLearningApiService', () => {
 
   it('lessonDetail() calls the exact deployed Slice 11 path -- no shortcut/alias route (matches the backend controller doc comment)', () => {
     service.lessonDetail(7, 301, 9, 501).subscribe();
-    httpMock.expectOne(`${base}/classes/301/modules/9/lessons/501`).flush({ lessonId: 501, moduleId: 9, title: 'x', contentType: 'TEXT', lessonOrder: 1 });
+    httpMock.expectOne(`${base}/classes/301/modules/9/lessons/501`).flush({ lessonId: 501, moduleId: 9, title: 'x', lessonOrder: 1, blocks: [] });
   });
 
   it('classInfo() calls the exact deployed Slice 11 path', () => {

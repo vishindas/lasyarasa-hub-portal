@@ -2,27 +2,36 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { forkJoin } from 'rxjs';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { StudentLearningApiService } from '../../../core/services/student-learning-api.service';
-import { ModuleDetailDTO, StudentLessonDetailDTO } from '../../../core/models/student-learning.model';
+import { ModuleDetailDTO, StudentContentBlock, StudentLessonDetailDTO } from '../../../core/models/student-learning.model';
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
+import { LessonBlockContentRendererComponent } from '../../../shared/curriculum/lesson-block-content-renderer';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
 import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.util';
 
 /**
- * Part II.4. Renders exactly consistent with Slice 9's deployed frontend
- * contract for the video embed itself -- same youtube-nocookie.com
- * construction as lesson-preview.ts (no autoplay, sanitized resource URL
- * built only from the server-resolved videoId, never arbitrary embed
- * HTML). Correction 5's precise video-ID rule: videoId is used only to
- * build the iframe src below -- never rendered as visible text, never
- * placed in an error message, never logged.
+ * Part II.4. MC-4: block-native -- content is now zero-or-more ordered
+ * `blocks`, rendered via the shared `LessonBlockContentRendererComponent`
+ * (moved, not copied, from the admin curriculum feature in this same
+ * change) instead of a single `@switch (l.contentType)`. Each block gets
+ * its own thin, student-specific caption wrapper around that shared
+ * primitive (PDF's "PDF document" tag; EXTERNAL_LINK's derived domain +
+ * "Opens in a new tab" microcopy) -- the primitive itself stays generic,
+ * unaware of admin vs. student context, per the architect's explicit
+ * "shared primitive, caller-supplied chrome" instruction.
  *
- * Position-in-module ("Lesson 2 of 4", Part II.4's "Module context" row)
+ * <p>Blocks-only cutover (architect decision): no legacy-content fallback
+ * exists here. An empty `blocks` list (every block malformed, or a
+ * pre-MC-4 legacy lesson with none) shows the approved "This lesson's
+ * content isn't available right now." copy in the content area only --
+ * title, practice notes, and previous/next navigation all stay available
+ * regardless; this state is never converted into a 404/error screen.
+ *
+ * <p>Position-in-module ("Lesson 2 of 4", Part II.4's "Module context" row)
  * is gap #4 from the approved plan: the Slice 11 lesson-detail contract has
  * no positionInModule/moduleLessonCount field, so this screen also fetches
  * Module Detail (which it needs anyway, for the module title) and derives
@@ -32,71 +41,36 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
  * UX-4: recolored per Deliverable 5 wireframes 6-8, on the same `.sp-page`
  * geometry discipline UX-3 applied to Learning Path/Module Detail/Class
  * Details (this screen had the identical independently-centered `:host`
- * pattern). The video embed/videoId construction above (embedUrl()) is
- * untouched -- restyle only, per the architect's explicit instruction.
- * PDF_LINK and EXTERNAL_LINK now render distinctly (Finding 11): PDF gets
- * a "PDF document" caption, EXTERNAL_LINK gets its destination domain
+ * pattern). PDF_LINK and EXTERNAL_LINK render distinctly (Finding 11): PDF
+ * gets a "PDF document" caption, EXTERNAL_LINK gets its destination domain
  * (derived client-side from externalUrl, no new field) plus "Opens in a
- * new tab" microcopy, since it's the one link that leaves the app. The
- * non-functional captions placeholder is removed outright (Deliverable 7
- * decision 5, already approved) rather than kept as inert filler text.
+ * new tab" microcopy, since it's the one link that leaves the app.
  */
 @Component({
   selector: 'app-lesson-detail',
   standalone: true,
-  // UX-4 geometry correction: was `:host { max-width: 760px; margin: 0
-  // auto; padding: 24px 20px 48px; }` -- the same independently-centered
-  // container class of bug UX-1/UX-3 already fixed elsewhere. `.sp-page`
-  // (styles-student.scss) gives the same flush gutter, no local width cap.
   host: { class: 'sp-page' },
-  imports: [RouterLink, MatProgressSpinnerModule, MatIconModule, MatButtonModule, CurriculumMessageComponent],
+  imports: [RouterLink, MatProgressSpinnerModule, MatIconModule, MatButtonModule, CurriculumMessageComponent, LessonBlockContentRendererComponent],
   styles: [`
-    /* UX-4 correction: a single shared reading/content boundary -- was
-       previously only the video/unavailable blocks that capped their own
-       width, leaving the breadcrumb, title, text/resource content, and
-       Previous/Next nav to spread across the full .sp-page workspace
-       (visually disconnected on short lessons like TEXT). Every piece of
-       lesson UI (breadcrumb through nav-row) now sits inside this one
-       max-width box; no margin:auto, so it stays left-aligned exactly
-       like every other student-portal page. Below 1050px it simply fills
-       the available .sp-page width, same responsive behavior as before. */
     .lesson-content { max-width: 1050px; }
     .breadcrumb { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; color: var(--sp-text-muted, #52596b); margin-bottom: 4px; }
     /* 44px touch-target floor (found undersized at 17px during 390px verification): the link text itself is small, so height comes from padding, not font-size. */
     .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: var(--sp-text-muted, #52596b); text-decoration: none; }
     .breadcrumb a:hover, .breadcrumb a:focus-visible { color: var(--sp-primary, #3d4ed8); outline: 2px solid var(--sp-primary, #3d4ed8); outline-offset: -2px; }
     .module-context { font-size: 0.8rem; color: var(--sp-text-muted, #52596b); margin: 0 0 10px; }
-    /* UX-4: Fraunces retired (Deliverable 3), matching Provider's page-header h2 pattern. */
     h1 { font-size: 1.4rem; font-weight: 600; color: var(--sp-text, #1a1f36); margin: 0 0 16px; }
-    .embed-frame { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
-    .embed-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-    /* UX-4: recolored onto the shared neutral tone -- same family
-       CurriculumMessageComponent's own "not-found" state already uses for
-       "content isn't accessible right now, nothing is broken" states. */
-    /* UX-4 correction: a compact panel, not a full 16:9 frame -- inheriting
-       the video player's own aspect ratio gave an unavailable resource the
-       same visual weight as a real, watchable video. min-height (not
-       aspect-ratio) keeps this a fixed-height panel regardless of width,
-       roughly 240px on desktop and a more compact 160px on narrow/mobile
-       widths, icon+message still centered both axes via the existing flex
-       column. Width comes from the shared .lesson-content boundary now,
-       not its own max-width. */
+    .blocks-list { display: flex; flex-direction: column; gap: 20px; }
+    .block-item { display: flex; flex-direction: column; gap: 6px; }
     .unavailable-block {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 10px; width: 100%; min-height: 240px; background: var(--sp-tone-neutral-bg, #f1f5f9); color: var(--sp-text-muted, #52596b); text-align: center; padding: 24px;
-      box-sizing: border-box; /* width:100% + padding on the same element overflows its container without this -- found at 320px verification */
+      box-sizing: border-box;
     }
     @media (max-width: 599px) {
       .unavailable-block { min-height: 160px; }
     }
-    .lesson-text { white-space: pre-wrap; line-height: 1.6; color: var(--sp-text, #1a1f36); }
-    .resource-card { display: flex; align-items: center; gap: 10px; padding: 16px; border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); background: var(--sp-surface, #fff); }
-    .resource-text { display: flex; flex-direction: column; gap: 2px; }
     /* 44px touch-target floor (found undersized at 19.2px during verification-closure numerical layout checks): same fix pattern as the breadcrumb link above -- height comes from padding via inline-flex, not font-size. */
-    .resource-card a { display: inline-flex; align-items: center; min-height: 44px; color: var(--sp-primary, #3d4ed8); font-weight: 600; }
-    /* UX-4: PDF's "PDF document" tag / EXTERNAL_LINK's domain + "Opens in a new tab" (Finding 11 differentiation). */
     .resource-caption { margin: 0; font-size: 0.8rem; color: var(--sp-text-muted, #52596b); }
-    /* UX-4: recolored from ivory to a light indigo tint, per wireframe 6. */
     .practice-notes { margin-top: 20px; padding: 14px 16px; background: var(--sp-primary-bg, #eef0fb); border: 1px solid var(--sp-border-subtle, #edf0f7); border-radius: var(--sp-radius-sm, 8px); }
     .practice-notes p { margin: 0; color: var(--sp-text, #1a1f36); font-size: 0.9rem; }
     .nav-row { display: flex; justify-content: space-between; margin-top: 24px; }
@@ -121,54 +95,38 @@ import { backLabelFor, navigateForRecovery } from '../student-learning-recovery.
         @if (positionLabel()) { <p class="module-context">{{ moduleTitle() }} · {{ positionLabel() }}</p> }
         <h1 tabindex="-1">{{ l.title }}</h1>
 
-        @switch (l.contentType) {
-        @case ('VIDEO') {
-          @if (l.videoAvailability === 'UNAVAILABLE') {
-            <div class="unavailable-block">
-              <mat-icon aria-hidden="true" style="font-size:32px;width:32px;height:32px">videocam_off</mat-icon>
-              <p>This video is private, removed, restricted, or currently unavailable.</p>
-            </div>
-          } @else if (embedUrl()) {
-            <div class="embed-frame">
-              <iframe [src]="embedUrl()" title="Lesson video" allow="encrypted-media" allowfullscreen></iframe>
-            </div>
-          }
-        }
-        @case ('TEXT') {
-          <p class="lesson-text">{{ l.textContent }}</p>
-        }
-        @case ('PDF_LINK') {
-          <div class="resource-card">
-            <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
-            <div class="resource-text">
-              <a [href]="l.externalUrl" target="_blank" rel="noopener noreferrer">{{ l.externalLinkLabel || 'Open resource' }}</a>
-              <p class="resource-caption">PDF document</p>
-            </div>
+        @if (l.blocks.length === 0) {
+          <div class="unavailable-block">
+            <mat-icon aria-hidden="true" style="font-size:32px;width:32px;height:32px">info_outline</mat-icon>
+            <p>This lesson's content isn't available right now.</p>
+          </div>
+        } @else {
+          <div class="blocks-list">
+            @for (b of l.blocks; track b.id) {
+              <div class="block-item">
+                <app-lesson-block-content-renderer [block]="b" />
+                @if (b.contentType === 'PDF_LINK') {
+                  <p class="resource-caption">PDF document</p>
+                } @else if (b.contentType === 'EXTERNAL_LINK') {
+                  <p class="resource-caption">@if (externalDomain(b)) { {{ externalDomain(b) }} &middot; } Opens in a new tab</p>
+                }
+              </div>
+            }
           </div>
         }
-        @case ('EXTERNAL_LINK') {
-          <div class="resource-card">
-            <mat-icon aria-hidden="true">link</mat-icon>
-            <div class="resource-text">
-              <a [href]="l.externalUrl" target="_blank" rel="noopener noreferrer">{{ l.externalLinkLabel || 'Open resource' }}</a>
-              <p class="resource-caption">@if (externalDomain()) { {{ externalDomain() }} &middot; } Opens in a new tab</p>
-            </div>
-          </div>
+
+        @if (l.practiceNotes) {
+          <div class="practice-notes"><p>{{ l.practiceNotes }}</p></div>
         }
-      }
 
-      @if (l.practiceNotes) {
-        <div class="practice-notes"><p>{{ l.practiceNotes }}</p></div>
-      }
-
-      <div class="nav-row">
-        <button mat-stroked-button type="button" [disabled]="!l.previousLessonId" (click)="goTo(l.previousLessonId)">
-          <mat-icon aria-hidden="true">chevron_left</mat-icon> Previous
-        </button>
-        <button mat-stroked-button type="button" [disabled]="!l.nextLessonId" (click)="goTo(l.nextLessonId)">
-          Next <mat-icon aria-hidden="true">chevron_right</mat-icon>
-        </button>
-      </div>
+        <div class="nav-row">
+          <button mat-stroked-button type="button" [disabled]="!l.previousLessonId" (click)="goTo(l.previousLessonId)">
+            <mat-icon aria-hidden="true">chevron_left</mat-icon> Previous
+          </button>
+          <button mat-stroked-button type="button" [disabled]="!l.nextLessonId" (click)="goTo(l.nextLessonId)">
+            Next <mat-icon aria-hidden="true">chevron_right</mat-icon>
+          </button>
+        </div>
       }
     </div>
   `
@@ -178,7 +136,6 @@ export class LessonDetailComponent implements OnInit {
   private router = inject(Router);
   private api = inject(StudentLearningApiService);
   private destroyRef = inject(DestroyRef);
-  private sanitizer = inject(DomSanitizer);
 
   studentId = signal<number>(0);
   classId = signal<number>(0);
@@ -202,25 +159,16 @@ export class LessonDetailComponent implements OnInit {
   });
 
   /**
-   * UX-4/Finding 11: derived client-side from the already-provided
+   * UX-4/Finding 11: derived client-side from the block's own
    * externalUrl -- no new field, matching the same "derive from what's
    * already there" pattern positionLabel() uses. `null` covers both "not
-   * an external-link-shaped lesson" and a malformed URL -- either way the
+   * an external-link-shaped block" and a malformed URL -- either way the
    * template falls back to plain "Opens in a new tab" with no domain.
    */
-  externalDomain = computed<string | null>(() => {
-    const url = this.lesson()?.externalUrl;
-    if (!url) return null;
-    try { return new URL(url).hostname; } catch { return null; }
-  });
-
-  embedUrl = computed<SafeResourceUrl | null>(() => {
-    const l = this.lesson();
-    if (!l || l.contentType !== 'VIDEO' || !l.videoId || l.videoAvailability !== 'AVAILABLE') return null;
-    // Privacy-enhanced domain, no autoplay -- identical construction to lesson-preview.ts (Slice 9), never arbitrary embed HTML.
-    const url = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(l.videoId)}?autoplay=0`;
-    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
-  });
+  externalDomain(block: StudentContentBlock): string | null {
+    if (!block.externalUrl) return null;
+    try { return new URL(block.externalUrl).hostname; } catch { return null; }
+  }
 
   ngOnInit() {
     const studentId = Number(this.route.snapshot.paramMap.get('studentId'));
