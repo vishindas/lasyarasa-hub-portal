@@ -48,7 +48,7 @@ describe('ModuleDetailComponent', () => {
     const fixture = setup();
     httpMock.expectOne(url).flush({
       moduleId: 9, title: 'Basic Adavus', moduleOrder: 1, status: 'RELEASED', objectives: 'Learn.',
-      lessons: [{ lessonId: 1, title: 'L1', contentType: 'TEXT', lessonOrder: 1 }]
+      lessons: [{ lessonId: 1, title: 'L1', lessonOrder: 1 }]
     });
     httpMock.expectOne(assignmentsUrl).flush([]);
     fixture.detectChanges();
@@ -71,7 +71,7 @@ describe('ModuleDetailComponent', () => {
 
   it('UX-7C: renders related assignments alongside lessons, and never repeats "Module: X" inside the module\'s own page', () => {
     const fixture = setup();
-    httpMock.expectOne(url).flush({ moduleId: 9, title: 'Basic Adavus', moduleOrder: 1, status: 'RELEASED', lessons: [{ lessonId: 1, title: 'L1', contentType: 'TEXT', lessonOrder: 1 }] });
+    httpMock.expectOne(url).flush({ moduleId: 9, title: 'Basic Adavus', moduleOrder: 1, status: 'RELEASED', lessons: [{ lessonId: 1, title: 'L1', lessonOrder: 1 }] });
     httpMock.expectOne(assignmentsUrl).flush([assignment({ title: 'Quiz 1' })]);
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -82,7 +82,7 @@ describe('ModuleDetailComponent', () => {
 
   it('UX-7C: lessons only -- an honest empty note for Related Assignments, independent of the lessons section', () => {
     const fixture = setup();
-    httpMock.expectOne(url).flush({ moduleId: 9, title: 'Basic Adavus', moduleOrder: 1, status: 'RELEASED', lessons: [{ lessonId: 1, title: 'L1', contentType: 'TEXT', lessonOrder: 1 }] });
+    httpMock.expectOne(url).flush({ moduleId: 9, title: 'Basic Adavus', moduleOrder: 1, status: 'RELEASED', lessons: [{ lessonId: 1, title: 'L1', lessonOrder: 1 }] });
     httpMock.expectOne(assignmentsUrl).flush([]);
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -102,7 +102,7 @@ describe('ModuleDetailComponent', () => {
 
   it('UX-7C: a related-assignments fetch failure never blocks lesson content, and is shown as its own error', () => {
     const fixture = setup();
-    httpMock.expectOne(url).flush({ moduleId: 9, title: 'Basic Adavus', moduleOrder: 1, status: 'RELEASED', lessons: [{ lessonId: 1, title: 'L1', contentType: 'TEXT', lessonOrder: 1 }] });
+    httpMock.expectOne(url).flush({ moduleId: 9, title: 'Basic Adavus', moduleOrder: 1, status: 'RELEASED', lessons: [{ lessonId: 1, title: 'L1', lessonOrder: 1 }] });
     httpMock.expectOne(assignmentsUrl).flush({ code: 'LEARNING_CONTENT_NOT_FOUND', message: 'x', resource: null }, { status: 404, statusText: 'Not Found' });
     fixture.detectChanges();
     expect(fixture.componentInstance.loadError()).toBeNull();

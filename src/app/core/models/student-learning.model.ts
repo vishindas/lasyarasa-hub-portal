@@ -54,20 +54,41 @@ export interface LearningPathDTO {
 export type LessonContentType = 'VIDEO' | 'TEXT' | 'PDF_LINK' | 'EXTERNAL_LINK';
 export type VideoAvailability = 'AVAILABLE' | 'UNAVAILABLE';
 
+/**
+ * MC-4 architect decision: `contentType` and the legacy lesson-level
+ * `videoAvailability` chip are both removed outright, not replaced with a
+ * block-aware equivalent -- once content lives in lesson_content_blocks, a
+ * lesson has zero-to-N VIDEO blocks each with their own availability, and
+ * no aggregate field (`hasUnavailableVideo` or similar) is introduced
+ * either (explicitly declined). VIDEO availability is block-level state
+ * now, shown only when the student opens the lesson (see
+ * StudentContentBlock), never projected into a summary row.
+ */
 export interface StudentLearningLessonSummaryDTO {
   lessonId: number;
   title: string;
-  /**
-   * MC-3: absent (never a literal `null`, per @JsonInclude(NON_NULL) on the
-   * backend DTO) when this lesson is block-native -- lesson_content_blocks
-   * is its canonical content, and student block-aware summaries are MC-4
-   * scope, not yet built. LessonSummaryRowComponent renders that state as
-   * a non-navigable "Coming soon" row, never a crash or an invented type.
-   */
-  contentType?: LessonContentType;
   lessonOrder: number;
-  /** present only for VIDEO lessons */
+}
+
+/**
+ * MC-4: one content block within a student's lesson-detail read. Not the
+ * admin LessonContentBlock type reused verbatim -- deliberately narrower;
+ * a student never addresses a block individually and never sends `id`
+ * back in a request, it exists purely as a stable render-loop key.
+ * `videoId` is present only when `videoAvailability = AVAILABLE` --
+ * absent (never a placeholder) when UNAVAILABLE. Every field below is
+ * `?` because the backend DTO is `@JsonInclude(NON_NULL)` -- an absent
+ * key, not a null value, for every field not relevant to this block's own
+ * contentType.
+ */
+export interface StudentContentBlock {
+  id: number;
+  contentType: LessonContentType;
   videoAvailability?: VideoAvailability;
+  videoId?: string;
+  textContent?: string;
+  externalUrl?: string;
+  externalLinkLabel?: string;
 }
 
 export interface ModuleDetailDTO {
@@ -80,21 +101,23 @@ export interface ModuleDetailDTO {
   lessons?: StudentLearningLessonSummaryDTO[];
 }
 
+/**
+ * MC-4: block-native. The flat legacy content fields (`contentType`,
+ * `videoAvailability`, `videoId`, `textContent`, `externalUrl`,
+ * `externalLinkLabel`) that Slice 11's original single-content shape
+ * carried at this level are gone entirely -- `blocks` is the sole
+ * canonical content model now. `blocks` is always present, always in
+ * authoritative order; empty only when every block on the lesson is
+ * individually malformed (blocks-only cutover, no legacy-content
+ * fallback) -- title/practiceNotes/previous-next navigation stay
+ * available regardless (architect decision: never a 404 for this case).
+ */
 export interface StudentLessonDetailDTO {
   lessonId: number;
   moduleId: number;
   title: string;
-  contentType: LessonContentType;
   lessonOrder: number;
-  videoAvailability?: VideoAvailability;
-  /** present only when videoAvailability === 'AVAILABLE' */
-  videoId?: string;
-  /** TEXT only */
-  textContent?: string;
-  /** PDF_LINK/EXTERNAL_LINK only */
-  externalUrl?: string;
-  /** PDF_LINK/EXTERNAL_LINK only */
-  externalLinkLabel?: string;
+  blocks: StudentContentBlock[];
   practiceNotes?: string;
   previousLessonId?: number;
   nextLessonId?: number;

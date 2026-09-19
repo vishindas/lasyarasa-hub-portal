@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { LessonContentBlock } from '../../../core/models/curriculum.model';
+import { LessonContentBlock } from '../../core/models/curriculum.model';
 import { LessonBlockContentRendererComponent } from './lesson-block-content-renderer';
 
 function block(overrides: Partial<LessonContentBlock> = {}): LessonContentBlock {
@@ -26,14 +26,32 @@ describe('LessonBlockContentRendererComponent', () => {
     expect(iframe.getAttribute('src')).toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=0');
   });
 
-  it('VIDEO with UNAVAILABLE renders the unavailable placeholder, never an iframe', () => {
+  it('VIDEO with UNAVAILABLE and a still-stored videoId renders the unavailable placeholder, never an iframe (admin repair-pending case)', () => {
     const fixture = setup(block({ contentType: 'VIDEO', videoId: 'dQw4w9WgXcQ', videoAvailability: 'UNAVAILABLE' }));
     expect(fixture.nativeElement.querySelector('iframe')).toBeNull();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('This video is currently unavailable.');
   });
 
-  it('VIDEO with no videoId renders "No video selected yet."', () => {
+  /**
+   * MC-4 architect-mandated regression: the student-facing block DTO
+   * always OMITS videoId when UNAVAILABLE (never a stale/irrelevant
+   * value) -- this is the exact shape a student read produces, and the
+   * one case the pre-MC-4 renderer got wrong: checking "is videoId
+   * missing" before "is videoAvailability UNAVAILABLE" would have
+   * rendered "No video selected yet." here instead of the correct
+   * unavailable-video placeholder. VIDEO decision order must check
+   * UNAVAILABLE first, unconditionally, regardless of videoId.
+   */
+  it('VIDEO with UNAVAILABLE and videoId omitted (the real student-read shape) still renders the unavailable placeholder, never "No video selected yet."', () => {
+    const fixture = setup(block({ contentType: 'VIDEO', videoId: null, videoAvailability: 'UNAVAILABLE' }));
+    expect(fixture.nativeElement.querySelector('iframe')).toBeNull();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('This video is currently unavailable.');
+    expect(text).not.toContain('No video selected yet.');
+  });
+
+  it('VIDEO with no videoId and no availability set (a genuinely incomplete DRAFT block) renders "No video selected yet."', () => {
     const fixture = setup(block({ contentType: 'VIDEO', videoId: null, videoAvailability: null }));
     expect(fixture.nativeElement.querySelector('iframe')).toBeNull();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';

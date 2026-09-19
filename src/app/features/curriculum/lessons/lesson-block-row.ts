@@ -2,7 +2,7 @@ import { Component, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { LessonContentBlock } from '../../../core/models/curriculum.model';
-import { LessonBlockContentRendererComponent } from './lesson-block-content-renderer';
+import { LessonBlockContentRendererComponent } from '../../../shared/curriculum/lesson-block-content-renderer';
 import { LessonBlockEditorComponent, LessonBlockEditorSaveEvent } from './lesson-block-editor';
 import { YouTubeUrlValidatorComponent, YouTubeValidatedEvent } from './youtube-url-validator';
 
