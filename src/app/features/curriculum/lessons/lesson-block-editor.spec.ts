@@ -2,8 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { environment } from '../../../../environments/environment';
-import { LessonContentBlock } from '../../../core/models/curriculum.model';
+import { LessonContentBlock, LessonContentType } from '../../../core/models/curriculum.model';
 import { LessonBlockEditorComponent, LessonBlockEditorSaveEvent } from './lesson-block-editor';
 
 function existingBlock(overrides: Partial<LessonContentBlock> = {}): LessonContentBlock {
@@ -14,14 +13,27 @@ function existingBlock(overrides: Partial<LessonContentBlock> = {}): LessonConte
   };
 }
 
-function setup(mode: 'create' | 'edit', existing: LessonContentBlock | null = null) {
+function setupCreate(presetType: LessonContentType) {
   TestBed.configureTestingModule({
     imports: [LessonBlockEditorComponent],
     providers: [provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync()]
   });
   const httpMock = TestBed.inject(HttpTestingController);
   const fixture = TestBed.createComponent(LessonBlockEditorComponent);
-  fixture.componentRef.setInput('mode', mode);
+  fixture.componentRef.setInput('mode', 'create');
+  fixture.componentRef.setInput('presetContentType', presetType);
+  fixture.detectChanges();
+  return { fixture, httpMock };
+}
+
+function setupEdit(existing: LessonContentBlock) {
+  TestBed.configureTestingModule({
+    imports: [LessonBlockEditorComponent],
+    providers: [provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync()]
+  });
+  const httpMock = TestBed.inject(HttpTestingController);
+  const fixture = TestBed.createComponent(LessonBlockEditorComponent);
+  fixture.componentRef.setInput('mode', 'edit');
   fixture.componentRef.setInput('existingBlock', existing);
   fixture.detectChanges();
   return { fixture, httpMock };
@@ -33,29 +45,21 @@ function clickButton(fixture: { nativeElement: unknown }, text: string) {
   btn.click();
 }
 
-describe('LessonBlockEditorComponent -- create mode', () => {
+describe('LessonBlockEditorComponent -- create mode (architect correction: type is preset, no in-editor toggle)', () => {
   let httpMock: HttpTestingController;
 
   afterEach(() => httpMock?.verify());
 
-  it('switching content type resets any prior YouTube validation', () => {
-    const s = setup('create');
+  it('presetContentType drives contentType() -- no in-editor content-type toggle exists', () => {
+    const s = setupCreate('VIDEO');
     httpMock = s.httpMock;
-    const c = s.fixture.componentInstance;
-
-    c.onVideoValidated({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://youtu.be/dQw4w9WgXcQ' });
-    c.onContentTypeChange('TEXT');
-    c.onContentTypeChange('VIDEO');
-
-    let emitted: LessonBlockEditorSaveEvent | undefined;
-    c.save.subscribe((e: LessonBlockEditorSaveEvent) => (emitted = e));
-    c.onSave();
-
-    expect(emitted?.youtubeUrl).toBeNull(); // the prior validation must not leak back in after switching away and back
+    expect(s.fixture.componentInstance.contentType()).toBe('VIDEO');
+    const el = s.fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('mat-button-toggle-group')).toBeNull();
   });
 
   it('an unvalidated VIDEO block legally emits youtubeUrl: null (incomplete blocks are allowed)', () => {
-    const s = setup('create');
+    const s = setupCreate('VIDEO');
     httpMock = s.httpMock;
     const c = s.fixture.componentInstance;
 
@@ -67,7 +71,7 @@ describe('LessonBlockEditorComponent -- create mode', () => {
   });
 
   it('a validated VIDEO block emits the validated url', () => {
-    const s = setup('create');
+    const s = setupCreate('VIDEO');
     httpMock = s.httpMock;
     const c = s.fixture.componentInstance;
     c.onVideoValidated({ result: 'VALID', videoId: 'dQw4w9WgXcQ', url: 'https://youtu.be/dQw4w9WgXcQ' });
@@ -80,10 +84,9 @@ describe('LessonBlockEditorComponent -- create mode', () => {
   });
 
   it('TEXT emits the entered text', () => {
-    const s = setup('create');
+    const s = setupCreate('TEXT');
     httpMock = s.httpMock;
     const c = s.fixture.componentInstance;
-    c.onContentTypeChange('TEXT');
     c.textContent = 'Some block content.';
 
     let emitted: LessonBlockEditorSaveEvent | undefined;
@@ -94,10 +97,9 @@ describe('LessonBlockEditorComponent -- create mode', () => {
   });
 
   it('PDF_LINK emits the url and label', () => {
-    const s = setup('create');
+    const s = setupCreate('PDF_LINK');
     httpMock = s.httpMock;
     const c = s.fixture.componentInstance;
-    c.onContentTypeChange('PDF_LINK');
     c.externalUrl = 'https://example.com/handout.pdf';
     c.externalLinkLabel = 'Handout';
 
@@ -109,10 +111,9 @@ describe('LessonBlockEditorComponent -- create mode', () => {
   });
 
   it('EXTERNAL_LINK emits the url and label', () => {
-    const s = setup('create');
+    const s = setupCreate('EXTERNAL_LINK');
     httpMock = s.httpMock;
     const c = s.fixture.componentInstance;
-    c.onContentTypeChange('EXTERNAL_LINK');
     c.externalUrl = 'https://example.com/ref';
     c.externalLinkLabel = 'Reference';
 
@@ -124,7 +125,7 @@ describe('LessonBlockEditorComponent -- create mode', () => {
   });
 
   it('Cancel emits cancel', () => {
-    const s = setup('create');
+    const s = setupCreate('TEXT');
     httpMock = s.httpMock;
     let cancelled = false;
     s.fixture.componentInstance.cancel.subscribe(() => (cancelled = true));
@@ -138,8 +139,8 @@ describe('LessonBlockEditorComponent -- edit mode', () => {
 
   afterEach(() => httpMock?.verify());
 
-  it('pre-seeds a VIDEO block from existingBlock', () => {
-    const s = setup('edit', existingBlock({ contentType: 'VIDEO', videoId: 'dQw4w9WgXcQ' }));
+  it('pre-seeds a VIDEO block from existingBlock (its own contentType wins, presetContentType is ignored)', () => {
+    const s = setupEdit(existingBlock({ contentType: 'VIDEO', videoId: 'dQw4w9WgXcQ' }));
     httpMock = s.httpMock;
     const c = s.fixture.componentInstance;
 
@@ -149,13 +150,13 @@ describe('LessonBlockEditorComponent -- edit mode', () => {
   });
 
   it('pre-seeds a TEXT block from existingBlock', () => {
-    const s = setup('edit', existingBlock({ contentType: 'TEXT', textContent: 'Existing text.' }));
+    const s = setupEdit(existingBlock({ contentType: 'TEXT', textContent: 'Existing text.' }));
     httpMock = s.httpMock;
     expect(s.fixture.componentInstance.textContent).toBe('Existing text.');
   });
 
   it('saving an untouched VIDEO block emits youtubeUrl: null (CURR-FUNC-04: keep existing)', () => {
-    const s = setup('edit', existingBlock({ contentType: 'VIDEO', videoId: 'dQw4w9WgXcQ' }));
+    const s = setupEdit(existingBlock({ contentType: 'VIDEO', videoId: 'dQw4w9WgXcQ' }));
     httpMock = s.httpMock;
     const c = s.fixture.componentInstance;
 
@@ -167,7 +168,7 @@ describe('LessonBlockEditorComponent -- edit mode', () => {
   });
 
   it('saving a freshly-validated replacement VIDEO url emits the new url', () => {
-    const s = setup('edit', existingBlock({ contentType: 'VIDEO', videoId: 'dQw4w9WgXcQ' }));
+    const s = setupEdit(existingBlock({ contentType: 'VIDEO', videoId: 'dQw4w9WgXcQ' }));
     httpMock = s.httpMock;
     const c = s.fixture.componentInstance;
     c.onVideoValidated({ result: 'VALID', videoId: 'newVideoId1', url: 'https://youtu.be/newVideoId1' });

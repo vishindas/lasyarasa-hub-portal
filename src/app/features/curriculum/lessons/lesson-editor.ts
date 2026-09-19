@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, viewChild } from '@angular/core';
 import { LowerCasePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -41,19 +41,30 @@ import { LessonBlockListComponent } from './lesson-block-list';
  * fields at all; a lesson's actual content is now zero or more
  * lesson_content_blocks, authored below via LessonBlockListComponent
  * (block-native, no 0-vs->=1-block branching -- architect decision 5).
- * The block list only applies in edit mode (a block needs a real lessonId
- * + lesson rowVersion to guard against); a brand-new lesson must be saved
- * once as metadata first, exactly like the old flow required a first save
- * before any lifecycle action.
+ * The block list only applies in edit mode for a block-native lesson (a
+ * block needs a real lessonId + lesson rowVersion to guard against); a
+ * brand-new lesson must be saved once as metadata first, exactly like the
+ * old flow required a first save before any lifecycle action.
  *
- * A pre-MC-3 legacy lesson (contentType still non-null) keeps its frozen
- * single-content fields entirely read-only here -- no editing UI for them
- * exists any more (the deliberate "no legacy-content echo workaround"
- * fix: the fields were removed from the DTOs, not kept-and-blanked). Its
- * one remaining legacy-specific affordance, Repair/Republish Video, stays
+ * <p>MC-3 architect correction: a pre-MC-3 legacy lesson (contentType
+ * still non-null) keeps its frozen single-content fields entirely
+ * read-only here -- no editing UI for them exists any more (the
+ * deliberate "no legacy-content echo workaround" fix: the fields were
+ * removed from the DTOs, not kept-and-blanked) -- AND does not render
+ * LessonBlockListComponent at all (`!isLegacyLesson()` gates it), so a
+ * legacy lesson exposes no block create/edit/delete/reorder from this
+ * editor either. This is deliberate, not an oversight: legacy content is
+ * described as frozen, so it must not remain admin-mutable through a
+ * different door (blocks). This is not a conversion flow -- a legacy
+ * lesson never gains blocks here, and `LessonService.publish()`'s legacy
+ * branch (still keyed on `contentType != null`) never needed to consider
+ * blocks in the first place, since none can exist for one. Its one
+ * remaining legacy-specific affordance, Repair/Republish Video, stays
  * lesson-level and unchanged, gated strictly on `contentType === 'VIDEO'`
  * -- a block-native lesson's own VIDEO blocks repair independently, one
  * level down, inside LessonBlockListComponent/LessonBlockRowComponent.
+ * Disposable legacy lesson data is expected to be removed in a separate,
+ * explicitly authorized cleanup, not converted.
  */
 @Component({
   selector: 'app-lesson-editor',
@@ -164,8 +175,8 @@ import { LessonBlockListComponent } from './lesson-block-list';
             }
           </div>
 
-          @if (isEdit() && lesson(); as l) {
-            <app-lesson-block-list [lessonId]="l.id" [lessonRowVersion]="l.rowVersion" [disabled]="readOnly() || mode.mutationsDisabled() || saving()"
+          @if (isEdit() && !isLegacyLesson() && lesson(); as l) {
+            <app-lesson-block-list [moduleId]="moduleId()!" [lessonId]="l.id" [lessonRowVersion]="l.rowVersion" [disabled]="readOnly() || mode.mutationsDisabled() || saving()"
               (lessonUpdated)="onLessonUpdated($event)" />
           }
         </div>
@@ -223,20 +234,22 @@ export class LessonEditorComponent implements OnInit {
     return !!l && l.contentType === 'VIDEO' && l.lifecycleStatus === 'PUBLISHED' && l.videoAvailability === 'UNAVAILABLE';
   });
   repairReady = computed(() => !!this.repairValidatedVideoId());
+  /** Signal `viewChild()` query, not an output/duplicated-state pattern -- see LessonBlockListComponent's own doc comment for why. Only ever present once a block-native lesson's block list has actually rendered. */
+  private blockList = viewChild(LessonBlockListComponent);
   /**
-   * A block-native lesson's publish-readiness (at least one complete
-   * block, VIDEO reachability re-checked live) is entirely backend-
-   * authoritative (LessonContentBlockService.assertPublishReady) -- there
-   * is no equivalent client-side pre-check here, since block completeness
-   * can change from a child component this one doesn't deeply inspect.
-   * Publish is always offered; a genuinely not-ready lesson is rejected by
-   * the server with a normal actionError, exactly like every other
-   * server-validated action on this page. A legacy VIDEO lesson keeps its
-   * own always-true gate here too -- LessonService.publish()'s legacy
-   * branch does its own reachability/attestation check server-side
-   * regardless.
+   * MC-3 architect correction: backend `LessonContentBlockService.
+   * assertPublishReady` stays fully authoritative regardless (a request
+   * can still be rejected server-side, e.g. a stale VIDEO reachability
+   * result) -- but Publish is no longer unconditionally enabled here. For
+   * a block-native lesson, this reads LessonBlockListComponent's own
+   * `readyForPublish()` (zero blocks, or any locally incomplete block,
+   * disables Publish; the child isn't rendered at all for a legacy lesson
+   * or before the first save, in which case this stays `false` by
+   * construction). A legacy VIDEO lesson keeps its own always-true gate --
+   * LessonService.publish()'s legacy branch does its own reachability/
+   * attestation check server-side regardless, exactly as before.
    */
-  publishReady = computed(() => true);
+  publishReady = computed(() => this.isLegacyLesson() || (this.blockList()?.readyForPublish() ?? false));
 
   ngOnInit() {
     this.curriculumId.set(Number(this.route.snapshot.paramMap.get('curriculumId')));

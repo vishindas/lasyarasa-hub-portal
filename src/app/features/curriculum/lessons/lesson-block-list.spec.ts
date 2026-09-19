@@ -6,6 +6,7 @@ import { of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { Lesson, LessonContentBlock } from '../../../core/models/curriculum.model';
 import { LessonBlockListComponent } from './lesson-block-list';
+import { DeleteBlockConfirmResult } from './delete-block-confirm-dialog';
 
 const base = `${environment.apiUrl}/school/curricula/versions/modules/lessons`;
 
@@ -26,7 +27,7 @@ function lessonFixture(rowVersion: number): Lesson {
   };
 }
 
-function setup(lessonId = 301, lessonRowVersion = 5, disabled = false) {
+function setup(moduleId = 101, lessonId = 301, lessonRowVersion = 5, disabled = false) {
   TestBed.configureTestingModule({
     imports: [LessonBlockListComponent],
     providers: [provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync()]
@@ -39,11 +40,17 @@ function setup(lessonId = 301, lessonRowVersion = 5, disabled = false) {
   // imports MatDialogModule, so the instance's own `dialog` field is
   // replaced directly instead.
   (fixture.componentInstance as unknown as { dialog: { open: typeof dialogOpenSpy } }).dialog = { open: dialogOpenSpy };
+  fixture.componentRef.setInput('moduleId', moduleId);
   fixture.componentRef.setInput('lessonId', lessonId);
   fixture.componentRef.setInput('lessonRowVersion', lessonRowVersion);
   fixture.componentRef.setInput('disabled', disabled);
   fixture.detectChanges();
   return { fixture, httpMock, dialogOpenSpy };
+}
+
+function clickButtonContaining(el: HTMLElement, text: string) {
+  const btn = Array.from(el.querySelectorAll('button')).find(b => b.textContent?.trim().includes(text)) as HTMLButtonElement;
+  btn.click();
 }
 
 describe('LessonBlockListComponent', () => {
@@ -52,7 +59,7 @@ describe('LessonBlockListComponent', () => {
   afterEach(() => httpMock.verify());
 
   it('loads blocks for the given lessonId on init', () => {
-    const s = setup(301, 5);
+    const s = setup(101, 301, 5);
     httpMock = s.httpMock;
     const req = httpMock.expectOne(`${base}/301/blocks`);
     expect(req.request.method).toBe('GET');
@@ -63,19 +70,34 @@ describe('LessonBlockListComponent', () => {
     expect(s.fixture.componentInstance.loading()).toBe(false);
   });
 
-  it('Add Block shows the inline create editor, and a successful create appends the new block and re-emits lessonUpdated with the response\'s fresh lesson', () => {
-    const s = setup(301, 5);
+  it('architect correction: shows four explicit add actions (Add Text/Add Video/Add PDF/Add External Link), never a generic "Add Block" + picker', () => {
+    const s = setup(101, 301, 5);
     httpMock = s.httpMock;
     httpMock.expectOne(`${base}/301/blocks`).flush([]);
     s.fixture.detectChanges();
 
-    expect(s.fixture.componentInstance.addingNew()).toBe(false);
     const el = s.fixture.nativeElement as HTMLElement;
-    const addBtn = Array.from(el.querySelectorAll('button')).find(b => b.textContent?.trim().includes('Add Block')) as HTMLButtonElement;
-    addBtn.click();
+    const buttonTexts = Array.from(el.querySelectorAll('button')).map(b => b.textContent?.trim());
+    expect(buttonTexts.some(t => t?.includes('Add Text'))).toBe(true);
+    expect(buttonTexts.some(t => t?.includes('Add Video'))).toBe(true);
+    expect(buttonTexts.some(t => t?.includes('Add PDF'))).toBe(true);
+    expect(buttonTexts.some(t => t?.includes('Add External Link'))).toBe(true);
+    expect(buttonTexts.some(t => t === 'Add Block')).toBe(false);
+    expect(el.querySelector('mat-button-toggle-group')).toBeNull();
+  });
+
+  it('"Add Text" opens the inline create editor already preselected to TEXT, and a successful create appends the new block and re-emits lessonUpdated with the response\'s fresh lesson', () => {
+    const s = setup(101, 301, 5);
+    httpMock = s.httpMock;
+    httpMock.expectOne(`${base}/301/blocks`).flush([]);
     s.fixture.detectChanges();
 
-    expect(s.fixture.componentInstance.addingNew()).toBe(true);
+    expect(s.fixture.componentInstance.addingType()).toBeNull();
+    const el = s.fixture.nativeElement as HTMLElement;
+    clickButtonContaining(el, 'Add Text');
+    s.fixture.detectChanges();
+
+    expect(s.fixture.componentInstance.addingType()).toBe('TEXT');
     expect(el.querySelector('app-lesson-block-editor')).not.toBeNull();
 
     let emittedLesson: Lesson | undefined;
@@ -93,31 +115,35 @@ describe('LessonBlockListComponent', () => {
     req.flush({ block: newBlock, lesson: responseLesson });
 
     expect(s.fixture.componentInstance.blocks().some(b => b.id === 9)).toBe(true);
-    expect(s.fixture.componentInstance.addingNew()).toBe(false);
+    expect(s.fixture.componentInstance.addingType()).toBeNull();
     expect(emittedLesson).toEqual(responseLesson);
   });
 
-  it('delete opens DeleteBlockConfirmDialog with the content-type label, and only calls the delete endpoint on confirm', () => {
-    const s = setup(301, 5);
+  it('delete opens the guarded DeleteBlockConfirmDialog with moduleId/lessonId/blockId/label, and only calls the delete endpoint on confirm, using the DIALOG\'S fresh rowVersion (not this component\'s cached one)', () => {
+    const s = setup(101, 301, 5);
     httpMock = s.httpMock;
     httpMock.expectOne(`${base}/301/blocks`).flush([blockFixture({ id: 1, contentType: 'VIDEO', displayOrder: 1 })]);
     s.fixture.detectChanges();
 
-    s.dialogOpenSpy.mockReturnValue({ afterClosed: () => of(false) });
+    s.dialogOpenSpy.mockReturnValue({ afterClosed: () => of(null) });
     s.fixture.componentInstance.confirmDelete(s.fixture.componentInstance.blocks()[0]);
     expect(s.dialogOpenSpy).toHaveBeenCalled();
-    expect(s.dialogOpenSpy.mock.calls[0][1].data).toEqual({ contentTypeLabel: 'video' });
+    expect(s.dialogOpenSpy.mock.calls[0][1].data).toEqual({ moduleId: 101, lessonId: 301, blockId: 1, contentTypeLabel: 'video' });
     httpMock.expectNone(`${base}/301/blocks/1`);
 
-    s.dialogOpenSpy.mockReturnValue({ afterClosed: () => of(true) });
+    // Guarded delete: the dialog's own fresh re-read rowVersion (8) differs
+    // from this component's cached lessonRowVersion input (5) -- proving
+    // the fresh value, not the stale cached one, is what's actually sent.
+    const guardedResult: DeleteBlockConfirmResult = { expectedLessonRowVersion: 8 };
+    s.dialogOpenSpy.mockReturnValue({ afterClosed: () => of(guardedResult) });
     let emittedLesson: Lesson | undefined;
     s.fixture.componentInstance.lessonUpdated.subscribe((l: Lesson) => (emittedLesson = l));
-    const responseLesson = lessonFixture(6);
+    const responseLesson = lessonFixture(9);
     s.fixture.componentInstance.confirmDelete(s.fixture.componentInstance.blocks()[0]);
 
     const req = httpMock.expectOne(`${base}/301/blocks/1`);
     expect(req.request.method).toBe('DELETE');
-    expect(req.request.body).toEqual({ expectedLessonRowVersion: 5 });
+    expect(req.request.body).toEqual({ expectedLessonRowVersion: 8 });
     req.flush(responseLesson);
 
     expect(s.fixture.componentInstance.blocks().length).toBe(0);
@@ -125,7 +151,7 @@ describe('LessonBlockListComponent', () => {
   });
 
   it('moveUp sends the right ReorderLessonContentBlockEntry[] and re-sorts blocks by the response\'s displayOrder', () => {
-    const s = setup(301, 5);
+    const s = setup(101, 301, 5);
     httpMock = s.httpMock;
     const b1 = blockFixture({ id: 1, displayOrder: 1 });
     const b2 = blockFixture({ id: 2, displayOrder: 2 });
@@ -145,7 +171,7 @@ describe('LessonBlockListComponent', () => {
   });
 
   it('a drag-drop reorder (onDrop) sends the right entries too', () => {
-    const s = setup(301, 5);
+    const s = setup(101, 301, 5);
     httpMock = s.httpMock;
     const b1 = blockFixture({ id: 1, displayOrder: 1 });
     const b2 = blockFixture({ id: 2, displayOrder: 2 });
@@ -166,7 +192,7 @@ describe('LessonBlockListComponent', () => {
   });
 
   it('a 409 conflict on create surfaces the exact "before adding a block" copy', () => {
-    const s = setup(301, 5);
+    const s = setup(101, 301, 5);
     httpMock = s.httpMock;
     httpMock.expectOne(`${base}/301/blocks`).flush([]);
     s.fixture.detectChanges();
@@ -178,12 +204,12 @@ describe('LessonBlockListComponent', () => {
   });
 
   it('a 409 conflict on delete surfaces the exact "before removing this block" copy', () => {
-    const s = setup(301, 5);
+    const s = setup(101, 301, 5);
     httpMock = s.httpMock;
     httpMock.expectOne(`${base}/301/blocks`).flush([blockFixture({ id: 1, contentType: 'TEXT', displayOrder: 1 })]);
     s.fixture.detectChanges();
 
-    s.dialogOpenSpy.mockReturnValue({ afterClosed: () => of(true) });
+    s.dialogOpenSpy.mockReturnValue({ afterClosed: () => of({ expectedLessonRowVersion: 5 } as DeleteBlockConfirmResult) });
     s.fixture.componentInstance.confirmDelete(s.fixture.componentInstance.blocks()[0]);
     httpMock.expectOne(`${base}/301/blocks/1`).flush({ code: 'STALE_VERSION', message: 'stale', resource: null }, { status: 409, statusText: 'Conflict' });
 
@@ -191,7 +217,7 @@ describe('LessonBlockListComponent', () => {
   });
 
   it('a 409 conflict on reorder surfaces the exact "Block order changed elsewhere" copy', () => {
-    const s = setup(301, 5);
+    const s = setup(101, 301, 5);
     httpMock = s.httpMock;
     const b1 = blockFixture({ id: 1, displayOrder: 1 });
     const b2 = blockFixture({ id: 2, displayOrder: 2 });
@@ -205,7 +231,7 @@ describe('LessonBlockListComponent', () => {
   });
 
   it('a 409 conflict on repair-video surfaces the exact "before repairing this block" copy', () => {
-    const s = setup(301, 5);
+    const s = setup(101, 301, 5);
     httpMock = s.httpMock;
     const b1 = blockFixture({ id: 1, contentType: 'VIDEO', videoId: 'oldId', videoAvailability: 'UNAVAILABLE', displayOrder: 1 });
     httpMock.expectOne(`${base}/301/blocks`).flush([b1]);
@@ -217,5 +243,63 @@ describe('LessonBlockListComponent', () => {
     req.flush({ code: 'STALE_VERSION', message: 'stale', resource: null }, { status: 409, statusText: 'Conflict' });
 
     expect(s.fixture.componentInstance.actionError()?.message).toBe('This lesson changed elsewhere — reload before repairing this block');
+  });
+
+  describe('readyForPublish (architect correction: client-side publish readiness from currently-loaded block state)', () => {
+    it('is false while loading', () => {
+      const s = setup(101, 301, 5);
+      httpMock = s.httpMock;
+      expect(s.fixture.componentInstance.readyForPublish()).toBe(false);
+      httpMock.expectOne(`${base}/301/blocks`).flush([]);
+    });
+
+    it('is false with zero blocks', () => {
+      const s = setup(101, 301, 5);
+      httpMock = s.httpMock;
+      httpMock.expectOne(`${base}/301/blocks`).flush([]);
+      s.fixture.detectChanges();
+      expect(s.fixture.componentInstance.readyForPublish()).toBe(false);
+    });
+
+    it('is false with any incomplete block (VIDEO with no videoId)', () => {
+      const s = setup(101, 301, 5);
+      httpMock = s.httpMock;
+      httpMock.expectOne(`${base}/301/blocks`).flush([
+        blockFixture({ id: 1, contentType: 'TEXT', textContent: 'complete' }),
+        blockFixture({ id: 2, contentType: 'VIDEO', videoId: null })
+      ]);
+      s.fixture.detectChanges();
+      expect(s.fixture.componentInstance.readyForPublish()).toBe(false);
+    });
+
+    it('is false with a blank TEXT block', () => {
+      const s = setup(101, 301, 5);
+      httpMock = s.httpMock;
+      httpMock.expectOne(`${base}/301/blocks`).flush([blockFixture({ id: 1, contentType: 'TEXT', textContent: '   ' })]);
+      s.fixture.detectChanges();
+      expect(s.fixture.componentInstance.readyForPublish()).toBe(false);
+    });
+
+    it('is false with a PDF_LINK block missing its label', () => {
+      const s = setup(101, 301, 5);
+      httpMock = s.httpMock;
+      httpMock.expectOne(`${base}/301/blocks`).flush([
+        blockFixture({ id: 1, contentType: 'PDF_LINK', externalUrl: 'https://example.com/x.pdf', externalLinkLabel: null })
+      ]);
+      s.fixture.detectChanges();
+      expect(s.fixture.componentInstance.readyForPublish()).toBe(false);
+    });
+
+    it('is true when every block is locally complete', () => {
+      const s = setup(101, 301, 5);
+      httpMock = s.httpMock;
+      httpMock.expectOne(`${base}/301/blocks`).flush([
+        blockFixture({ id: 1, contentType: 'TEXT', textContent: 'complete' }),
+        blockFixture({ id: 2, contentType: 'VIDEO', videoId: 'dQw4w9WgXcQ', videoAvailability: 'AVAILABLE' }),
+        blockFixture({ id: 3, contentType: 'EXTERNAL_LINK', externalUrl: 'https://example.com', externalLinkLabel: 'Ref' })
+      ]);
+      s.fixture.detectChanges();
+      expect(s.fixture.componentInstance.readyForPublish()).toBe(true);
+    });
   });
 });

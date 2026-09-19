@@ -56,12 +56,14 @@ const ARCHIVED_TEXT_LESSON: Lesson = {
 };
 
 /**
- * MC-3: every edit-mode render of LessonEditorComponent mounts
- * <app-lesson-block-list> (any lesson, legacy or block-native, once
- * isEdit() && lesson() are both truthy), which fires its own GET for the
- * lesson's content blocks on ngOnChanges. Every edit-mode test below must
- * flush this request -- an unflushed one fails httpMock.verify() in
- * afterEach.
+ * MC-3 architect correction: <app-lesson-block-list> mounts ONLY for a
+ * block-native lesson in edit mode (isEdit() && !isLegacyLesson() &&
+ * lesson() all truthy) -- a legacy lesson (non-null contentType) must not
+ * expose block create/edit/delete/reorder at all, so it never mounts and
+ * never fires the blocks GET. Only block-native-lesson edit-mode tests
+ * below need to flush this request -- an unflushed expected one fails
+ * httpMock.verify() in afterEach, and so does an unexpectedly-fired one
+ * for a legacy lesson (see the dedicated describe block below).
  */
 function blocksUrl(lessonId: number): string {
   return `${environment.apiUrl}/school/curricula/versions/modules/lessons/${lessonId}/blocks`;
@@ -98,8 +100,7 @@ describe('LessonEditorComponent -- legacy lesson content display', () => {
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(101, 10)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush([AVAILABLE_VIDEO_LESSON]);
     fixture.detectChanges();
-    httpMock.expectOne(blocksUrl(301)).flush([]);
-    fixture.detectChanges();
+    // No blocks GET is fired -- LessonBlockListComponent never mounts for a legacy lesson (architect correction, item 2). httpMock.verify() would fail below if it were.
 
     const c = fixture.componentInstance;
     expect(c.isLegacyLesson()).toBe(true);
@@ -116,6 +117,11 @@ describe('LessonEditorComponent -- legacy lesson content display', () => {
     // No replace-video affordance in ordinary (non-repair) edit mode -- there
     // is no backend field left to send a replacement video through any more.
     expect((fixture.nativeElement as HTMLElement).querySelector('app-youtube-url-validator')).toBeNull();
+
+    // MC-3 architect correction (item 2): a legacy lesson must not expose
+    // mutable block authoring -- no block list, no Add actions, at all.
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-lesson-block-list')).toBeNull();
+    expect(text).not.toContain('Content Blocks');
   });
 
   it('repair mode: shows the corrected locked unavailable copy, never the raw video id or the old wording', () => {
@@ -125,12 +131,12 @@ describe('LessonEditorComponent -- legacy lesson content display', () => {
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/20/modules`).flush([draftModuleFixture(201, 20)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/201/lessons`).flush([UNAVAILABLE_VIDEO_LESSON]);
     fixture.detectChanges();
-    httpMock.expectOne(blocksUrl(306)).flush([]);
-    fixture.detectChanges();
+    // No blocks GET is fired here either -- same architect correction (item 2), regardless of needsLegacyRepair().
 
     const c = fixture.componentInstance;
     expect(c.isLegacyLesson()).toBe(true);
     expect(c.needsLegacyRepair()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-lesson-block-list')).toBeNull();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('This video is private, removed, restricted, or currently unavailable. Repair or replace the link.');
@@ -147,10 +153,68 @@ describe('LessonEditorComponent -- legacy lesson content display', () => {
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/20/modules`).flush([draftModuleFixture(201, 20)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/201/lessons`).flush([UNAVAILABLE_VIDEO_LESSON]);
     fixture.detectChanges();
-    httpMock.expectOne(blocksUrl(306)).flush([]);
-    fixture.detectChanges();
+    // No blocks GET -- legacy lesson, LessonBlockListComponent never mounts.
 
     expect(fixture.componentInstance.repairReady()).toBe(false);
+  });
+});
+
+/**
+ * MC-3 architect correction (item 2): the positive-case complement to the
+ * legacy-lesson describe block above -- a block-native lesson (contentType
+ * === null) is exactly where block authoring belongs, and must render it.
+ */
+describe('LessonEditorComponent -- block-native lesson exposes block authoring', () => {
+  let httpMock: HttpTestingController;
+
+  const BLOCK_NATIVE_LESSON: Lesson = {
+    id: 701, moduleId: 601, title: 'Block-Native Lesson', contentType: null, lessonOrder: 1, lifecycleStatus: 'DRAFT',
+    videoId: null, videoAvailability: null, textContent: null, externalUrl: null, externalLinkLabel: null,
+    practiceNotes: null, rowVersion: 0, publishedAt: null, publishedBy: null, archivedAt: null, archivedBy: null,
+    attestedAt: null, attestedBy: null
+  };
+
+  function setup() {
+    TestBed.configureTestingModule({
+      imports: [LessonEditorComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '601', lessonId: '701' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonEditorComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(601, 10)]);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/601/lessons`).flush([BLOCK_NATIVE_LESSON]);
+    fixture.detectChanges();
+    httpMock.expectOne(blocksUrl(701)).flush([]);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  it('renders LessonBlockListComponent with the four explicit add actions, never the legacy frozen-content note', () => {
+    const fixture = setup();
+    const c = fixture.componentInstance;
+    expect(c.isLegacyLesson()).toBe(false);
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-lesson-block-list')).not.toBeNull();
+    const text = el.textContent ?? '';
+    expect(text).toContain('Content Blocks');
+    expect(text).not.toContain('This lesson was created before the block content editor.');
+  });
+
+  it('Publish stays disabled until the block list confirms readiness (zero blocks here -- architect correction, item 4)', () => {
+    const fixture = setup();
+    const c = fixture.componentInstance;
+    expect(c.publishReady()).toBe(false);
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'));
+    const publish = buttons.find(b => b.textContent?.trim().includes('Publish')) as HTMLButtonElement;
+    expect(publish.disabled).toBe(true);
   });
 });
 
@@ -226,8 +290,7 @@ describe('LessonEditorComponent -- CURR-FUNC-05 archived lesson is read-only', (
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([draftModuleFixture(301, 10)]); // module itself not archived -- isolates this test to the lesson's own ARCHIVED status
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/301/lessons`).flush([ARCHIVED_TEXT_LESSON]);
     fixture.detectChanges();
-    httpMock.expectOne(blocksUrl(401)).flush([]);
-    fixture.detectChanges();
+    // No blocks GET -- legacy lesson, LessonBlockListComponent never mounts.
     return fixture;
   }
 
@@ -327,8 +390,7 @@ describe('LessonEditorComponent -- CURR-FUNC-06 archived-module lesson is read-o
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([archivedModuleFixture(401, 10)]);
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/401/lessons`).flush([DRAFT_LESSON_UNDER_ARCHIVED_MODULE]);
     fixture.detectChanges();
-    httpMock.expectOne(blocksUrl(501)).flush([]);
-    fixture.detectChanges();
+    // No blocks GET -- legacy lesson, LessonBlockListComponent never mounts.
     return fixture;
   }
 
@@ -398,8 +460,7 @@ describe('LessonEditorComponent -- CURR-FUNC-06 archived-module lesson is read-o
       .flush({ code: 'SERVER_ERROR' }, { status: 500, statusText: 'Server Error' });
     httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/401/lessons`).flush([DRAFT_LESSON_UNDER_ARCHIVED_MODULE]);
     fixture.detectChanges();
-    httpMock.expectOne(blocksUrl(501)).flush([]);
-    fixture.detectChanges();
+    // No blocks GET -- legacy lesson, LessonBlockListComponent never mounts.
 
     const c = fixture.componentInstance;
     expect(c.module()).toBeNull();
