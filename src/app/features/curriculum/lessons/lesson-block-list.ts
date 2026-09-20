@@ -183,7 +183,7 @@ export class LessonBlockListComponent implements OnChanges {
     this.actionError.set(null);
     this.blockApi.update(this.lessonId(), existing.id, {
       youtubeUrl: e.youtubeUrl, textContent: e.textContent, externalUrl: e.externalUrl, externalLinkLabel: e.externalLinkLabel,
-      expectedLessonRowVersion: this.lessonRowVersion()
+      heading: e.heading, expectedLessonRowVersion: this.lessonRowVersion()
     }).subscribe({
       next: res => {
         this.blocks.update(bs => bs.map(b => b.id === res.block.id ? res.block : b));

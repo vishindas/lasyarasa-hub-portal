@@ -13,7 +13,7 @@ const base = `${environment.apiUrl}/school/curricula/versions/modules/lessons`;
 function blockFixture(overrides: Partial<LessonContentBlock> = {}): LessonContentBlock {
   return {
     id: 1, lessonId: 301, contentType: 'TEXT', displayOrder: 1,
-    videoId: null, videoAvailability: null, textContent: 'body', externalUrl: null, externalLinkLabel: null,
+    videoId: null, videoAvailability: null, textContent: 'body', externalUrl: null, externalLinkLabel: null, heading: null,
     ...overrides
   };
 }
@@ -105,18 +105,40 @@ describe('LessonBlockListComponent', () => {
 
     const newBlock = blockFixture({ id: 9, contentType: 'TEXT', textContent: 'New block', displayOrder: 1 });
     const responseLesson = lessonFixture(6);
-    s.fixture.componentInstance.saveNew({ contentType: 'TEXT', youtubeUrl: null, textContent: 'New block', externalUrl: null, externalLinkLabel: null });
+    s.fixture.componentInstance.saveNew({ contentType: 'TEXT', youtubeUrl: null, textContent: 'New block', externalUrl: null, externalLinkLabel: null, heading: 'A heading' });
 
     const req = httpMock.expectOne(`${base}/301/blocks`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
-      contentType: 'TEXT', youtubeUrl: null, textContent: 'New block', externalUrl: null, externalLinkLabel: null, expectedLessonRowVersion: 5
+      contentType: 'TEXT', youtubeUrl: null, textContent: 'New block', externalUrl: null, externalLinkLabel: null, heading: 'A heading', expectedLessonRowVersion: 5
     });
     req.flush({ block: newBlock, lesson: responseLesson });
 
     expect(s.fixture.componentInstance.blocks().some(b => b.id === 9)).toBe(true);
     expect(s.fixture.componentInstance.addingType()).toBeNull();
     expect(emittedLesson).toEqual(responseLesson);
+  });
+
+  it('saveEdit includes the heading alongside the other edited fields in the PUT body', () => {
+    const s = setup(101, 301, 5);
+    httpMock = s.httpMock;
+    const existing = blockFixture({ id: 1, contentType: 'TEXT', textContent: 'Original', heading: null, displayOrder: 1 });
+    httpMock.expectOne(`${base}/301/blocks`).flush([existing]);
+    s.fixture.detectChanges();
+
+    s.fixture.componentInstance.saveEdit(existing, {
+      contentType: 'TEXT', youtubeUrl: null, textContent: 'Original', externalUrl: null, externalLinkLabel: null, heading: 'Introduction to Indian Classical Dance'
+    });
+
+    const req = httpMock.expectOne(`${base}/301/blocks/1`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({
+      youtubeUrl: null, textContent: 'Original', externalUrl: null, externalLinkLabel: null, heading: 'Introduction to Indian Classical Dance', expectedLessonRowVersion: 5
+    });
+    req.flush({ block: { ...existing, heading: 'Introduction to Indian Classical Dance' }, lesson: lessonFixture(6) });
+
+    expect(s.fixture.componentInstance.blocks()[0].heading).toBe('Introduction to Indian Classical Dance');
+    expect(s.fixture.componentInstance.blocks()[0].textContent).toBe('Original');
   });
 
   it('delete opens the guarded DeleteBlockConfirmDialog with moduleId/lessonId/blockId/label, and only calls the delete endpoint on confirm, using the DIALOG\'S fresh rowVersion (not this component\'s cached one)', () => {
@@ -197,7 +219,7 @@ describe('LessonBlockListComponent', () => {
     httpMock.expectOne(`${base}/301/blocks`).flush([]);
     s.fixture.detectChanges();
 
-    s.fixture.componentInstance.saveNew({ contentType: 'TEXT', youtubeUrl: null, textContent: 'x', externalUrl: null, externalLinkLabel: null });
+    s.fixture.componentInstance.saveNew({ contentType: 'TEXT', youtubeUrl: null, textContent: 'x', externalUrl: null, externalLinkLabel: null, heading: null });
     httpMock.expectOne(`${base}/301/blocks`).flush({ code: 'STALE_VERSION', message: 'stale', resource: null }, { status: 409, statusText: 'Conflict' });
 
     expect(s.fixture.componentInstance.actionError()?.message).toBe('This lesson changed elsewhere — reload before adding a block');

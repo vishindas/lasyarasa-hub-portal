@@ -8,7 +8,7 @@ import { LessonBlockEditorComponent, LessonBlockEditorSaveEvent } from './lesson
 function existingBlock(overrides: Partial<LessonContentBlock> = {}): LessonContentBlock {
   return {
     id: 55, lessonId: 301, contentType: 'VIDEO', displayOrder: 1,
-    videoId: null, videoAvailability: null, textContent: null, externalUrl: null, externalLinkLabel: null,
+    videoId: null, videoAvailability: null, textContent: null, externalUrl: null, externalLinkLabel: null, heading: null,
     ...overrides
   };
 }
@@ -67,7 +67,7 @@ describe('LessonBlockEditorComponent -- create mode (architect correction: type 
     c.save.subscribe((e: LessonBlockEditorSaveEvent) => (emitted = e));
     c.onSave();
 
-    expect(emitted).toEqual({ contentType: 'VIDEO', youtubeUrl: null, textContent: null, externalUrl: null, externalLinkLabel: null });
+    expect(emitted).toEqual({ contentType: 'VIDEO', youtubeUrl: null, textContent: null, externalUrl: null, externalLinkLabel: null, heading: null });
   });
 
   it('a validated VIDEO block emits the validated url', () => {
@@ -93,7 +93,7 @@ describe('LessonBlockEditorComponent -- create mode (architect correction: type 
     c.save.subscribe((e: LessonBlockEditorSaveEvent) => (emitted = e));
     c.onSave();
 
-    expect(emitted).toEqual({ contentType: 'TEXT', youtubeUrl: null, textContent: 'Some block content.', externalUrl: null, externalLinkLabel: null });
+    expect(emitted).toEqual({ contentType: 'TEXT', youtubeUrl: null, textContent: 'Some block content.', externalUrl: null, externalLinkLabel: null, heading: null });
   });
 
   it('PDF_LINK emits the url and label', () => {
@@ -107,7 +107,7 @@ describe('LessonBlockEditorComponent -- create mode (architect correction: type 
     c.save.subscribe((e: LessonBlockEditorSaveEvent) => (emitted = e));
     c.onSave();
 
-    expect(emitted).toEqual({ contentType: 'PDF_LINK', youtubeUrl: null, textContent: null, externalUrl: 'https://example.com/handout.pdf', externalLinkLabel: 'Handout' });
+    expect(emitted).toEqual({ contentType: 'PDF_LINK', youtubeUrl: null, textContent: null, externalUrl: 'https://example.com/handout.pdf', externalLinkLabel: 'Handout', heading: null });
   });
 
   it('EXTERNAL_LINK emits the url and label', () => {
@@ -121,7 +121,7 @@ describe('LessonBlockEditorComponent -- create mode (architect correction: type 
     c.save.subscribe((e: LessonBlockEditorSaveEvent) => (emitted = e));
     c.onSave();
 
-    expect(emitted).toEqual({ contentType: 'EXTERNAL_LINK', youtubeUrl: null, textContent: null, externalUrl: 'https://example.com/ref', externalLinkLabel: 'Reference' });
+    expect(emitted).toEqual({ contentType: 'EXTERNAL_LINK', youtubeUrl: null, textContent: null, externalUrl: 'https://example.com/ref', externalLinkLabel: 'Reference', heading: null });
   });
 
   it('Cancel emits cancel', () => {
@@ -131,6 +131,34 @@ describe('LessonBlockEditorComponent -- create mode (architect correction: type 
     s.fixture.componentInstance.cancel.subscribe(() => (cancelled = true));
     clickButton(s.fixture, 'Cancel');
     expect(cancelled).toBe(true);
+  });
+
+  it('a heading is trimmed and included alongside the block content, for any content type', () => {
+    const s = setupCreate('TEXT');
+    httpMock = s.httpMock;
+    const c = s.fixture.componentInstance;
+    c.textContent = 'Some block content.';
+    c.heading = '  Introduction to Indian Classical Dance  ';
+
+    let emitted: LessonBlockEditorSaveEvent | undefined;
+    c.save.subscribe((e: LessonBlockEditorSaveEvent) => (emitted = e));
+    c.onSave();
+
+    expect(emitted?.heading).toBe('Introduction to Indian Classical Dance');
+  });
+
+  it('a blank/whitespace-only heading is normalized to null, not sent as an empty string', () => {
+    const s = setupCreate('TEXT');
+    httpMock = s.httpMock;
+    const c = s.fixture.componentInstance;
+    c.textContent = 'Some block content.';
+    c.heading = '   ';
+
+    let emitted: LessonBlockEditorSaveEvent | undefined;
+    c.save.subscribe((e: LessonBlockEditorSaveEvent) => (emitted = e));
+    c.onSave();
+
+    expect(emitted?.heading).toBeNull();
   });
 });
 
@@ -178,5 +206,27 @@ describe('LessonBlockEditorComponent -- edit mode', () => {
     c.onSave();
 
     expect(emitted?.youtubeUrl).toBe('https://youtu.be/newVideoId1');
+  });
+
+  it('pre-seeds an existing heading from existingBlock', () => {
+    const s = setupEdit(existingBlock({ contentType: 'TEXT', textContent: 'Existing text.', heading: 'Existing heading' }));
+    httpMock = s.httpMock;
+    expect(s.fixture.componentInstance.heading).toBe('Existing heading');
+  });
+
+  /** Exactly the production scenario: a saved TEXT block with no heading yet (like Lasya Rasa lesson_content_blocks.id=18) -- adding one must not disturb the existing content. */
+  it('adding a heading to an existing heading-less block preserves its content, emitted alongside it unchanged', () => {
+    const s = setupEdit(existingBlock({ contentType: 'TEXT', textContent: 'Original content.', heading: null }));
+    httpMock = s.httpMock;
+    const c = s.fixture.componentInstance;
+    expect(c.heading).toBe('');
+    c.heading = 'Introduction to Indian Classical Dance';
+
+    let emitted: LessonBlockEditorSaveEvent | undefined;
+    c.save.subscribe((e: LessonBlockEditorSaveEvent) => (emitted = e));
+    c.onSave();
+
+    expect(emitted?.heading).toBe('Introduction to Indian Classical Dance');
+    expect(emitted?.textContent).toBe('Original content.');
   });
 });

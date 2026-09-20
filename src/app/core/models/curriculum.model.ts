@@ -290,7 +290,11 @@ export interface ValidateYouTubeUrlResponse {
 //    for a pre-MC-3 lesson only -- every new lesson has zero or more of
 //    these instead. -----------------------------------------------------
 
-/** No rowVersion -- blocks have none (MC-2 architect decision: coarse, lesson-level concurrency only, guarded by the parent Lesson's own rowVersion). */
+/**
+ * No rowVersion -- blocks have none (MC-2 architect decision: coarse, lesson-level concurrency only, guarded by the parent Lesson's own rowVersion).
+ *
+ * heading (V47) is optional for every content type, never a prerequisite for saving or publishing -- applies uniformly, not switched on contentType like every other field here.
+ */
 export interface LessonContentBlock {
   id: number;
   lessonId: number;
@@ -301,6 +305,7 @@ export interface LessonContentBlock {
   textContent: string | null;
   externalUrl: string | null;
   externalLinkLabel: string | null;
+  heading: string | null;
 }
 
 /**
@@ -322,15 +327,21 @@ export interface CreateLessonContentBlockRequest {
   textContent: string | null;
   externalUrl: string | null;
   externalLinkLabel: string | null;
+  heading: string | null;
 }
 
-/** contentType is immutable after create -- not part of an update. youtubeUrl == null on a VIDEO block means "keep the currently stored video" (CURR-FUNC-04's rule, reused unchanged). */
+/**
+ * contentType is immutable after create -- not part of an update. youtubeUrl == null on a VIDEO block means "keep the currently stored video" (CURR-FUNC-04's rule, reused unchanged).
+ *
+ * heading has no such "null means keep" special case -- it is always overwritten with exactly what's passed (trimmed/blank-to-null server-side), same direct-overwrite semantics as textContent/externalLinkLabel.
+ */
 export interface UpdateLessonContentBlockRequest {
   expectedLessonRowVersion: number;
   youtubeUrl: string | null;
   textContent: string | null;
   externalUrl: string | null;
   externalLinkLabel: string | null;
+  heading: string | null;
 }
 
 export interface DeleteLessonContentBlockRequest {

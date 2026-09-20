@@ -19,6 +19,11 @@ import { LessonContentType, LessonVideoAvailability } from '../../core/models/cu
  * (`videoId?: string`, per its `@JsonInclude(NON_NULL)` backend DTO).
  * `?: X | null` is the one shape both a required-nullable and a
  * truly-optional source property are structurally assignable to.
+ *
+ * `heading` (V47) follows the same admin-nullable/student-omitted duality
+ * as every other field here -- optional for every content type, rendered
+ * only when present (a block with no heading renders no heading element
+ * at all, never an empty one).
  */
 export interface RenderableContentBlock {
   contentType: LessonContentType;
@@ -27,6 +32,7 @@ export interface RenderableContentBlock {
   textContent?: string | null;
   externalUrl?: string | null;
   externalLinkLabel?: string | null;
+  heading?: string | null;
 }
 
 /**
@@ -72,8 +78,12 @@ export interface RenderableContentBlock {
     }
     .lesson-text { white-space: pre-wrap; line-height: 1.6; }
     .resource-card { display: flex; align-items: center; gap: 10px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .block-heading { margin: 0 0 8px; font-size: 1rem; font-weight: 600; }
   `],
   template: `
+    @if (block().heading) {
+      <h4 class="block-heading">{{ block().heading }}</h4>
+    }
     @switch (block().contentType) {
       @case ('VIDEO') {
         @if (block().videoAvailability === 'UNAVAILABLE') {

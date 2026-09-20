@@ -9,7 +9,7 @@ import { LessonBlockRowComponent } from './lesson-block-row';
 function block(overrides: Partial<LessonContentBlock> = {}): LessonContentBlock {
   return {
     id: 55, lessonId: 301, contentType: 'VIDEO', displayOrder: 1,
-    videoId: 'dQw4w9WgXcQ', videoAvailability: 'AVAILABLE', textContent: null, externalUrl: null, externalLinkLabel: null,
+    videoId: 'dQw4w9WgXcQ', videoAvailability: 'AVAILABLE', textContent: null, externalUrl: null, externalLinkLabel: null, heading: null,
     ...overrides
   };
 }
