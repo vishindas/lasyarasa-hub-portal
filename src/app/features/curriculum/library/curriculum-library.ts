@@ -1,9 +1,12 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { environment } from '../../../../environments/environment';
 import { DanceStyle } from '../../../core/models/settings.model';
 import { Curriculum, CurriculumVersion } from '../../../core/models/curriculum.model';
@@ -14,7 +17,19 @@ import { ClassroomLiteBannerComponent } from '../../../shared/curriculum/classro
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
 import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status-chip-curriculum';
 
-/** Per-row lazy version state -- data composition per approved amendment §4: versions are fetched only when a row expands, one curriculum at a time, never an eager fan-out. */
+/**
+ * Per-row version state. Deliberate departure from the prior "lazy, one
+ * curriculum at a time" fetch (approved amendment §4): the default-visible
+ * library now needs to know every curriculum's version statuses up front --
+ * a curriculum whose every version is ARCHIVED is hidden unless "Show
+ * archived" is on -- so versions are now fetched for every row in parallel
+ * on load, once, and cached here. Expanding a row never re-fetches. This
+ * trades one small eager fan-out (bounded by a provider's actual curriculum
+ * count, never large in practice) for a correct default view; a `null`
+ * `versions` value means that one row's fetch itself failed, not that it's
+ * still pending -- the initial load only completes once every row's
+ * versions call has settled (see `load()`).
+ */
 interface RowState {
   curriculum: Curriculum;
   expanded: boolean;
@@ -26,7 +41,7 @@ interface RowState {
 @Component({
   selector: 'app-curriculum-library',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatCardModule, ClassroomLiteBannerComponent, CurriculumMessageComponent, StatusChipCurriculumComponent],
+  imports: [MatButtonModule, MatIconModule, MatCardModule, MatSlideToggleModule, ClassroomLiteBannerComponent, CurriculumMessageComponent, StatusChipCurriculumComponent],
   styles: [`
     button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     .row { display: flex; flex-direction: column; gap: 4px; }
@@ -57,6 +72,19 @@ interface RowState {
 
     <app-classroom-lite-banner />
 
+    @if (!loading() && !listError() && rows().length > 0) {
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 12px 2px">
+        <mat-slide-toggle [checked]="showArchived()" (change)="showArchived.set($event.checked)">
+          Show archived
+        </mat-slide-toggle>
+        @if (hiddenCount() > 0) {
+          <span style="color:#6c757d;font-size:0.82rem">
+            {{ hiddenCount() }} archived {{ hiddenCount() === 1 ? 'curriculum' : 'curricula' }} hidden
+          </span>
+        }
+      </div>
+    }
+
     @if (loading()) {
       <mat-card><mat-card-content style="padding:32px 0;text-align:center;color:#adb5bd">Loading…</mat-card-content></mat-card>
     } @else if (listError()) {
@@ -72,10 +100,16 @@ interface RowState {
           }
         </mat-card-content>
       </mat-card>
+    } @else if (visibleRows().length === 0) {
+      <mat-card>
+        <mat-card-content style="padding:48px 24px;text-align:center">
+          <p style="color:#6c757d">Every curriculum here is archived. Turn on "Show archived" above to see it.</p>
+        </mat-card-content>
+      </mat-card>
     } @else {
       <mat-card>
         <mat-card-content style="padding:8px 16px">
-          @for (row of rows(); track row.curriculum.id; let last = $last) {
+          @for (row of visibleRows(); track row.curriculum.id; let last = $last) {
             <div class="row" [class.divider]="!last">
               <div class="row-header" tabindex="0" role="button"
                    [attr.aria-expanded]="row.expanded"
@@ -122,7 +156,28 @@ export class CurriculumLibraryComponent implements OnInit {
   loading = signal(true);
   listError = signal<CurriculumUiError | null>(null);
   rows = signal<RowState[]>([]);
+  showArchived = signal(false);
   private danceStyles = signal<Map<number, string>>(new Map());
+
+  /**
+   * A row is archived-only when its versions loaded successfully, at least
+   * one exists, and every one is ARCHIVED. A row whose versions call itself
+   * failed (`versions === null`, `error` set) or that has none at all (never
+   * actually possible -- create() always seeds one DRAFT version -- but
+   * guarded rather than assumed) is never hidden: visibility defaults to
+   * showing a curriculum whenever its true status can't be established,
+   * not hiding it.
+   */
+  private isArchivedOnly(row: RowState): boolean {
+    return !!row.versions && row.versions.length > 0 && row.versions.every(v => v.status === 'ARCHIVED');
+  }
+
+  visibleRows = computed(() => {
+    const rows = this.rows();
+    return this.showArchived() ? rows : rows.filter(r => !this.isArchivedOnly(r));
+  });
+
+  hiddenCount = computed(() => this.rows().filter(r => this.isArchivedOnly(r)).length);
 
   ngOnInit() {
     this.http.get<DanceStyle[]>(`${environment.apiUrl}/school/settings/dance-styles`).subscribe({
@@ -137,8 +192,36 @@ export class CurriculumLibraryComponent implements OnInit {
     this.listError.set(null);
     this.api.list().subscribe({
       next: curricula => {
-        this.rows.set(curricula.map(c => ({ curriculum: c, expanded: false, loading: false, error: null, versions: null })));
-        this.loading.set(false);
+        if (curricula.length === 0) {
+          this.rows.set([]);
+          this.loading.set(false);
+          return;
+        }
+        // Fetch every curriculum's versions in parallel, once, so the
+        // default (archived-hidden) view is correct before anything is
+        // expanded -- see the RowState comment above for why this departs
+        // from the prior fully-lazy fetch. A single row's failure never
+        // fails the whole list: it surfaces on that row via `error`,
+        // exactly as `loadVersions` already did for the expand-triggered path.
+        const versionCalls = curricula.map(c =>
+          this.api.listVersions(c.id).pipe(
+            catchError((err: HttpErrorResponse) => of({ __error: toCurriculumUiError(err) } as const))
+          )
+        );
+        forkJoin(versionCalls).subscribe(results => {
+          this.rows.set(curricula.map((c, i) => {
+            const result = results[i];
+            const failed = typeof result === 'object' && result !== null && '__error' in result;
+            return {
+              curriculum: c,
+              expanded: false,
+              loading: false,
+              error: failed ? (result as { __error: CurriculumUiError }).__error : null,
+              versions: failed ? null : (result as CurriculumVersion[])
+            };
+          }));
+          this.loading.set(false);
+        });
       },
       error: (err: HttpErrorResponse) => {
         this.listError.set(toCurriculumUiError(err));
@@ -151,12 +234,8 @@ export class CurriculumLibraryComponent implements OnInit {
     const rows = this.rows();
     const idx = rows.indexOf(row);
     if (idx === -1) return;
-    const next = { ...row, expanded: !row.expanded };
-    rows[idx] = next;
+    rows[idx] = { ...row, expanded: !row.expanded };
     this.rows.set([...rows]);
-    if (next.expanded && next.versions === null) {
-      this.loadVersions(next);
-    }
   }
 
   loadVersions(row: RowState) {
