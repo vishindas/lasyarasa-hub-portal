@@ -5,7 +5,7 @@ import { LessonBlockContentRendererComponent } from './lesson-block-content-rend
 function block(overrides: Partial<LessonContentBlock> = {}): LessonContentBlock {
   return {
     id: 1, lessonId: 301, contentType: 'VIDEO', displayOrder: 1,
-    videoId: null, videoAvailability: null, textContent: null, externalUrl: null, externalLinkLabel: null,
+    videoId: null, videoAvailability: null, textContent: null, externalUrl: null, externalLinkLabel: null, heading: null,
     ...overrides
   };
 }
@@ -96,5 +96,23 @@ describe('LessonBlockContentRendererComponent', () => {
     const link = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
     expect(link.textContent?.trim()).toBe('Reference');
     expect(link.getAttribute('href')).toBe('https://example.com/ref');
+  });
+
+  // ---------- V47: heading, rendered once for all four content types ----------
+
+  it('a block with a heading renders it above the block content, for every content type', () => {
+    const fixture = setup(block({ contentType: 'TEXT', textContent: 'Some text.', heading: 'Introduction to Indian Classical Dance' }));
+    const heading = fixture.nativeElement.querySelector('.block-heading') as HTMLElement;
+    expect(heading?.textContent?.trim()).toBe('Introduction to Indian Classical Dance');
+  });
+
+  it('a block with no heading (null) renders no heading element at all -- never an empty one', () => {
+    const fixture = setup(block({ contentType: 'TEXT', textContent: 'Some text.', heading: null }));
+    expect(fixture.nativeElement.querySelector('.block-heading')).toBeNull();
+  });
+
+  it('a block with heading omitted entirely (the student DTO shape) renders no heading element', () => {
+    const fixture = setup(block({ contentType: 'EXTERNAL_LINK', externalUrl: 'https://example.com/ref', externalLinkLabel: 'Reference', heading: undefined }));
+    expect(fixture.nativeElement.querySelector('.block-heading')).toBeNull();
   });
 });

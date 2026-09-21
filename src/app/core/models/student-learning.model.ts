@@ -80,6 +80,11 @@ export interface StudentLearningLessonSummaryDTO {
  * `?` because the backend DTO is `@JsonInclude(NON_NULL)` -- an absent
  * key, not a null value, for every field not relevant to this block's own
  * contentType.
+ *
+ * `heading` (V47) is deliberately included here -- unlike most admin-only
+ * fields this narrower student shape otherwise drops, it is explicitly
+ * product-required to render in the student lesson view. Optional; absent
+ * for a block with no heading.
  */
 export interface StudentContentBlock {
   id: number;
@@ -89,6 +94,7 @@ export interface StudentContentBlock {
   textContent?: string;
   externalUrl?: string;
   externalLinkLabel?: string;
+  heading?: string;
 }
 
 export interface ModuleDetailDTO {

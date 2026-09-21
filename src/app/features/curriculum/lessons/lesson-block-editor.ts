@@ -13,6 +13,7 @@ export interface LessonBlockEditorSaveEvent {
   textContent: string | null;
   externalUrl: string | null;
   externalLinkLabel: string | null;
+  heading: string | null;
 }
 
 /**
@@ -54,6 +55,11 @@ export interface LessonBlockEditorSaveEvent {
   `],
   template: `
     <div class="panel">
+      <mat-form-field appearance="outline">
+        <mat-label>Heading (optional)</mat-label>
+        <input matInput [(ngModel)]="heading" placeholder="e.g. Introduction to Indian Classical Dance" [disabled]="disabled()" maxlength="255" />
+      </mat-form-field>
+
       @switch (contentType()) {
         @case ('VIDEO') {
           <app-youtube-url-validator
@@ -113,6 +119,7 @@ export class LessonBlockEditorComponent implements OnInit {
   textContent = '';
   externalUrl = '';
   externalLinkLabel = '';
+  heading = '';
   initialVideoUrl = '';
   initialVideoId: string | null = null;
 
@@ -126,6 +133,7 @@ export class LessonBlockEditorComponent implements OnInit {
       this.textContent = existing.textContent ?? '';
       this.externalUrl = existing.externalUrl ?? '';
       this.externalLinkLabel = existing.externalLinkLabel ?? '';
+      this.heading = existing.heading ?? '';
       if (existing.contentType === 'VIDEO' && existing.videoId) {
         const url = `https://www.youtube.com/watch?v=${existing.videoId}`;
         this.initialVideoUrl = url;
@@ -165,7 +173,8 @@ export class LessonBlockEditorComponent implements OnInit {
       youtubeUrl,
       textContent: type === 'TEXT' ? (this.textContent.trim() || null) : null,
       externalUrl: (type === 'PDF_LINK' || type === 'EXTERNAL_LINK') ? (this.externalUrl.trim() || null) : null,
-      externalLinkLabel: (type === 'PDF_LINK' || type === 'EXTERNAL_LINK') ? (this.externalLinkLabel.trim() || null) : null
+      externalLinkLabel: (type === 'PDF_LINK' || type === 'EXTERNAL_LINK') ? (this.externalLinkLabel.trim() || null) : null,
+      heading: this.heading.trim() || null
     });
   }
 }

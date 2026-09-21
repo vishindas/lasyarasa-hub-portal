@@ -25,7 +25,7 @@ describe('LessonContentBlockApiService', () => {
   });
 
   it('create() -> POST /lessons/:lessonId/blocks with body', () => {
-    const body = { contentType: 'VIDEO' as const, expectedLessonRowVersion: 3, youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ', textContent: null, externalUrl: null, externalLinkLabel: null };
+    const body = { contentType: 'VIDEO' as const, expectedLessonRowVersion: 3, youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ', textContent: null, externalUrl: null, externalLinkLabel: null, heading: null };
     service.create(301, body).subscribe();
     const req = httpMock.expectOne(`${base}/301/blocks`);
     expect(req.request.method).toBe('POST');
@@ -34,7 +34,7 @@ describe('LessonContentBlockApiService', () => {
   });
 
   it('update() -> PUT /lessons/:lessonId/blocks/:blockId with body', () => {
-    const body = { expectedLessonRowVersion: 3, youtubeUrl: null, textContent: 'Updated text', externalUrl: null, externalLinkLabel: null };
+    const body = { expectedLessonRowVersion: 3, youtubeUrl: null, textContent: 'Updated text', externalUrl: null, externalLinkLabel: null, heading: null };
     service.update(301, 55, body).subscribe();
     const req = httpMock.expectOne(`${base}/301/blocks/55`);
     expect(req.request.method).toBe('PUT');

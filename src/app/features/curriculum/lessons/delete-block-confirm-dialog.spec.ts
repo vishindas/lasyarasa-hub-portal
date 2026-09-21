@@ -22,7 +22,7 @@ function lessonFixture(overrides: Partial<Lesson> = {}): Lesson {
 function blockFixture(overrides: Partial<LessonContentBlock> = {}): LessonContentBlock {
   return {
     id: 1, lessonId: 301, contentType: 'VIDEO', displayOrder: 1,
-    videoId: null, videoAvailability: null, textContent: null, externalUrl: null, externalLinkLabel: null,
+    videoId: null, videoAvailability: null, textContent: null, externalUrl: null, externalLinkLabel: null, heading: null,
     ...overrides
   };
 }
