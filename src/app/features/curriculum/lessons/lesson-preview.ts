@@ -33,6 +33,13 @@ import { LessonBlockContentRendererComponent } from '../../../shared/curriculum/
  * unavailable". Repair/republish (Lesson Editor) always runs its own fresh
  * validation regardless of this preflight's outcome.
  *
+ * Issue #54: reachable from two places now -- Figure 1's own per-row
+ * "Preview" button (unchanged), and Curriculum Preview's published-module
+ * link via LessonListComponent's previewMode (new). The `?from=preview`
+ * query param (fromPreview()) is the only thing distinguishing them: it
+ * keeps this screen's own Back/Previous/Next inside that same
+ * curriculum-preview flow instead of the ordinary edit list.
+ *
  * MC-3: a block-native lesson (contentType === null) renders its
  * lesson_content_blocks instead, in displayOrder, via the shared
  * LessonBlockContentRendererComponent -- no automatic check-video
@@ -170,6 +177,8 @@ export class LessonPreviewComponent implements OnInit {
   versionId = signal<number | null>(null);
   moduleId = signal<number | null>(null);
   lessonId = signal<number | null>(null);
+  /** Issue #54: true when entered via Curriculum Preview -> Lessons (previewMode) -- see LessonListComponent's own previewLesson(). Keeps Back/Previous/Next inside that same preview flow instead of the ordinary edit list. */
+  fromPreview = signal(false);
 
   lesson = signal<Lesson | null>(null);
   allLessons = signal<Lesson[]>([]);
@@ -207,6 +216,7 @@ export class LessonPreviewComponent implements OnInit {
     this.versionId.set(Number(this.route.snapshot.paramMap.get('versionId')));
     this.moduleId.set(Number(this.route.snapshot.paramMap.get('moduleId')));
     this.lessonId.set(Number(this.route.snapshot.paramMap.get('lessonId')));
+    this.fromPreview.set(this.route.snapshot.queryParamMap.get('from') === 'preview');
     this.load();
   }
 
@@ -271,11 +281,17 @@ export class LessonPreviewComponent implements OnInit {
   goTo(target: Lesson | null) {
     if (!target) return;
     const cId = this.curriculumId(), vId = this.versionId(), mId = this.moduleId();
-    this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'modules', mId, 'lessons', target.id, 'preview']);
+    const extras = this.fromPreview() ? { queryParams: { from: 'preview' } } : {};
+    this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'modules', mId, 'lessons', target.id, 'preview'], extras);
   }
 
+  /** Issue #54: entered via Curriculum Preview -> back to that same read-only lessons-preview list, not the ordinary edit list. */
   close() {
     const cId = this.curriculumId(), vId = this.versionId(), mId = this.moduleId();
+    if (this.fromPreview()) {
+      this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'modules', mId, 'lessons', 'preview']);
+      return;
+    }
     this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'modules', mId, 'lessons']);
   }
 }

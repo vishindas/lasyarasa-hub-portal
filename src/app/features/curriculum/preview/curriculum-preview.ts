@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
@@ -16,11 +16,19 @@ import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status
  * "you're previewing" banner. Still viewable under WRITE_FROZEN/FULL_OUTAGE
  * (reads only) so no ClassroomLiteBanner is shown here deliberately; a read
  * that fails still surfaces via curriculum-message like any other error.
+ *
+ * Issue #54: a PUBLISHED module's title is a real routerLink into the
+ * existing lesson-list route's read-only previewMode (see
+ * curricula.routes.ts) -- never a new preview model. DRAFT/ARCHIVED modules
+ * stay exactly as before (plain, non-interactive text): they're still
+ * listed here so the teacher can see the curriculum's full structure, but
+ * are deliberately excluded from the enterable preview flow, since a
+ * draft/archived module isn't what a student would ever actually see.
  */
 @Component({
   selector: 'app-curriculum-preview',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatCardModule, CurriculumMessageComponent, StatusChipCurriculumComponent],
+  imports: [RouterLink, MatButtonModule, MatIconModule, MatCardModule, CurriculumMessageComponent, StatusChipCurriculumComponent],
   styles: [`
     button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     .preview-banner {
@@ -31,6 +39,12 @@ import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status
     .module-row { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid #f1f3f5; min-height: 44px; }
     .module-row:last-child { border-bottom: none; }
     .module-title { flex: 1; font-size: 0.9rem; font-weight: 500; color: #1a1f36; white-space: normal; }
+    a.module-title {
+      color: #3730a3; text-decoration: none; cursor: pointer;
+      display: flex; align-items: center; min-height: 44px;
+    }
+    a.module-title:hover { text-decoration: underline; }
+    a.module-title:focus-visible { outline: 2px solid #4f63d2; outline-offset: 2px; border-radius: 2px; }
   `],
   template: `
     <div class="page-header">
@@ -60,7 +74,13 @@ import { StatusChipCurriculumComponent } from '../../../shared/curriculum/status
         <mat-card-content style="padding:8px 16px">
           @for (m of modules(); track m.id) {
             <div class="module-row">
-              <span class="module-title">{{ m.title }}</span>
+              @if (m.contentStatus === 'PUBLISHED') {
+                <a class="module-title" [routerLink]="previewLink(m)" [attr.aria-label]="'Preview module: ' + m.title">
+                  {{ m.title }}
+                </a>
+              } @else {
+                <span class="module-title">{{ m.title }}</span>
+              }
               <app-status-chip-curriculum [state]="m.contentStatus" />
             </div>
           }
@@ -99,5 +119,9 @@ export class CurriculumPreviewComponent implements OnInit {
 
   close() {
     this.router.navigate(['/vidya-rasa/curricula', this.curriculumId(), 'versions', this.versionId()]);
+  }
+
+  previewLink(m: CurriculumModule): (string | number)[] {
+    return ['/vidya-rasa/curricula', this.curriculumId()!, 'versions', this.versionId()!, 'modules', m.id, 'lessons', 'preview'];
   }
 }

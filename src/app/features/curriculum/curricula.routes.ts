@@ -26,6 +26,17 @@ export const CURRICULUM_ROUTES: Routes = [
     loadComponent: () => import('./lessons/lesson-list').then(m => m.LessonListComponent)
   },
   {
+    // Issue #54: reuses LessonListComponent (Figure 1) in a read-only,
+    // published-lessons-only mode reached from Curriculum Preview -- the
+    // same component/data source as the teacher's normal lesson list,
+    // never a parallel preview model. `previewMode: true` in route data is
+    // the only thing that distinguishes this from the ordinary editing
+    // route above; see LessonListComponent's own previewMode() handling.
+    path: ':curriculumId/versions/:versionId/modules/:moduleId/lessons/preview',
+    loadComponent: () => import('./lessons/lesson-list').then(m => m.LessonListComponent),
+    data: { previewMode: true }
+  },
+  {
     path: ':curriculumId/versions/:versionId/modules/:moduleId/lessons/new',
     loadComponent: () => import('./lessons/lesson-editor').then(m => m.LessonEditorComponent)
   },

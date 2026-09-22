@@ -2,14 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { ActivatedRoute, provideRouter, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, Router, provideRouter, convertToParamMap } from '@angular/router';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { environment } from '../../../../environments/environment';
 import { CurriculumVersion, CurriculumModule, Lesson } from '../../../core/models/curriculum.model';
 import { LessonListComponent } from './lesson-list';
 
-function activatedRouteStub(params: Record<string, string>) {
-  return { snapshot: { paramMap: convertToParamMap(params) } };
+function activatedRouteStub(params: Record<string, string>, data: Record<string, unknown> = {}) {
+  return { snapshot: { paramMap: convertToParamMap(params), data } };
 }
 
 const DRAFT_VERSION: CurriculumVersion = {
@@ -319,5 +319,160 @@ describe('LessonListComponent -- CURR-FUNC-06 archived-module lessons are read-o
     expect(c.module()).toBeNull();
     expect(c.canAddLesson()).toBe(false);
     expect(c.canReorder()).toBe(false);
+  });
+});
+
+/**
+ * Issue #54: previewMode (route data, set by curricula.routes.ts's
+ * `lessons/preview` route) is the read-only mode reached from Curriculum
+ * Preview's published-module link. Same component, same data source as
+ * ordinary editing mode -- only the rendering/navigation behavior differs.
+ */
+describe('LessonListComponent -- Issue #54 previewMode', () => {
+  let httpMock: HttpTestingController;
+
+  const PUBLISHED_MODULE: CurriculumModule = {
+    ...DRAFT_MODULE, contentStatus: 'PUBLISHED', publishedAt: 'x', publishedBy: 1
+  };
+
+  function setupPreview(lessons: Lesson[], moduleResponse: CurriculumModule[] = [PUBLISHED_MODULE]) {
+    TestBed.configureTestingModule({
+      imports: [LessonListComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '101' }, { previewMode: true }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonListComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush(moduleResponse);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush(lessons);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  function rowContaining(el: HTMLElement, text: string): HTMLElement {
+    const row = Array.from(el.querySelectorAll('.row')).find(r => (r.textContent ?? '').includes(text));
+    if (!row) throw new Error(`No row found containing "${text}"`);
+    return row as HTMLElement;
+  }
+
+  const PUBLISHED_LESSON = textLesson(201, 'Indian Classical Dance', 1, 'PUBLISHED');
+  const DRAFT_LESSON = textLesson(202, 'Unpublished Draft Lesson', 2, 'DRAFT');
+  const ARCHIVED_LESSON = textLesson(203, 'Old Archived Lesson', 3, 'ARCHIVED');
+
+  // ---- Requirement 4/6: published lessons reachable, draft/unpublished excluded ----
+
+  it('only PUBLISHED lessons are rendered -- DRAFT and ARCHIVED are excluded', () => {
+    const fixture = setupPreview([PUBLISHED_LESSON, DRAFT_LESSON, ARCHIVED_LESSON]);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('Indian Classical Dance');
+    expect(text).not.toContain('Unpublished Draft Lesson');
+    expect(text).not.toContain('Old Archived Lesson');
+    expect(fixture.componentInstance.visibleLessons().length).toBe(1);
+  });
+
+  it('shows a preview-specific empty state when there are no published lessons yet', () => {
+    const fixture = setupPreview([DRAFT_LESSON]);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('No published lessons yet.');
+    expect(text).not.toContain('add the first one');
+  });
+
+  // ---- No mutations available in previewMode ----
+
+  it('Add Lesson is hidden in previewMode even though the module is otherwise writable', () => {
+    const fixture = setupPreview([PUBLISHED_LESSON]);
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map(b => b.textContent?.trim() ?? '');
+    expect(buttons.some(t => t.includes('Add Lesson'))).toBe(false);
+    expect(fixture.componentInstance.canAddLesson()).toBe(false);
+  });
+
+  it('reorder is disabled in previewMode -- no drag handle, no move buttons, moveDown sends no request', () => {
+    const fixture = setupPreview([PUBLISHED_LESSON, textLesson(204, 'Second Published', 2, 'PUBLISHED')]);
+    const row = rowContaining(fixture.nativeElement as HTMLElement, 'Indian Classical Dance');
+    expect(row.querySelector('.drag-handle')).toBeNull();
+    expect(row.querySelector('.order-buttons')).toBeNull();
+
+    fixture.componentInstance.moveDown(0);
+    httpMock.expectNone(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons/reorder`);
+  });
+
+  // ---- Requirement 5: opening a lesson reaches the real read-only preview, both from the title button and the Preview button ----
+
+  it('the title button (open) routes into LessonPreviewComponent, not the editor, carrying ?from=preview', () => {
+    const fixture = setupPreview([PUBLISHED_LESSON]);
+    const router = TestBed.inject(Router);
+    const navigateSpy = router.navigate = vi.fn().mockResolvedValue(true);
+
+    fixture.componentInstance.editLesson(PUBLISHED_LESSON);
+
+    expect(navigateSpy).toHaveBeenCalledWith(
+      ['/vidya-rasa/curricula', 1, 'versions', 10, 'modules', 101, 'lessons', 201, 'preview'],
+      { queryParams: { from: 'preview' } }
+    );
+  });
+
+  it('the Preview button routes into LessonPreviewComponent carrying ?from=preview', () => {
+    const fixture = setupPreview([PUBLISHED_LESSON]);
+    const router = TestBed.inject(Router);
+    const navigateSpy = router.navigate = vi.fn().mockResolvedValue(true);
+
+    fixture.componentInstance.previewLesson(PUBLISHED_LESSON);
+
+    expect(navigateSpy).toHaveBeenCalledWith(
+      ['/vidya-rasa/curricula', 1, 'versions', 10, 'modules', 101, 'lessons', 201, 'preview'],
+      { queryParams: { from: 'preview' } }
+    );
+  });
+
+  // ---- Requirement 7: back navigation returns through the preview flow ----
+
+  it('close() returns to Curriculum Preview, not Module Detail, in previewMode', () => {
+    const fixture = setupPreview([PUBLISHED_LESSON]);
+    const router = TestBed.inject(Router);
+    const navigateSpy = router.navigate = vi.fn().mockResolvedValue(true);
+
+    fixture.componentInstance.close();
+
+    expect(navigateSpy).toHaveBeenCalledWith(['/vidya-rasa/curricula', 1, 'versions', 10, 'preview']);
+  });
+
+  it('the back button has a preview-appropriate aria-label', () => {
+    const fixture = setupPreview([PUBLISHED_LESSON]);
+    const backButton = (fixture.nativeElement as HTMLElement).querySelector('button[mat-icon-button]');
+    expect(backButton?.getAttribute('aria-label')).toBe('Back to Curriculum Preview');
+  });
+
+  // ---- Ordinary editing mode is unaffected (previewMode defaults to false) ----
+
+  it('ordinary editing mode (no previewMode route data) is completely unaffected -- all lessons shown, Add Lesson available', () => {
+    TestBed.configureTestingModule({
+      imports: [LessonListComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '101' }) }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonListComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([DRAFT_MODULE]);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush([PUBLISHED_LESSON, DRAFT_LESSON]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.previewMode()).toBe(false);
+    expect(fixture.componentInstance.visibleLessons().length).toBe(2);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Unpublished Draft Lesson');
+    const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map(b => b.textContent?.trim() ?? '');
+    expect(buttons.some(t => t.includes('Add Lesson'))).toBe(true);
   });
 });

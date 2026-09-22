@@ -18,8 +18,23 @@ import { FullOutageBlockComponent } from '../../../shared/curriculum/full-outage
 import { LessonListRowComponent } from './lesson-list-row';
 
 /**
- * Figure 1 (Lesson List). Reached only from Module Detail's "Manage
- * Lessons" entry point (Slice 7 §3.1) -- no independent top-level nav item.
+ * Figure 1 (Lesson List). Reached from Module Detail's "Manage Lessons"
+ * entry point (Slice 7 §3.1) in its normal editing mode, or from Curriculum
+ * Preview's published-module link (Issue #54) in read-only previewMode --
+ * see curricula.routes.ts's `lessons/preview` route, which sets
+ * `data: { previewMode: true }`. previewMode is the ONLY thing that
+ * distinguishes the two: same component, same data source
+ * (LessonApiService.list), never a parallel preview model. In previewMode,
+ * `visibleLessons()` filters to PUBLISHED only (a teacher previewing "what
+ * a student will see" should never see a draft), Add/Edit/reorder are all
+ * disabled (this screen makes no mutation calls in previewMode, matching
+ * CurriculumPreviewComponent's own read-only contract one level up), and
+ * both the title button and the Preview button route into the read-only
+ * LessonPreviewComponent -- never the editor -- carrying `?from=preview` so
+ * that screen's own Back/Previous/Next navigation stays inside the preview
+ * flow instead of dropping the teacher into the ordinary edit list (see
+ * LessonPreviewComponent's own fromPreview() handling).
+ *
  * Reorder mirrors CurriculumBuilderComponent's drag+buttons dual-path
  * exactly (Slice 3 §6.1: "Drag is never the only way to reorder").
  */
@@ -33,11 +48,16 @@ import { LessonListRowComponent } from './lesson-list-row';
   styles: [`
     button[mat-flat-button], button[mat-stroked-button], button[mat-button] { min-height: 44px; }
     .lesson-list { display: flex; flex-direction: column; gap: 8px; }
+    .preview-banner {
+      display: flex; align-items: center; gap: 8px;
+      background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe;
+      padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.85rem; font-weight: 500;
+    }
   `],
   template: `
     <div class="page-header">
       <div style="display:flex;align-items:center;gap:6px">
-        <button mat-icon-button (click)="close()" aria-label="Back to Module Detail">
+        <button mat-icon-button (click)="close()" [attr.aria-label]="previewMode() ? 'Back to Curriculum Preview' : 'Back to Module Detail'">
           <mat-icon>arrow_back</mat-icon>
         </button>
         <h2 style="margin:0">Lessons</h2>
@@ -48,6 +68,13 @@ import { LessonListRowComponent } from './lesson-list-row';
         </button>
       }
     </div>
+
+    @if (previewMode()) {
+      <div class="preview-banner" role="status">
+        <mat-icon aria-hidden="true">visibility</mat-icon>
+        <span>Preview mode — showing published lessons only. Nothing here is released to students.</span>
+      </div>
+    }
 
     @if (moduleArchived()) {
       <p class="readonly-note" style="color:#6c757d;font-size:0.82rem;margin:0 0 12px">This module is archived — its lessons are read-only.</p>
@@ -62,10 +89,10 @@ import { LessonListRowComponent } from './lesson-list-row';
         <mat-card><mat-card-content style="padding:32px 0;text-align:center;color:#adb5bd">Loading…</mat-card-content></mat-card>
       } @else if (loadError()) {
         <app-curriculum-message [error]="loadError()" (retry)="load()" (reload)="load()" />
-      } @else if (lessons().length === 0) {
+      } @else if (visibleLessons().length === 0) {
         <mat-card>
           <mat-card-content style="padding:48px 24px;text-align:center">
-            <p style="color:#6c757d;margin-bottom:16px">No lessons yet — add the first one.</p>
+            <p style="color:#6c757d;margin-bottom:16px">{{ previewMode() ? 'No published lessons yet.' : 'No lessons yet — add the first one.' }}</p>
             @if (!mode.mutationsDisabled() && canAddLesson()) {
               <button mat-flat-button color="primary" (click)="addLesson()">
                 <mat-icon>add</mat-icon> Add Lesson
@@ -78,10 +105,10 @@ import { LessonListRowComponent } from './lesson-list-row';
         <mat-card>
           <mat-card-content style="padding:8px 16px">
             <div class="lesson-list" cdkDropList (cdkDropListDropped)="onDrop($event)">
-              @for (l of lessons(); track l.id; let i = $index) {
+              @for (l of visibleLessons(); track l.id; let i = $index) {
                 <div cdkDrag [cdkDragDisabled]="!canReorder() || l.lifecycleStatus === 'ARCHIVED'" [cdkDragData]="l">
                   <app-lesson-list-row
-                    [lesson]="l" [position]="i" [total]="lessons().length" [disabled]="!canReorder() || l.lifecycleStatus === 'ARCHIVED'"
+                    [lesson]="l" [position]="i" [total]="visibleLessons().length" [disabled]="!canReorder() || l.lifecycleStatus === 'ARCHIVED'"
                     (open)="editLesson(l)" (preview)="previewLesson(l)"
                     (moveUp)="moveUp(i)" (moveDown)="moveDown(i)" />
                 </div>
@@ -105,6 +132,8 @@ export class LessonListComponent implements OnInit {
   curriculumId = signal<number | null>(null);
   versionId = signal<number | null>(null);
   moduleId = signal<number | null>(null);
+  /** Issue #54: set once, from route data, at load time -- never changes for this component's lifetime. */
+  previewMode = signal(false);
 
   version = signal<CurriculumVersion | null>(null);
   module = signal<CurriculumModule | null>(null);
@@ -112,6 +141,11 @@ export class LessonListComponent implements OnInit {
   loading = signal(true);
   loadError = signal<CurriculumUiError | null>(null);
   actionError = signal<CurriculumUiError | null>(null);
+
+  /** Issue #54: what's actually rendered -- published-only in previewMode, everything otherwise. Never mutates `lessons()` itself, so a later exit from previewMode (there isn't one today, but nothing here assumes it) would see the full list again. */
+  visibleLessons = computed(() => this.previewMode()
+    ? this.lessons().filter(l => l.lifecycleStatus === 'PUBLISHED')
+    : this.lessons());
 
   // The backend's own DRAFT-only trigger is the real authority; this only gates the UI.
   parentDraft = computed(() => this.version()?.status === 'DRAFT');
@@ -123,13 +157,15 @@ export class LessonListComponent implements OnInit {
    */
   moduleArchived = computed(() => this.module()?.contentStatus === 'ARCHIVED');
   private moduleConfirmedWritable = computed(() => this.module() !== null && this.module()!.contentStatus !== 'ARCHIVED');
-  canAddLesson = computed(() => this.parentDraft() && this.moduleConfirmedWritable());
-  canReorder = computed(() => this.parentDraft() && this.moduleConfirmedWritable() && !this.mode.mutationsDisabled());
+  // Issue #54: previewMode makes no mutation calls at all, matching CurriculumPreviewComponent's own read-only contract one level up.
+  canAddLesson = computed(() => !this.previewMode() && this.parentDraft() && this.moduleConfirmedWritable());
+  canReorder = computed(() => !this.previewMode() && this.parentDraft() && this.moduleConfirmedWritable() && !this.mode.mutationsDisabled());
 
   ngOnInit() {
     this.curriculumId.set(Number(this.route.snapshot.paramMap.get('curriculumId')));
     this.versionId.set(Number(this.route.snapshot.paramMap.get('versionId')));
     this.moduleId.set(Number(this.route.snapshot.paramMap.get('moduleId')));
+    this.previewMode.set(this.route.snapshot.data['previewMode'] === true);
     this.load();
   }
 
@@ -162,12 +198,16 @@ export class LessonListComponent implements OnInit {
     this.navigateToLessons('new');
   }
 
+  /** Issue #54: in previewMode there is no edit path -- the title button routes into the same read-only preview as the Preview button. */
   editLesson(l: Lesson) {
+    if (this.previewMode()) { this.previewLesson(l); return; }
     this.navigateToLessons(String(l.id), 'edit');
   }
 
   previewLesson(l: Lesson) {
-    this.navigateToLessons(String(l.id), 'preview');
+    const cId = this.curriculumId(), vId = this.versionId(), mId = this.moduleId();
+    const extras = this.previewMode() ? { queryParams: { from: 'preview' } } : {};
+    this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'modules', mId, 'lessons', l.id, 'preview'], extras);
   }
 
   private navigateToLessons(...segments: string[]) {
@@ -277,8 +317,13 @@ export class LessonListComponent implements OnInit {
     });
   }
 
+  /** Issue #54: previewMode returns through the preview flow (Curriculum Preview), never into Module Detail's edit view. */
   close() {
     const cId = this.curriculumId(), vId = this.versionId(), mId = this.moduleId();
+    if (this.previewMode()) {
+      this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'preview']);
+      return;
+    }
     this.router.navigate(['/vidya-rasa/curricula', cId, 'versions', vId, 'modules', mId]);
   }
 }
