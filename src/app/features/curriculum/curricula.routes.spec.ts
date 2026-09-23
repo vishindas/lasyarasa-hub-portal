@@ -8,6 +8,7 @@ import { CURRICULUM_ROUTES } from './curricula.routes';
 import { LessonListComponent } from './lessons/lesson-list';
 import { LessonEditorComponent } from './lessons/lesson-editor';
 import { LessonPreviewComponent } from './lessons/lesson-preview';
+import { CurriculumAssignmentPreviewComponent } from './assignments/curriculum-assignment-preview';
 
 /**
  * Issue #54: real router-level tests (not a stubbed ActivatedRoute) for the
@@ -83,5 +84,14 @@ describe('CURRICULUM_ROUTES (Issue #54) -- lessons/preview route resolution', ()
 
     expect(component).toBeInstanceOf(LessonPreviewComponent);
     expect(TestBed.inject(Router).url).toBe('/8/versions/11/modules/14/lessons/26/preview');
+  });
+
+  /** Issue #56: the new assignments/:templateId/preview route resolves to the dedicated CurriculumAssignmentPreviewComponent, distinct from every lessons/** route above. */
+  it('assignments/:templateId/preview resolves to CurriculumAssignmentPreviewComponent', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl('/8/versions/11/modules/14/assignments/6/preview', CurriculumAssignmentPreviewComponent);
+
+    expect(component).toBeInstanceOf(CurriculumAssignmentPreviewComponent);
+    expect(TestBed.inject(Router).url).toBe('/8/versions/11/modules/14/assignments/6/preview');
   });
 });

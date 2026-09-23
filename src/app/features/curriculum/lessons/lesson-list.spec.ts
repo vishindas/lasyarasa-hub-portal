@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -6,6 +7,8 @@ import { ActivatedRoute, Router, provideRouter, convertToParamMap } from '@angul
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { environment } from '../../../../environments/environment';
 import { CurriculumVersion, CurriculumModule, Lesson } from '../../../core/models/curriculum.model';
+import { AssignmentTemplateSummaryDTO } from '../../../core/models/assignment.model';
+import { AssignmentCapabilityStateService } from '../../../core/services/assignment-capability-state.service';
 import { LessonListComponent } from './lesson-list';
 
 function activatedRouteStub(params: Record<string, string>, data: Record<string, unknown> = {}) {
@@ -474,5 +477,209 @@ describe('LessonListComponent -- Issue #54 previewMode', () => {
     expect(text).toContain('Unpublished Draft Lesson');
     const buttons = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).map(b => b.textContent?.trim() ?? '');
     expect(buttons.some(t => t.includes('Add Lesson'))).toBe(true);
+  });
+});
+
+/**
+ * Issue #56 -- previewMode's "Related Assignments" section: sourced only
+ * from AssignmentTemplateApiService (the answer-key-free wrapper), filtered
+ * to PUBLISHED/PUBLISHED_WITH_DRAFT, hidden entirely (and no request made
+ * at all) whenever AssignmentCapabilityStateService.enabled() is false.
+ */
+describe('LessonListComponent -- Issue #56 Related Assignments', () => {
+  let httpMock: HttpTestingController;
+
+  const PUBLISHED_LESSON2 = textLesson(301, 'Indian Classical Dance', 1, 'PUBLISHED');
+
+  function templateSummary(id: number, displayStatus: string, publishedTitle: string | null): AssignmentTemplateSummaryDTO {
+    return {
+      id, moduleId: 101, moduleTitle: 'Module', curriculumVersionId: 10, curriculumTitle: 'Curriculum',
+      displayStatus, draftTitle: null, publishedTitle, rowVersion: 0, createdAt: '2026-01-01', createdBy: 1,
+      archivedAt: null, archivedBy: null
+    };
+  }
+
+  function setupPreviewWithCapability(enabled: boolean) {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [LessonListComponent],
+      providers: [
+        provideHttpClient(), provideHttpClientTesting(), provideAnimationsAsync(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: activatedRouteStub({ curriculumId: '1', versionId: '10', moduleId: '101' }, { previewMode: true }) },
+        { provide: AssignmentCapabilityStateService, useValue: { enabled: signal(enabled) } }
+      ]
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(LessonListComponent);
+    fixture.detectChanges();
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/1/versions/10`).flush(DRAFT_VERSION);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/10/modules`).flush([{ ...DRAFT_MODULE, contentStatus: 'PUBLISHED' }]);
+    httpMock.expectOne(`${environment.apiUrl}/school/curricula/versions/modules/101/lessons`).flush([PUBLISHED_LESSON2]);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => httpMock.verify());
+
+  // ---- Requirement 4: capability disabled means no section AND no preview-content request ----
+
+  it('capability disabled: no Related Assignments section, and no template-list request is ever made', () => {
+    const fixture = setupPreviewWithCapability(false);
+
+    httpMock.expectNone(req => req.url.includes('/school/assignments/templates'));
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Related Assignments');
+  });
+
+  // ---- Requirements 1-2: published templates appear, multiple are supported ----
+
+  it('capability enabled: PUBLISHED and PUBLISHED_WITH_DRAFT templates both appear under Related Assignments', () => {
+    const fixture = setupPreviewWithCapability(true);
+
+    const req = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates') && r.urlWithParams.includes('moduleId=101'));
+    req.flush({
+      content: [
+        templateSummary(6, 'PUBLISHED', 'Lesson 1 Review'),
+        templateSummary(8, 'PUBLISHED_WITH_DRAFT', 'Lesson 2 Review')
+      ],
+      totalElements: 2, totalPages: 1, number: 0, size: 50
+    });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Related Assignments');
+    expect(text).toContain('Lesson 1 Review');
+    expect(text).toContain('Lesson 2 Review');
+    expect(fixture.componentInstance.relatedAssignments().length).toBe(2);
+  });
+
+  // ---- Requirement 3: draft-only and archived templates do not render ----
+
+  it('DRAFT and ARCHIVED templates are filtered out -- never shown under Related Assignments', () => {
+    const fixture = setupPreviewWithCapability(true);
+
+    const req = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    req.flush({
+      content: [
+        templateSummary(9, 'DRAFT', null),
+        templateSummary(10, 'ARCHIVED', 'Old Assignment')
+      ],
+      totalElements: 2, totalPages: 1, number: 0, size: 50
+    });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Related Assignments');
+    expect(text).not.toContain('Old Assignment');
+    expect(fixture.componentInstance.relatedAssignments().length).toBe(0);
+  });
+
+  // ---- No misleading empty state: section is simply absent when there are no published templates ----
+
+  it('no published templates at all: section is omitted, no misleading empty-state message', () => {
+    const fixture = setupPreviewWithCapability(true);
+
+    const req = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    req.flush({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 50 });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Related Assignments');
+    expect(text).not.toContain('No assignment');
+  });
+
+  // ---- Link semantics and navigation target ----
+
+  it('each published assignment title is a real, keyboard-accessible link to its preview route', () => {
+    const fixture = setupPreviewWithCapability(true);
+    const req = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    req.flush({ content: [templateSummary(6, 'PUBLISHED', 'Lesson 1 Review')], totalElements: 1, totalPages: 1, number: 0, size: 50 });
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector('a.assignment-link') as HTMLAnchorElement | null;
+    expect(link).not.toBeNull();
+    expect(link!.tagName).toBe('A');
+    expect(link!.getAttribute('href')).toBe('/vidya-rasa/curricula/1/versions/10/modules/101/assignments/6/preview');
+    expect(link!.getAttribute('aria-label')).toBe('Preview assignment: Lesson 1 Review');
+  });
+
+  // ---- Requirement 8: no mutation API is ever invoked by this section ----
+
+  it('viewing the Related Assignments list invokes no mutation endpoint -- GET only', () => {
+    const fixture = setupPreviewWithCapability(true);
+    const req = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    expect(req.request.method).toBe('GET');
+    req.flush({ content: [templateSummary(6, 'PUBLISHED', 'Lesson 1 Review')], totalElements: 1, totalPages: 1, number: 0, size: 50 });
+    fixture.detectChanges();
+    // afterEach's httpMock.verify() proves no other request (e.g. a publish/assign/archive call) was ever made.
+  });
+
+  // ---- The fetch happens at most once ----
+
+  it('the template-list request fires only once, even across multiple change-detection cycles', () => {
+    const fixture = setupPreviewWithCapability(true);
+    const req = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    req.flush({ content: [], totalElements: 0, totalPages: 0, number: 0, size: 50 });
+    fixture.detectChanges();
+    fixture.detectChanges();
+    httpMock.expectNone(r => r.urlWithParams.includes('/school/assignments/templates'));
+  });
+
+  // ---- Architect correction: a failed load must never be silently collapsed into "no published assignment" ----
+
+  it('failed request: shows a scoped error message with a Retry action, never a raw backend error or a misleading "no assignments" state', () => {
+    const fixture = setupPreviewWithCapability(true);
+    const req = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    req.flush({ code: 'SOME_INTERNAL_CODE', message: 'relation "assignment_templates" does not exist' }, { status: 500, statusText: 'Internal Server Error' });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain("Related assignments couldn't be loaded");
+    expect(text).not.toContain('relation "assignment_templates"');
+    expect(text).not.toContain('SOME_INTERNAL_CODE');
+    expect(text).not.toContain('No published assignment');
+    expect(fixture.componentInstance.relatedAssignmentsError()).not.toBeNull();
+
+    const retryButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find(b => b.textContent?.includes('Retry'));
+    expect(retryButton).toBeDefined();
+  });
+
+  it('Retry issues a fresh GET and recovers normally once it succeeds', () => {
+    const fixture = setupPreviewWithCapability(true);
+    const firstReq = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    firstReq.flush({ code: 'UNKNOWN' }, { status: 500, statusText: 'Internal Server Error' });
+    fixture.detectChanges();
+
+    let text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain("Related assignments couldn't be loaded");
+
+    const retryButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find(b => b.textContent?.includes('Retry')) as HTMLButtonElement;
+    retryButton.click();
+    fixture.detectChanges();
+
+    const secondReq = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    expect(secondReq.request.method).toBe('GET');
+    secondReq.flush({
+      content: [templateSummary(6, 'PUBLISHED', 'Lesson 1 Review')],
+      totalElements: 1, totalPages: 1, number: 0, size: 50
+    });
+    fixture.detectChanges();
+
+    text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain("Related assignments couldn't be loaded");
+    expect(text).toContain('Related Assignments');
+    expect(text).toContain('Lesson 1 Review');
+    expect(fixture.componentInstance.relatedAssignmentsError()).toBeNull();
+  });
+
+  it('capability disabled remains request-free even though the error/loading state now exists on the component', () => {
+    const fixture = setupPreviewWithCapability(false);
+    httpMock.expectNone(req => req.url.includes('/school/assignments/templates'));
+    expect(fixture.componentInstance.relatedAssignmentsError()).toBeNull();
+    expect(fixture.componentInstance.relatedAssignmentsLoading()).toBe(false);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Related Assignments');
   });
 });

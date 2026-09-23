@@ -47,5 +47,13 @@ export const CURRICULUM_ROUTES: Routes = [
   {
     path: ':curriculumId/versions/:versionId/modules/:moduleId/lessons/:lessonId/preview',
     loadComponent: () => import('./lessons/lesson-preview').then(m => m.LessonPreviewComponent)
+  },
+  {
+    // Issue #56: read-only, answer-key-free preview of a module's published
+    // assignment template, reached only from lessons/preview's "Related
+    // Assignments" section. A brand-new component -- never
+    // TemplatePreviewComponent, never features/assignments/data-access/**.
+    path: ':curriculumId/versions/:versionId/modules/:moduleId/assignments/:templateId/preview',
+    loadComponent: () => import('./assignments/curriculum-assignment-preview').then(m => m.CurriculumAssignmentPreviewComponent)
   }
 ];
