@@ -624,4 +624,62 @@ describe('LessonListComponent -- Issue #56 Related Assignments', () => {
     fixture.detectChanges();
     httpMock.expectNone(r => r.urlWithParams.includes('/school/assignments/templates'));
   });
+
+  // ---- Architect correction: a failed load must never be silently collapsed into "no published assignment" ----
+
+  it('failed request: shows a scoped error message with a Retry action, never a raw backend error or a misleading "no assignments" state', () => {
+    const fixture = setupPreviewWithCapability(true);
+    const req = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    req.flush({ code: 'SOME_INTERNAL_CODE', message: 'relation "assignment_templates" does not exist' }, { status: 500, statusText: 'Internal Server Error' });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain("Related assignments couldn't be loaded");
+    expect(text).not.toContain('relation "assignment_templates"');
+    expect(text).not.toContain('SOME_INTERNAL_CODE');
+    expect(text).not.toContain('No published assignment');
+    expect(fixture.componentInstance.relatedAssignmentsError()).not.toBeNull();
+
+    const retryButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find(b => b.textContent?.includes('Retry'));
+    expect(retryButton).toBeDefined();
+  });
+
+  it('Retry issues a fresh GET and recovers normally once it succeeds', () => {
+    const fixture = setupPreviewWithCapability(true);
+    const firstReq = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    firstReq.flush({ code: 'UNKNOWN' }, { status: 500, statusText: 'Internal Server Error' });
+    fixture.detectChanges();
+
+    let text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain("Related assignments couldn't be loaded");
+
+    const retryButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find(b => b.textContent?.includes('Retry')) as HTMLButtonElement;
+    retryButton.click();
+    fixture.detectChanges();
+
+    const secondReq = httpMock.expectOne(r => r.urlWithParams.includes('/school/assignments/templates'));
+    expect(secondReq.request.method).toBe('GET');
+    secondReq.flush({
+      content: [templateSummary(6, 'PUBLISHED', 'Lesson 1 Review')],
+      totalElements: 1, totalPages: 1, number: 0, size: 50
+    });
+    fixture.detectChanges();
+
+    text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain("Related assignments couldn't be loaded");
+    expect(text).toContain('Related Assignments');
+    expect(text).toContain('Lesson 1 Review');
+    expect(fixture.componentInstance.relatedAssignmentsError()).toBeNull();
+  });
+
+  it('capability disabled remains request-free even though the error/loading state now exists on the component', () => {
+    const fixture = setupPreviewWithCapability(false);
+    httpMock.expectNone(req => req.url.includes('/school/assignments/templates'));
+    expect(fixture.componentInstance.relatedAssignmentsError()).toBeNull();
+    expect(fixture.componentInstance.relatedAssignmentsLoading()).toBe(false);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Related Assignments');
+  });
 });

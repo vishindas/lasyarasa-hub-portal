@@ -148,17 +148,23 @@ const PUBLISHED_DISPLAY_STATUSES = new Set(['PUBLISHED', 'PUBLISHED_WITH_DRAFT']
         </mat-card>
       }
 
-      @if (previewMode() && capabilityState.enabled() && relatedAssignments().length > 0) {
+      @if (previewMode() && capabilityState.enabled() && (relatedAssignmentsLoading() || relatedAssignmentsError() || relatedAssignments().length > 0)) {
         <div class="section-header"><h3>Related Assignments</h3></div>
         <mat-card>
           <mat-card-content style="padding:8px 16px">
-            @for (t of relatedAssignments(); track t.id) {
-              <div class="assignment-row">
-                <a class="assignment-link" [routerLink]="assignmentPreviewLink(t)" [attr.aria-label]="'Preview assignment: ' + t.publishedTitle">
-                  <mat-icon aria-hidden="true">assignment</mat-icon>
-                  {{ t.publishedTitle }}
-                </a>
-              </div>
+            @if (relatedAssignmentsError()) {
+              <app-curriculum-message [error]="relatedAssignmentsError()" (retry)="retryRelatedAssignments()" />
+            } @else if (relatedAssignmentsLoading()) {
+              <p style="color:#adb5bd;text-align:center;padding:12px 0;margin:0">Loading…</p>
+            } @else {
+              @for (t of relatedAssignments(); track t.id) {
+                <div class="assignment-row">
+                  <a class="assignment-link" [routerLink]="assignmentPreviewLink(t)" [attr.aria-label]="'Preview assignment: ' + t.publishedTitle">
+                    <mat-icon aria-hidden="true">assignment</mat-icon>
+                    {{ t.publishedTitle }}
+                  </a>
+                </div>
+              }
             }
           </mat-card-content>
         </mat-card>
@@ -211,6 +217,16 @@ export class LessonListComponent implements OnInit {
 
   /** Issue #56 -- PUBLISHED/PUBLISHED_WITH_DRAFT assignment templates for this module. Empty until fetched; fetched at most once, only in previewMode, only once capability resolves enabled (see constructor). */
   relatedAssignments = signal<AssignmentTemplateSummaryDTO[]>([]);
+  relatedAssignmentsLoading = signal(false);
+  /**
+   * Architect correction: a failed request must never be silently converted
+   * into an empty list -- that would make a real API/network/backend
+   * failure indistinguishable from "no published assignment," recreating
+   * the original defect this section exists to fix. `relatedAssignments`
+   * therefore stays untouched on failure; the section instead renders this
+   * scoped, generic error with a Retry action (never the raw backend error).
+   */
+  relatedAssignmentsError = signal<CurriculumUiError | null>(null);
   private relatedAssignmentsFetched = false;
 
   constructor() {
@@ -236,10 +252,23 @@ export class LessonListComponent implements OnInit {
   private loadRelatedAssignments() {
     const mId = this.moduleId();
     if (mId === null) return;
+    this.relatedAssignmentsLoading.set(true);
+    this.relatedAssignmentsError.set(null);
     this.templateApi.list(mId, 0, 50).subscribe({
-      next: page => this.relatedAssignments.set(page.content.filter(t => PUBLISHED_DISPLAY_STATUSES.has(t.displayStatus))),
-      error: () => this.relatedAssignments.set([]) // fail closed -- omit the section rather than show a misleading error for a display-only aside
+      next: page => {
+        this.relatedAssignments.set(page.content.filter(t => PUBLISHED_DISPLAY_STATUSES.has(t.displayStatus)));
+        this.relatedAssignmentsLoading.set(false);
+      },
+      error: () => {
+        this.relatedAssignmentsLoading.set(false);
+        this.relatedAssignmentsError.set({ kind: 'unknown', message: "Related assignments couldn't be loaded", resource: null });
+      }
     });
+  }
+
+  /** Issue #56 architect correction: retry is a deliberate user action -- it always issues a fresh GET, bypassing the one-time fetch guard the initial automatic load uses. */
+  retryRelatedAssignments() {
+    this.loadRelatedAssignments();
   }
 
   assignmentPreviewLink(t: AssignmentTemplateSummaryDTO): (string | number)[] {
