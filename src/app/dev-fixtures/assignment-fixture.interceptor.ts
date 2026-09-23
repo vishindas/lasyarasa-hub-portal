@@ -10,7 +10,8 @@ import {
   FIXTURE_CAPABILITY_ENABLED, FIXTURE_CAPABILITY_DISABLED, FIXTURE_TEMPLATE, FIXTURE_TEMPLATE_SUMMARIES,
   FIXTURE_TEMPLATE_PUBLISHED_ONLY, FIXTURE_VERSION_PUBLISHED, FIXTURE_VERSION_AUTO_DRAFT,
   FIXTURE_ELIGIBLE_CLASSES, FIXTURE_VERSION, FIXTURE_INSTANCE_SUMMARIES, FIXTURE_INSTANCE_DETAIL,
-  FIXTURE_STUDENT_ROLLUP, FIXTURE_LATE_ENROLLEES, FIXTURE_QUEUE, FIXTURE_SUBMISSION_DETAIL
+  FIXTURE_STUDENT_ROLLUP, FIXTURE_LATE_ENROLLEES, FIXTURE_QUEUE, FIXTURE_SUBMISSION_DETAIL,
+  FIXTURE_TEMPLATE_PREVIEW
 } from './assignment-fixture-data';
 
 type AssignmentScenario =
@@ -77,6 +78,10 @@ export const assignmentFixtureInterceptor: HttpInterceptorFn = (req: HttpRequest
   // Template 2: published-only, no open draft -- exercises T3 auto-draft-on-edit and T9 Assign to Class.
   if (path === '/school/assignments/templates/2' && req.method === 'GET') return ok(FIXTURE_TEMPLATE_PUBLISHED_ONLY);
   if (path === '/school/assignments/templates/2/eligible-classes') return ok(FIXTURE_ELIGIBLE_CLASSES);
+
+  // Issue #56: template 3 (moduleId 201, "Namaskaram") -- Curriculum Preview's
+  // "Related Assignments" preview endpoint. Answer-key-free response only.
+  if (path === '/school/assignments/templates/3/preview' && req.method === 'GET') return ok(FIXTURE_TEMPLATE_PREVIEW);
   if (path === '/school/assignments/templates/2/draft') return ok(FIXTURE_VERSION_AUTO_DRAFT); // startDraft() -- T3's auto-created draft
 
   if (path === '/school/assignments/versions/1000' && req.method === 'GET') {

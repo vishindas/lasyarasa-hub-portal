@@ -1,5 +1,5 @@
 // TEST/DEV-ONLY fixture data for the Slice 15 `verify` build scenarios.
-import { AssignmentTemplateDTO, AssignmentTemplateSummaryDTO, AssignmentEligibleClassDTO, AssignmentInstanceSummaryDTO, AssignmentInstanceDetailDTO, AssignmentInstanceStudentRollupDTO, AssignmentLateEnrolleeCandidateDTO, SubmissionQueueEntryDTO, AssignmentCapabilityDTO } from '../core/models/assignment.model';
+import { AssignmentTemplateDTO, AssignmentTemplateSummaryDTO, AssignmentEligibleClassDTO, AssignmentInstanceSummaryDTO, AssignmentInstanceDetailDTO, AssignmentInstanceStudentRollupDTO, AssignmentLateEnrolleeCandidateDTO, SubmissionQueueEntryDTO, AssignmentCapabilityDTO, AssignmentTemplatePreviewDTO } from '../core/models/assignment.model';
 import { AssignmentTemplateVersionDTO, StaffSubmissionDetailDTO } from '../features/assignments/data-access/assignment-staff.model';
 
 export const FIXTURE_CAPABILITY_ENABLED: AssignmentCapabilityDTO = { globalEnabled: true, providerEnabled: true, effectiveEnabled: true };
@@ -65,8 +65,66 @@ export const FIXTURE_TEMPLATE_SUMMARIES: AssignmentTemplateSummaryDTO[] = [
     id: 2, moduleId: 10, moduleTitle: 'Bharatanatyam Basics', curriculumVersionId: 100, curriculumTitle: 'Vidya Rasa Level 1',
     displayStatus: 'PUBLISHED', draftTitle: null, publishedTitle: 'Unit 2 Quiz (published)', rowVersion: 0,
     createdAt: '2026-08-01T00:00:00', createdBy: 1, archivedAt: null, archivedBy: null
+  },
+  // Issue #56: tied to moduleId 201 -- curriculum-fixture-data.ts's real
+  // "Namaskaram" module (curriculum 2 / version 20, PUBLISHED) -- so
+  // Curriculum Preview's own lessons/preview screen for that module shows
+  // this under "Related Assignments", exercising the real integration
+  // rather than a standalone assignments-feature fixture only.
+  {
+    id: 3, moduleId: 201, moduleTitle: 'Namaskaram', curriculumVersionId: 20, curriculumTitle: 'Kuchipudi Foundations',
+    displayStatus: 'PUBLISHED', draftTitle: null, publishedTitle: 'Indian Classical Dance — Lesson 1 Review', rowVersion: 0,
+    createdAt: '2026-09-22T01:11:55', createdBy: 3, archivedAt: null, archivedBy: null
   }
 ];
+
+/**
+ * Issue #56 -- GET /templates/3/preview. Answer-key-free by construction
+ * (AssignmentTemplatePreviewDTO, core/models/assignment.model.ts -- never
+ * AssignmentTemplateVersionDTO above, which carries isCorrect). Five real
+ * questions across all four question types, mirroring production
+ * curriculum 8/module 14/template 6/version 7's actual shape exactly (real
+ * prompts, real option counts), verified live against production during
+ * the Issue #56 design audit.
+ */
+export const FIXTURE_TEMPLATE_PREVIEW: AssignmentTemplatePreviewDTO = {
+  templateId: 3, publishedVersionId: 30, title: 'Indian Classical Dance — Lesson 1 Review',
+  questions: [
+    {
+      id: 61, questionOrder: 1, questionType: 'SINGLE_CHOICE', prompt: 'Which Indian classical dance form originated in Andhra Pradesh?', maxSelections: null,
+      options: [
+        { id: 611, optionOrder: 1, optionLabel: 'Kuchipudi' },
+        { id: 612, optionOrder: 2, optionLabel: 'Bharatanatyam' },
+        { id: 613, optionOrder: 3, optionLabel: 'Odissi' },
+        { id: 614, optionOrder: 4, optionLabel: 'Kathakali' }
+      ]
+    },
+    {
+      id: 62, questionOrder: 2, questionType: 'MULTIPLE_CHOICE', prompt: 'Which of the following Indian classical dance forms originated in Kerala? Select two.', maxSelections: 2,
+      options: [
+        { id: 621, optionOrder: 1, optionLabel: 'Kathakali' },
+        { id: 622, optionOrder: 2, optionLabel: 'Mohiniyattam' },
+        { id: 623, optionOrder: 3, optionLabel: 'Kuchipudi' },
+        { id: 624, optionOrder: 4, optionLabel: 'Odissi' }
+      ]
+    },
+    {
+      id: 63, questionOrder: 3, questionType: 'SINGLE_CHOICE', prompt: 'Which Indian classical dance form originated in Odisha?', maxSelections: null,
+      options: [
+        { id: 631, optionOrder: 1, optionLabel: 'Odissi' },
+        { id: 632, optionOrder: 2, optionLabel: 'Bharatanatyam' },
+        { id: 633, optionOrder: 3, optionLabel: 'Kuchipudi' },
+        { id: 634, optionOrder: 4, optionLabel: 'Kathakali' }
+      ]
+    },
+    { id: 64, questionOrder: 4, questionType: 'SHORT_TEXT', prompt: 'Name the eight Indian classical dance forms introduced in this lesson.', maxSelections: null, options: [] },
+    {
+      id: 65, questionOrder: 5, questionType: 'LONG_TEXT',
+      prompt: 'Explain two differences between classical dance and folk dance. Include how each is learned or performed and how each relates to community traditions.',
+      maxSelections: null, options: []
+    }
+  ]
+};
 
 export const FIXTURE_ELIGIBLE_CLASSES: AssignmentEligibleClassDTO[] = [
   { classId: 1, className: 'Tuesday Beginners' },

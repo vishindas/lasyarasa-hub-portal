@@ -1,21 +1,26 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { Lesson, ReorderLessonEntry, CurriculumVersion, CurriculumModule } from '../../../core/models/curriculum.model';
+import { AssignmentTemplateSummaryDTO } from '../../../core/models/assignment.model';
 import { LessonApiService } from '../../../core/services/lesson-api.service';
 import { CurriculumApiService } from '../../../core/services/curriculum-api.service';
 import { CurriculumModuleApiService } from '../../../core/services/curriculum-module-api.service';
+import { AssignmentTemplateApiService } from '../../../core/services/assignment-template-api.service';
+import { AssignmentCapabilityStateService } from '../../../core/services/assignment-capability-state.service';
 import { ClassroomLiteModeService } from '../../../core/services/classroom-lite-mode.service';
 import { CurriculumUiError, toCurriculumUiError } from '../../../core/services/curriculum-api-error.util';
 import { ClassroomLiteBannerComponent } from '../../../shared/curriculum/classroom-lite-banner';
 import { CurriculumMessageComponent } from '../../../shared/curriculum/curriculum-message';
 import { FullOutageBlockComponent } from '../../../shared/curriculum/full-outage-block';
 import { LessonListRowComponent } from './lesson-list-row';
+
+const PUBLISHED_DISPLAY_STATUSES = new Set(['PUBLISHED', 'PUBLISHED_WITH_DRAFT']);
 
 /**
  * Figure 1 (Lesson List). Reached from Module Detail's "Manage Lessons"
@@ -37,12 +42,25 @@ import { LessonListRowComponent } from './lesson-list-row';
  *
  * Reorder mirrors CurriculumBuilderComponent's drag+buttons dual-path
  * exactly (Slice 3 §6.1: "Drag is never the only way to reorder").
+ *
+ * Issue #56: previewMode also shows a "Related Assignments" section after
+ * the lesson list -- the module's PUBLISHED (or PUBLISHED_WITH_DRAFT)
+ * assignment templates, sourced only from AssignmentTemplateApiService
+ * (the answer-key-free 8-endpoint wrapper; never
+ * features/assignments/data-access/**), hidden entirely whenever
+ * AssignmentCapabilityStateService.enabled() is false -- no request is even
+ * made in that case (see the constructor's effect()). Each title routes
+ * into a new, dedicated read-only preview route
+ * (modules/:moduleId/assignments/:templateId/preview -> a brand-new
+ * CurriculumAssignmentPreviewComponent, never TemplatePreviewComponent).
+ * No assignment_instance is ever created by any of this -- GET-only, same
+ * as the rest of this screen's previewMode contract.
  */
 @Component({
   selector: 'app-lesson-list',
   standalone: true,
   imports: [
-    DragDropModule, MatButtonModule, MatIconModule, MatCardModule,
+    RouterLink, DragDropModule, MatButtonModule, MatIconModule, MatCardModule,
     ClassroomLiteBannerComponent, CurriculumMessageComponent, FullOutageBlockComponent, LessonListRowComponent
   ],
   styles: [`
@@ -53,6 +71,18 @@ import { LessonListRowComponent } from './lesson-list-row';
       background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe;
       padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.85rem; font-weight: 500;
     }
+    .section-header { margin: 20px 0 8px; }
+    .section-header h3 { margin: 0; }
+    .assignment-row {
+      display: flex; align-items: center; padding: 10px 4px; border-bottom: 1px solid #f1f3f5; min-height: 44px;
+    }
+    .assignment-row:last-child { border-bottom: none; }
+    .assignment-link {
+      color: #3730a3; text-decoration: none; font-size: 0.9rem; font-weight: 500;
+      display: flex; align-items: center; gap: 8px; min-height: 44px;
+    }
+    .assignment-link:hover { text-decoration: underline; }
+    .assignment-link:focus-visible { outline: 2px solid #4f63d2; outline-offset: 2px; border-radius: 2px; }
   `],
   template: `
     <div class="page-header">
@@ -117,6 +147,22 @@ import { LessonListRowComponent } from './lesson-list-row';
           </mat-card-content>
         </mat-card>
       }
+
+      @if (previewMode() && capabilityState.enabled() && relatedAssignments().length > 0) {
+        <div class="section-header"><h3>Related Assignments</h3></div>
+        <mat-card>
+          <mat-card-content style="padding:8px 16px">
+            @for (t of relatedAssignments(); track t.id) {
+              <div class="assignment-row">
+                <a class="assignment-link" [routerLink]="assignmentPreviewLink(t)" [attr.aria-label]="'Preview assignment: ' + t.publishedTitle">
+                  <mat-icon aria-hidden="true">assignment</mat-icon>
+                  {{ t.publishedTitle }}
+                </a>
+              </div>
+            }
+          </mat-card-content>
+        </mat-card>
+      }
     }
   `
 })
@@ -126,8 +172,10 @@ export class LessonListComponent implements OnInit {
   private lessonApi = inject(LessonApiService);
   private curriculumApi = inject(CurriculumApiService);
   private moduleApi = inject(CurriculumModuleApiService);
+  private templateApi = inject(AssignmentTemplateApiService);
   private announcer = inject(LiveAnnouncer);
   mode = inject(ClassroomLiteModeService);
+  capabilityState = inject(AssignmentCapabilityStateService);
 
   curriculumId = signal<number | null>(null);
   versionId = signal<number | null>(null);
@@ -161,12 +209,41 @@ export class LessonListComponent implements OnInit {
   canAddLesson = computed(() => !this.previewMode() && this.parentDraft() && this.moduleConfirmedWritable());
   canReorder = computed(() => !this.previewMode() && this.parentDraft() && this.moduleConfirmedWritable() && !this.mode.mutationsDisabled());
 
+  /** Issue #56 -- PUBLISHED/PUBLISHED_WITH_DRAFT assignment templates for this module. Empty until fetched; fetched at most once, only in previewMode, only once capability resolves enabled (see constructor). */
+  relatedAssignments = signal<AssignmentTemplateSummaryDTO[]>([]);
+  private relatedAssignmentsFetched = false;
+
+  constructor() {
+    // Issue #56: capability state resolves asynchronously (it's shared, app-wide, refreshed by ShellComponent at login) --
+    // this effect fires the templates fetch the moment it's both previewMode and confirmed enabled, and never before,
+    // so a disabled (or not-yet-resolved) capability makes no request at all, matching this section's own hidden-when-disabled contract.
+    effect(() => {
+      if (this.previewMode() && this.capabilityState.enabled() && !this.relatedAssignmentsFetched) {
+        this.relatedAssignmentsFetched = true;
+        this.loadRelatedAssignments();
+      }
+    });
+  }
+
   ngOnInit() {
     this.curriculumId.set(Number(this.route.snapshot.paramMap.get('curriculumId')));
     this.versionId.set(Number(this.route.snapshot.paramMap.get('versionId')));
     this.moduleId.set(Number(this.route.snapshot.paramMap.get('moduleId')));
     this.previewMode.set(this.route.snapshot.data['previewMode'] === true);
     this.load();
+  }
+
+  private loadRelatedAssignments() {
+    const mId = this.moduleId();
+    if (mId === null) return;
+    this.templateApi.list(mId, 0, 50).subscribe({
+      next: page => this.relatedAssignments.set(page.content.filter(t => PUBLISHED_DISPLAY_STATUSES.has(t.displayStatus))),
+      error: () => this.relatedAssignments.set([]) // fail closed -- omit the section rather than show a misleading error for a display-only aside
+    });
+  }
+
+  assignmentPreviewLink(t: AssignmentTemplateSummaryDTO): (string | number)[] {
+    return ['/vidya-rasa/curricula', this.curriculumId()!, 'versions', this.versionId()!, 'modules', this.moduleId()!, 'assignments', t.id, 'preview'];
   }
 
   load() {

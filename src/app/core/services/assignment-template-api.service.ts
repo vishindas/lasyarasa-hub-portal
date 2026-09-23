@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
-  AssignmentTemplateDTO, AssignmentTemplateSummaryDTO, AssignmentEligibleClassDTO,
+  AssignmentTemplateDTO, AssignmentTemplateSummaryDTO, AssignmentEligibleClassDTO, AssignmentTemplatePreviewDTO,
   CreateAssignmentTemplateRequest, AssignmentExpectedRowVersionRequest
 } from '../models/assignment.model';
 
@@ -16,11 +16,12 @@ export interface Page<T> {
 }
 
 /**
- * Wraps the 7 answer-key-free endpoints of AssignmentTemplateController
- * (out of its 18 total). The remaining 11 (startDraft, getVersion,
- * updateTitle, question/option CRUD, reorder) return or accept the
- * answer-key-bearing AssignmentTemplateVersionDTO graph and are wrapped
- * instead by features/assignments/data-access/assignment-authoring-api.service.ts
+ * Wraps the 8 answer-key-free endpoints of AssignmentTemplateController
+ * (out of its 19 total, since Issue #56's `preview` endpoint). The
+ * remaining 11 (startDraft, getVersion, updateTitle, question/option CRUD,
+ * reorder) return or accept the answer-key-bearing
+ * AssignmentTemplateVersionDTO graph and are wrapped instead by
+ * features/assignments/data-access/assignment-authoring-api.service.ts
  * -- see Slice 15 Plan v2.1.2 §8.3. This service must never import from
  * features/**.
  */
@@ -57,5 +58,10 @@ export class AssignmentTemplateApiService {
 
   eligibleClasses(templateId: number): Observable<AssignmentEligibleClassDTO[]> {
     return this.http.get<AssignmentEligibleClassDTO[]>(`${this.base}/${templateId}/eligible-classes`);
+  }
+
+  /** Issue #56 -- read-only, answer-key-free content of the template's currently PUBLISHED version, for Curriculum Preview. */
+  preview(templateId: number): Observable<AssignmentTemplatePreviewDTO> {
+    return this.http.get<AssignmentTemplatePreviewDTO>(`${this.base}/${templateId}/preview`);
   }
 }

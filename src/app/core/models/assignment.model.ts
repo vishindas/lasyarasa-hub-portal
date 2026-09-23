@@ -38,6 +38,33 @@ export interface AssignmentEligibleClassDTO {
   className: string;
 }
 
+// Issue #56 -- GET /templates/{templateId}/preview. Answer-key-free by
+// construction (mirrors the backend's dedicated preview DTOs exactly, not
+// AssignmentQuestionDTO/AssignmentQuestionOptionDTO): no isCorrect field
+// exists anywhere in this graph, so no field needs to be hidden in the
+// template. Safe to import from features/curriculum/**.
+export interface AssignmentPreviewOptionDTO {
+  id: number;
+  optionOrder: number;
+  optionLabel: string;
+}
+
+export interface AssignmentPreviewQuestionDTO {
+  id: number;
+  questionOrder: number;
+  questionType: AssignmentQuestionType;
+  prompt: string;
+  maxSelections: number | null;
+  options: AssignmentPreviewOptionDTO[];
+}
+
+export interface AssignmentTemplatePreviewDTO {
+  templateId: number;
+  publishedVersionId: number;
+  title: string;
+  questions: AssignmentPreviewQuestionDTO[];
+}
+
 export interface CreateAssignmentTemplateRequest {
   moduleId: number;
   curriculumVersionId: number;

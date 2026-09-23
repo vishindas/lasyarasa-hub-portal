@@ -27,6 +27,14 @@
 // equivalent) directory exists, extend this script to also assert neither
 // direction crosses that boundary. Until then that half of the check is a
 // no-op (there is nothing yet to import from either side).
+//
+// Issue #56 boundary: Curriculum Preview (features/curriculum/**) now also
+// consumes answer-key-free assignment data (AssignmentTemplateApiService,
+// core/**) for its own "Related Assignments" preview -- a genuinely new
+// reason a stray import of the answer-key-bearing authoring surface could
+// creep in that this check never previously had a reason to watch for.
+// Asserted the same way as the student-assignments boundary: neither
+// direction crosses.
 
 import * as ts from 'typescript';
 import * as path from 'node:path';
@@ -39,6 +47,7 @@ const srcAppRoot = path.resolve(projectRoot, 'src/app');
 const forbiddenTargetDir = path.resolve(srcAppRoot, 'features/assignments/data-access');
 const coreDir = path.resolve(srcAppRoot, 'core');
 const studentAssignmentsDir = path.resolve(srcAppRoot, 'features/student-assignments');
+const curriculumDir = path.resolve(srcAppRoot, 'features/curriculum');
 
 function listTsFiles(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -92,10 +101,15 @@ if (fs.existsSync(studentAssignmentsDir)) {
   console.log('(Slice 16 features/student-assignments/** does not exist yet -- that half of the boundary check is a no-op until it does.)');
 }
 
+// Issue #56: curriculum/** (Curriculum Preview) must never import the
+// answer-key-bearing authoring surface, in either direction.
+violations = violations.concat(checkDirection(curriculumDir, forbiddenTargetDir));
+violations = violations.concat(checkDirection(forbiddenTargetDir, curriculumDir));
+
 if (violations.length > 0) {
   console.error('Answer-key isolation boundary violated:');
   for (const v of violations) console.error(`  - ${v}`);
   process.exit(1);
 }
 
-console.log('OK: no core/** file imports from features/assignments/data-access/**.');
+console.log('OK: no core/**, features/student-assignments/**, or features/curriculum/** file imports from features/assignments/data-access/**, and the reverse never happens either.');
