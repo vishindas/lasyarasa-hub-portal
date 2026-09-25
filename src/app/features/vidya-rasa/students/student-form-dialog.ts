@@ -115,33 +115,53 @@ interface DialogData {
       <div class="dialog-form">
         <div class="form-section-row">
           <p class="form-section-label" style="margin:0">Class Enrollments</p>
-          <button mat-button color="primary" type="button" (click)="addEnrollment()">
-            <mat-icon>add</mat-icon> Add Class
-          </button>
+          @if (!isEdit) {
+            <button mat-button color="primary" type="button" (click)="addEnrollment()">
+              <mat-icon>add</mat-icon> Add Class
+            </button>
+          }
         </div>
 
-        @if (classes.length === 0) {
-          <p class="empty-hint" style="color:#f59e0b">No classes set up yet. Go to Classes and create a batch first.</p>
-        }
-
-        @for (row of enrollmentRows.controls; track $index) {
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px" [formGroup]="asGroup(row)">
-            <mat-form-field appearance="outline" style="flex:1">
-              <mat-label>Class</mat-label>
-              <mat-select formControlName="classId">
-                @for (c of classes; track c.id) {
-                  <mat-option [value]="c.id">
-                    {{ c.danceStyleName ?? '?' }} — {{ c.ageGroupLabel ?? '?' }} — {{ c.batchName }}
-                  </mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            @if (enrollmentRows.length > 1) {
-              <button mat-icon-button color="warn" type="button" (click)="removeEnrollment($index)">
-                <mat-icon>remove_circle_outline</mat-icon>
-              </button>
+        @if (isEdit) {
+          <!-- Issue #66 Phase 1: the legacy update endpoint no longer accepts a
+               changed class selection (it would silently destroy enrollment
+               history) -- this section is read-only until the dedicated
+               Add/Transfer workflow (Issue #66 Phase 2) ships. -->
+          <p class="empty-hint" role="status">Class changes are temporarily unavailable while the new transfer workflow is being introduced.</p>
+          @if (existingEnrollments.length > 0) {
+            @for (e of existingEnrollments; track e.id) {
+              <div class="enrollment-readonly-row" style="display:flex;align-items:center;padding:8px 4px;color:#495057">
+                <mat-icon style="margin-right:8px;color:#adb5bd" aria-hidden="true">school</mat-icon>
+                {{ enrollmentDisplayName(e.classId) }}
+              </div>
             }
-          </div>
+          } @else {
+            <p class="empty-hint">Not currently enrolled in any class.</p>
+          }
+        } @else {
+          @if (classes.length === 0) {
+            <p class="empty-hint" style="color:#f59e0b">No classes set up yet. Go to Classes and create a batch first.</p>
+          }
+
+          @for (row of enrollmentRows.controls; track $index) {
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px" [formGroup]="asGroup(row)">
+              <mat-form-field appearance="outline" style="flex:1">
+                <mat-label>Class</mat-label>
+                <mat-select formControlName="classId">
+                  @for (c of classes; track c.id) {
+                    <mat-option [value]="c.id">
+                      {{ c.danceStyleName ?? '?' }} — {{ c.ageGroupLabel ?? '?' }} — {{ c.batchName }}
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              @if (enrollmentRows.length > 1) {
+                <button mat-icon-button color="warn" type="button" (click)="removeEnrollment($index)">
+                  <mat-icon>remove_circle_outline</mat-icon>
+                </button>
+              }
+            </div>
+          }
         }
       </div>
 
@@ -282,7 +302,8 @@ export class StudentFormDialog {
 
   private existingStudent = this.data.studentDetail?.student ?? null;
   private existingGuardians = this.data.studentDetail?.guardians ?? [];
-  private existingEnrollments = this.data.studentDetail?.enrollments ?? [];
+  /** Issue #66 Phase 1: read by the template's read-only enrollment display for an existing student -- must stay public. */
+  existingEnrollments = this.data.studentDetail?.enrollments ?? [];
   existingNotes: WritableSignal<{ id: number; note: string; createdAt: string; }[]> =
     signal([...(this.data.studentDetail?.notes ?? [])]);
 
@@ -327,6 +348,13 @@ export class StudentFormDialog {
 
   addEnrollment() { this.enrollmentRows.push(this.makeEnrollmentRow()); }
   removeEnrollment(i: number) { this.enrollmentRows.removeAt(i); }
+
+  /** Issue #66 Phase 1: read-only display for an existing student's current enrollments -- mirrors the editable dropdown's own label format. */
+  enrollmentDisplayName(classId: number | null): string {
+    if (classId == null) return 'Unknown class';
+    const c = this.classes.find(x => x.id === classId);
+    return c ? `${c.danceStyleName ?? '?'} — ${c.ageGroupLabel ?? '?'} — ${c.batchName}` : `Class #${classId}`;
+  }
   addGuardian() { this.guardianRows.push(this.makeGuardianRow()); }
 
   addSelfGuardian() {
@@ -368,7 +396,13 @@ export class StudentFormDialog {
       ? `${dob.getFullYear()}-${String(dob.getMonth()+1).padStart(2,'0')}-${String(dob.getDate()).padStart(2,'0')}`
       : null;
     const student = { ...raw, dateOfBirth: dobStr };
-    const enrollments = this.enrollmentRows.value.filter((e: any) => e.classId != null);
+    // Issue #66 Phase 1: an existing student's edit never expresses an enrollment
+    // opinion -- the legacy endpoint now rejects any changed selection outright,
+    // so sending null (no opinion) is what keeps ordinary profile edits working.
+    // Only new-student creation still submits an initial class selection.
+    const enrollments = this.isEdit
+      ? null
+      : this.enrollmentRows.value.filter((e: any) => e.classId != null);
     const guardians = this.guardianRows.value
       .map((g: any, i: number) => ({ ...g, primary: i === this.primaryIndex() }))
       .filter((g: any) => g.firstName?.trim() || g.phone?.trim());
@@ -377,7 +411,13 @@ export class StudentFormDialog {
 
     const onError = (err: any) => {
       this.saving.set(false);
-      const msg = err?.error?.message || 'Failed to save student. Please try again.';
+      // Issue #66 Phase 1: a defensive fallback only -- this dialog no longer
+      // sends a changed enrollments payload, so this should not occur in normal
+      // use, but an outdated/cached client (or a future regression) must still
+      // fail safely with a clear message rather than a raw/misleading one.
+      const msg = err?.error?.code === 'ENROLLMENT_CHANGE_REQUIRES_DEDICATED_FLOW'
+        ? 'Class changes aren’t available from this dialog yet. Please save other changes without altering class enrollment.'
+        : err?.error?.message || 'Failed to save student. Please try again.';
       this.snack.open(msg, 'OK', { duration: 5000 });
     };
 
