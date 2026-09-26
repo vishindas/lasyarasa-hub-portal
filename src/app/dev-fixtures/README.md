@@ -37,6 +37,15 @@ backend (`curricula/**`, `classes/*/curriculum-assignment/**`,
 `classes/*/modules/**`) — everything else (dance styles, class detail)
 keeps responding normally, matching real backend behavior.
 
+Issue #67 (class archive) has its own, separate scenario flag,
+`sessionStorage.classArchiveFixtureScenario`: `default` (archive/restore/
+delete all succeed), `blocked` (archive returns the 409
+`CLASS_ARCHIVE_BLOCKED` typed error), `stale` (archive/restore return the
+409 `STALE_CONFLICT` typed error), `deleteBlocked` (delete returns the 409
+`CLASS_DELETE_BLOCKED` typed error). Class id 1 (`FIXTURE_CLASS`) is active;
+class id 2 (`FIXTURE_ARCHIVED_CLASS`) is already archived, for the
+"Archived" tab / restore-flow pass.
+
 ## Disposition after Slice 6 verification
 
 Kept as isolated, clearly-labeled test infrastructure (this README, the

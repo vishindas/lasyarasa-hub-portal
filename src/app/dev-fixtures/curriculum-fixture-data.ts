@@ -89,5 +89,13 @@ export const FIXTURE_LESSONS: Lesson[] = [
 
 export const FIXTURE_CLASS = {
   id: 1, batchName: 'Saturday Beginners', schedule: 'Sat 10:00 AM', description: 'Beginner batch, Bharatanatyam & Kuchipudi.',
-  danceStyleId: 1, ageGroupId: null, feeTierId: null, danceStyleName: 'Bharatanatyam', ageGroupLabel: null, feeTierLabel: null
+  danceStyleId: 1, ageGroupId: null, feeTierId: null, danceStyleName: 'Bharatanatyam', ageGroupLabel: null, feeTierLabel: null,
+  archivedAt: null as string | null, rowVersion: 0
+};
+
+// Issue #67: a second, already-archived class, purely for the "Archived" tab / restore-flow verify pass.
+export const FIXTURE_ARCHIVED_CLASS = {
+  id: 2, batchName: 'Kuchipudi (retired)', schedule: 'Sun 11:00 AM', description: 'Retired class, replaced by Pravesha.',
+  danceStyleId: 1, ageGroupId: null, feeTierId: null, danceStyleName: 'Kuchipudi', ageGroupLabel: null, feeTierLabel: null,
+  archivedAt: '2026-02-01T12:00:00', rowVersion: 1
 };

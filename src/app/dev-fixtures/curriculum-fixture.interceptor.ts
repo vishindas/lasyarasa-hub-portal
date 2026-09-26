@@ -14,7 +14,7 @@ import { delay } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   FIXTURE_DANCE_STYLES, FIXTURE_CURRICULA, FIXTURE_VERSIONS, FIXTURE_MODULES,
-  FIXTURE_ASSIGNMENT, FIXTURE_MODULE_STATES, FIXTURE_CLASS, FIXTURE_LESSONS
+  FIXTURE_ASSIGNMENT, FIXTURE_MODULE_STATES, FIXTURE_CLASS, FIXTURE_ARCHIVED_CLASS, FIXTURE_LESSONS
 } from './curriculum-fixture-data';
 import {
   FIXTURE_STUDENTS, FIXTURE_CLASSES, FIXTURE_HOME, FIXTURE_LEARNING_PATH,
@@ -60,8 +60,37 @@ export const curriculumFixtureInterceptor: HttpInterceptorFn = (req: HttpRequest
   if (path === '/school/settings/dance-styles') return ok(FIXTURE_DANCE_STYLES);
   if (path === '/school/settings/currency') return ok({ currency: 'INR' });
   if (path === '/school/classes/1' && req.method === 'GET') return ok(FIXTURE_CLASS);
-  if (path === '/school/classes/1/students') return ok([]);
+  if (path === '/school/classes/2' && req.method === 'GET') return ok(FIXTURE_ARCHIVED_CLASS);
+  if (path === '/school/classes/1/students' || path === '/school/classes/2/students') return ok([]);
+  if (path === '/school/classes/archived' && req.method === 'GET') return ok([FIXTURE_ARCHIVED_CLASS]);
   if (path === '/school/classes' && req.method === 'GET') return ok([FIXTURE_CLASS]);
+
+  // Issue #67: archive/restore -- a real conflict is reproducible by
+  // sessionStorage('classArchiveFixtureScenario') = 'blocked' | 'stale'
+  // (default: succeeds), matching this file's existing scenario convention.
+  const classArchiveMatch = path.match(/^\/school\/classes\/(\d+)\/(archive|restore)$/);
+  if (classArchiveMatch && req.method === 'POST') {
+    const classArchiveScenario = sessionStorage.getItem('classArchiveFixtureScenario') || 'default';
+    const [, idStr, action] = classArchiveMatch;
+    if (classArchiveScenario === 'blocked' && action === 'archive') {
+      return errorResponse(409, 'CLASS_ARCHIVE_BLOCKED', 'This class still has current enrollments. Transfer or end them before archiving.', 'SchoolClass', req.url);
+    }
+    if (classArchiveScenario === 'stale') {
+      return errorResponse(409, 'STALE_CONFLICT', 'This class has been modified since you last loaded it.', 'SchoolClass', req.url);
+    }
+    const source = idStr === '2' ? FIXTURE_ARCHIVED_CLASS : FIXTURE_CLASS;
+    const updated = action === 'archive'
+      ? { ...source, archivedAt: '2026-02-01T12:00:00', rowVersion: source.rowVersion + 1 }
+      : { ...source, archivedAt: null, rowVersion: source.rowVersion + 1 };
+    return ok(updated);
+  }
+  if (path.match(/^\/school\/classes\/\d+$/) && req.method === 'DELETE') {
+    const deleteScenario = sessionStorage.getItem('classArchiveFixtureScenario') || 'default';
+    if (deleteScenario === 'deleteBlocked') {
+      return errorResponse(409, 'CLASS_DELETE_BLOCKED', 'This class has enrollment history and cannot be deleted.', 'SchoolClass', req.url);
+    }
+    return ok(null);
+  }
 
   const isCurriculumRoute = CURRICULUM_PATH_RE.test(path);
   const isStudentLearningRoute = STUDENT_LEARNING_PATH_RE.test(path);
