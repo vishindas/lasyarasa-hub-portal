@@ -95,5 +95,35 @@ export const studentProfileFixtureInterceptor: HttpInterceptorFn = (req: HttpReq
     return ok(target);
   }
 
+  // Issue #66 Phase 2B: atomic Transfer -- ends the source row and pushes a
+  // new target row in the same handler, mirroring the backend's own
+  // one-transaction guarantee (both mutations happen together, or neither
+  // does -- there is no code path here that could apply only one).
+  const transferMatch = path.match(new RegExp(`^${ENROLLMENTS_PATH}/(\\d+)/transfer$`));
+  if (transferMatch && req.method === 'POST') {
+    const enrollmentsScenario = sessionStorage.getItem('enrollmentFixtureScenario') || 'default';
+    if (enrollmentsScenario === 'transferBlocked') {
+      return errorResponse(409, 'ENROLLMENT_DUPLICATE_ACTIVE', 'This student already has a current enrollment in this class.', 'Enrollment', req.url);
+    }
+    const sourceId = Number(transferMatch[1]);
+    const body = req.body as { targetClassId: number };
+    const source = FIXTURE_STUDENT_DETAIL.enrollments.find(e => e.id === sourceId);
+    if (!source) {
+      return errorResponse(404, 'ENROLLMENT_NOT_FOUND', 'Enrollment not found', 'Enrollment', req.url);
+    }
+    source.status = 'ENDED';
+    source.endDate = '2026-03-15';
+    source.endReason = 'TRANSFERRED';
+    source.endReasonDetails = null;
+    source.rowVersion = source.rowVersion + 1;
+    const target = {
+      id: nextEnrollmentId++, classId: body.targetClassId, className: 'Sunday Intermediate', danceStyleId: 1, danceStyleName: 'Bharatanatyam',
+      feeTierId: null, feeTierLabel: null, status: 'ACTIVE', startDate: '2026-03-15', resolvedFeeAmount: null,
+      endDate: null, endReason: null, endReasonDetails: null, rowVersion: 0
+    };
+    FIXTURE_STUDENT_DETAIL.enrollments.push(target);
+    return ok({ sourceEnrollment: source, targetEnrollment: target });
+  }
+
   return next(req);
 };

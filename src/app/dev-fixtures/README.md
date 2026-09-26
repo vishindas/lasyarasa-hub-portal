@@ -46,15 +46,21 @@ delete all succeed), `blocked` (archive returns the 409
 class id 2 (`FIXTURE_ARCHIVED_CLASS`) is already archived, for the
 "Archived" tab / restore-flow pass.
 
-Issue #66 Phase 2A (Add/End enrollment) has its own flag,
-`sessionStorage.enrollmentFixtureScenario`: `default` (Add/End succeed),
-`addBlocked` (Add returns the 409 `ENROLLMENT_DUPLICATE_ACTIVE` typed
-error), `endStale` (End returns the 409 `STALE_CONFLICT` typed error).
-Unlike the classes fixture, `FIXTURE_STUDENT_DETAIL.enrollments` is
-genuinely stateful within a page session -- Add pushes a new row and End
-mutates the target row in place (`student-profile-fixture.interceptor.ts`),
-so a reload after either action shows the real before/after change, not a
-static snapshot.
+Issue #66 Phase 2A/2B (Add/End/Transfer enrollment) share one flag,
+`sessionStorage.enrollmentFixtureScenario`: `default` (Add/End/Transfer all
+succeed), `addBlocked` (Add returns the 409 `ENROLLMENT_DUPLICATE_ACTIVE`
+typed error), `endStale` (End returns the 409 `STALE_CONFLICT` typed
+error), `transferBlocked` (Transfer returns the 409
+`ENROLLMENT_DUPLICATE_ACTIVE` typed error, simulating an already-current
+enrollment in the destination class). Unlike the classes fixture,
+`FIXTURE_STUDENT_DETAIL.enrollments` is genuinely stateful within a page
+session -- Add pushes a new row, End mutates the target row in place, and
+Transfer does both atomically in one handler (ends the source, pushes the
+target) -- (`student-profile-fixture.interceptor.ts`), so a reload after
+any of the three shows the real before/after change, not a static
+snapshot. A second active class (id 3, `FIXTURE_CLASS_2`, alongside the
+original id 1) exists specifically so the Transfer dialog's destination
+picker has a genuine choice besides the source class itself.
 
 ## Disposition after Slice 6 verification
 

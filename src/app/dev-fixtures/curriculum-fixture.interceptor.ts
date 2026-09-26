@@ -14,7 +14,7 @@ import { delay } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   FIXTURE_DANCE_STYLES, FIXTURE_CURRICULA, FIXTURE_VERSIONS, FIXTURE_MODULES,
-  FIXTURE_ASSIGNMENT, FIXTURE_MODULE_STATES, FIXTURE_CLASS, FIXTURE_ARCHIVED_CLASS, FIXTURE_LESSONS
+  FIXTURE_ASSIGNMENT, FIXTURE_MODULE_STATES, FIXTURE_CLASS, FIXTURE_ARCHIVED_CLASS, FIXTURE_CLASS_2, FIXTURE_LESSONS
 } from './curriculum-fixture-data';
 import {
   FIXTURE_STUDENTS, FIXTURE_CLASSES, FIXTURE_HOME, FIXTURE_LEARNING_PATH,
@@ -61,9 +61,12 @@ export const curriculumFixtureInterceptor: HttpInterceptorFn = (req: HttpRequest
   if (path === '/school/settings/currency') return ok({ currency: 'INR' });
   if (path === '/school/classes/1' && req.method === 'GET') return ok(FIXTURE_CLASS);
   if (path === '/school/classes/2' && req.method === 'GET') return ok(FIXTURE_ARCHIVED_CLASS);
-  if (path === '/school/classes/1/students' || path === '/school/classes/2/students') return ok([]);
+  if (path === '/school/classes/3' && req.method === 'GET') return ok(FIXTURE_CLASS_2);
+  if (path === '/school/classes/1/students' || path === '/school/classes/2/students' || path === '/school/classes/3/students') return ok([]);
   if (path === '/school/classes/archived' && req.method === 'GET') return ok([FIXTURE_ARCHIVED_CLASS]);
-  if (path === '/school/classes' && req.method === 'GET') return ok([FIXTURE_CLASS]);
+  // Issue #66 Phase 2B: a second active class (id 3) alongside the original
+  // (id 1) so the Transfer dialog's destination picker has a real choice.
+  if (path === '/school/classes' && req.method === 'GET') return ok([FIXTURE_CLASS, FIXTURE_CLASS_2]);
 
   // Issue #67: archive/restore -- a real conflict is reproducible by
   // sessionStorage('classArchiveFixtureScenario') = 'blocked' | 'stale'

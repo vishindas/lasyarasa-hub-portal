@@ -99,3 +99,11 @@ export const FIXTURE_ARCHIVED_CLASS = {
   danceStyleId: 1, ageGroupId: null, feeTierId: null, danceStyleName: 'Kuchipudi', ageGroupLabel: null, feeTierLabel: null,
   archivedAt: '2026-02-01T12:00:00', rowVersion: 1
 };
+
+// Issue #66 Phase 2B: a second ACTIVE class, purely so the Transfer dialog's
+// destination picker has a genuine choice besides the source class itself.
+export const FIXTURE_CLASS_2 = {
+  id: 3, batchName: 'Sunday Intermediate', schedule: 'Sun 2:00 PM', description: 'Intermediate batch.',
+  danceStyleId: 1, ageGroupId: null, feeTierId: null, danceStyleName: 'Bharatanatyam', ageGroupLabel: null, feeTierLabel: null,
+  archivedAt: null as string | null, rowVersion: 0
+};

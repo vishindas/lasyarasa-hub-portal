@@ -21,6 +21,7 @@ import { ConfirmDialog } from '../../../shared/confirm-dialog';
 import { PortalAccessCard, PortalAccessGuardianOption } from './portal-access-card';
 import { AddEnrollmentDialog, AddEnrollmentDialogData } from './add-enrollment-dialog';
 import { EndEnrollmentDialog, EndEnrollmentDialogData } from './end-enrollment-dialog';
+import { TransferEnrollmentDialog, TransferEnrollmentDialogData } from './transfer-enrollment-dialog';
 
 interface EnrollmentDetail {
   id: number; classId: number; className: string; danceStyleId: number; danceStyleName: string;
@@ -310,6 +311,10 @@ interface FeeRecord {
                   <div style="display:flex;align-items:center;gap:8px">
                     <span class="status-chip status-{{ e.status?.toLowerCase() }}">{{ e.status | titlecase }}</span>
                     @if (e.status !== 'ENDED') {
+                      <button mat-icon-button style="margin-top:-4px" title="Transfer to Class"
+                              (click)="openTransferEnrollment(d.student.id, e)">
+                        <mat-icon style="font-size:18px">swap_horiz</mat-icon>
+                      </button>
                       <button mat-icon-button color="warn" style="margin-top:-4px" title="End Enrollment"
                               (click)="openEndEnrollment(d.student.id, e)">
                         <mat-icon style="font-size:18px">event_busy</mat-icon>
@@ -558,6 +563,21 @@ export class StudentProfileComponent implements OnInit {
         if (ended) {
           this.loadDetail(String(studentId));
           this.snack.open('Enrollment ended', 'OK', { duration: 2500 });
+        }
+      });
+  }
+
+  openTransferEnrollment(studentId: number, enrollment: EnrollmentDetail) {
+    const data: TransferEnrollmentDialogData = {
+      studentId, enrollmentId: enrollment.id, sourceClassId: enrollment.classId,
+      sourceClassName: enrollment.className || enrollment.danceStyleName || 'this class',
+      rowVersion: enrollment.rowVersion, classes: this.classes()
+    };
+    this.dialog.open(TransferEnrollmentDialog, { width: '440px', data })
+      .afterClosed().subscribe(transferred => {
+        if (transferred) {
+          this.loadDetail(String(studentId));
+          this.snack.open('Student transferred', 'OK', { duration: 2500 });
         }
       });
   }
