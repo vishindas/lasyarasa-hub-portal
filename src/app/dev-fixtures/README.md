@@ -46,6 +46,16 @@ delete all succeed), `blocked` (archive returns the 409
 class id 2 (`FIXTURE_ARCHIVED_CLASS`) is already archived, for the
 "Archived" tab / restore-flow pass.
 
+Issue #66 Phase 2A (Add/End enrollment) has its own flag,
+`sessionStorage.enrollmentFixtureScenario`: `default` (Add/End succeed),
+`addBlocked` (Add returns the 409 `ENROLLMENT_DUPLICATE_ACTIVE` typed
+error), `endStale` (End returns the 409 `STALE_CONFLICT` typed error).
+Unlike the classes fixture, `FIXTURE_STUDENT_DETAIL.enrollments` is
+genuinely stateful within a page session -- Add pushes a new row and End
+mutates the target row in place (`student-profile-fixture.interceptor.ts`),
+so a reload after either action shows the real before/after change, not a
+static snapshot.
+
 ## Disposition after Slice 6 verification
 
 Kept as isolated, clearly-labeled test infrastructure (this README, the
