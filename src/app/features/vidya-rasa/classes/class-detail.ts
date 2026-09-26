@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TitleCasePipe } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,6 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../../environments/environment';
 import { SchoolClass, ClassStudent } from '../../../core/models/class.model';
 import { ClassFormDialog } from './class-form-dialog';
+import { ConfirmDialog } from '../../../shared/confirm-dialog';
 
 @Component({
   selector: 'app-class-detail',
@@ -40,7 +41,12 @@ import { ClassFormDialog } from './class-form-dialog';
             <mat-icon>arrow_back</mat-icon>
           </button>
           <div>
-            <h2 style="margin:0">{{ c.batchName }}</h2>
+            <h2 style="margin:0">
+              {{ c.batchName }}
+              @if (c.archivedAt) {
+                <span style="font-size:0.7rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;background:#f3f4f6;color:#6b7280;padding:3px 9px;border-radius:10px;margin-left:8px;vertical-align:middle">Archived</span>
+              }
+            </h2>
             <p class="page-subtitle" style="margin:4px 0 0">
               {{ students().length }} student{{ students().length !== 1 ? 's' : '' }}
               @if (c.danceStyleName) { &nbsp;·&nbsp;{{ c.danceStyleName }} }
@@ -54,6 +60,15 @@ import { ClassFormDialog } from './class-form-dialog';
           <button mat-stroked-button (click)="openEdit(c)">
             <mat-icon>edit</mat-icon> Edit
           </button>
+          @if (!c.archivedAt) {
+            <button mat-stroked-button (click)="archive(c)">
+              <mat-icon>archive</mat-icon> Archive
+            </button>
+          } @else {
+            <button mat-stroked-button (click)="restore(c)">
+              <mat-icon>unarchive</mat-icon> Restore
+            </button>
+          }
         </div>
       </div>
 
@@ -168,6 +183,29 @@ export class ClassDetailComponent implements OnInit {
           this.load(String(cls.id));
           this.snack.open('Class saved', 'OK', { duration: 2500 });
         }
+      });
+  }
+
+  archive(cls: SchoolClass) {
+    this.dialog.open(ConfirmDialog, { width: '400px', data: {
+      title: 'Archive Class',
+      message: `Archive "${cls.batchName}"? It will no longer appear as an option for new enrollments, assignments, or curriculum, but all its history is preserved.`,
+      confirmLabel: 'Archive'
+    } }).afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      this.http.post(`${environment.apiUrl}/school/classes/${cls.id}/archive`, { expectedRowVersion: cls.rowVersion })
+        .subscribe({
+          next: () => { this.load(String(cls.id)); this.snack.open('Class archived', 'OK', { duration: 2500 }); },
+          error: (err: HttpErrorResponse) => this.snack.open(err.error?.message || 'Could not archive this class.', 'OK', { duration: 5000 })
+        });
+    });
+  }
+
+  restore(cls: SchoolClass) {
+    this.http.post(`${environment.apiUrl}/school/classes/${cls.id}/restore`, { expectedRowVersion: cls.rowVersion })
+      .subscribe({
+        next: () => { this.load(String(cls.id)); this.snack.open('Class restored', 'OK', { duration: 2500 }); },
+        error: (err: HttpErrorResponse) => this.snack.open(err.error?.message || 'Could not restore this class.', 'OK', { duration: 5000 })
       });
   }
 }

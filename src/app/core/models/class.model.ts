@@ -9,6 +9,8 @@ export interface SchoolClass {
   danceStyleName: string | null;
   ageGroupLabel: string | null;
   feeTierLabel: string | null;
+  archivedAt: string | null;
+  rowVersion: number;
 }
 
 export interface ClassStudent {
