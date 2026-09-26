@@ -19,11 +19,14 @@ import { FeeFormDialog, FeeDialogData } from '../fees/fee-form-dialog';
 import { FeeOverrideDialog, FeeOverrideDialogData } from './fee-override-dialog';
 import { ConfirmDialog } from '../../../shared/confirm-dialog';
 import { PortalAccessCard, PortalAccessGuardianOption } from './portal-access-card';
+import { AddEnrollmentDialog, AddEnrollmentDialogData } from './add-enrollment-dialog';
+import { EndEnrollmentDialog, EndEnrollmentDialogData } from './end-enrollment-dialog';
 
 interface EnrollmentDetail {
   id: number; classId: number; className: string; danceStyleId: number; danceStyleName: string;
   feeTierId: number; feeTierLabel: string; status: string; startDate: string;
   resolvedFeeAmount: number | null;
+  endDate: string | null; endReason: string | null; endReasonDetails: string | null; rowVersion: number;
 }
 
 interface FeeOverride {
@@ -278,21 +281,41 @@ interface FeeRecord {
 
           <mat-card>
             <mat-card-content style="padding-top:16px">
-              <p class="section-label">Dance Style Enrollments ({{ d.enrollments.length }})</p>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <p class="section-label" style="margin:0">Dance Style Enrollments ({{ d.enrollments.length }})</p>
+                <button mat-stroked-button style="font-size:0.8rem" (click)="openAddEnrollment(d.student.id)">
+                  <mat-icon style="font-size:18px;width:18px;height:18px">add</mat-icon> Add Class
+                </button>
+              </div>
               @for (e of d.enrollments; track e.id) {
                 <div class="enroll-row">
                   <div>
-                    <div class="enroll-style">{{ e.danceStyleName || 'Style #' + e.danceStyleId }}</div>
-                    <div class="enroll-tier">
-                      {{ e.feeTierLabel || 'Tier #' + e.feeTierId }}
-                      @if (e.resolvedFeeAmount != null) {
-                        <span style="color:#3d4ed8;font-weight:600;margin-left:6px">
-                          {{ e.resolvedFeeAmount | currency:currencyService.currency() }}/mo
-                        </span>
-                      }
-                    </div>
+                    <div class="enroll-style">{{ e.danceStyleName || e.className || 'Style #' + e.danceStyleId }}</div>
+                    @if (e.status !== 'ENDED') {
+                      <div class="enroll-tier">
+                        {{ e.feeTierLabel || 'Tier #' + e.feeTierId }}
+                        @if (e.resolvedFeeAmount != null) {
+                          <span style="color:#3d4ed8;font-weight:600;margin-left:6px">
+                            {{ e.resolvedFeeAmount | currency:currencyService.currency() }}/mo
+                          </span>
+                        }
+                      </div>
+                    } @else {
+                      <div class="enroll-tier">
+                        Ended {{ e.endDate | date:'mediumDate' }} · {{ e.endReason | titlecase }}
+                        @if (e.endReasonDetails) { — {{ e.endReasonDetails }} }
+                      </div>
+                    }
                   </div>
-                  <span class="status-chip status-{{ e.status?.toLowerCase() }}">{{ e.status | titlecase }}</span>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="status-chip status-{{ e.status?.toLowerCase() }}">{{ e.status | titlecase }}</span>
+                    @if (e.status !== 'ENDED') {
+                      <button mat-icon-button color="warn" style="margin-top:-4px" title="End Enrollment"
+                              (click)="openEndEnrollment(d.student.id, e)">
+                        <mat-icon style="font-size:18px">event_busy</mat-icon>
+                      </button>
+                    }
+                  </div>
                 </div>
               }
               @if (!d.enrollments.length) {
@@ -509,6 +532,32 @@ export class StudentProfileComponent implements OnInit {
           this.loadOverrides(String(studentId));
           this.loadDetail(String(studentId));
           this.snack.open('Fee override saved', 'OK', { duration: 2500 });
+        }
+      });
+  }
+
+  openAddEnrollment(studentId: number) {
+    const data: AddEnrollmentDialogData = { studentId, classes: this.classes() };
+    this.dialog.open(AddEnrollmentDialog, { width: '440px', data })
+      .afterClosed().subscribe(added => {
+        if (added) {
+          this.loadDetail(String(studentId));
+          this.snack.open('Class added', 'OK', { duration: 2500 });
+        }
+      });
+  }
+
+  openEndEnrollment(studentId: number, enrollment: EnrollmentDetail) {
+    const data: EndEnrollmentDialogData = {
+      studentId, enrollmentId: enrollment.id,
+      className: enrollment.className || enrollment.danceStyleName || 'this class',
+      rowVersion: enrollment.rowVersion
+    };
+    this.dialog.open(EndEnrollmentDialog, { width: '440px', data })
+      .afterClosed().subscribe(ended => {
+        if (ended) {
+          this.loadDetail(String(studentId));
+          this.snack.open('Enrollment ended', 'OK', { duration: 2500 });
         }
       });
   }

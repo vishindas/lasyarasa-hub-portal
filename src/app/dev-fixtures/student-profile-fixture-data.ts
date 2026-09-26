@@ -17,7 +17,18 @@ export const FIXTURE_STUDENT_DETAIL = {
     { id: 602, firstName: 'Vikram', lastName: 'Rao', email: 'vikram.rao@example.com', phone: '9876500001', relationship: 'FATHER', primary: false, linkNotes: '' }
   ],
   notes: [],
-  enrollments: []
+  // Issue #66 Phase 2A: one current enrollment, so the End action has
+  // something real to act on during a verify-build pass; mutated in place
+  // by student-profile-fixture.interceptor.ts's Add/End handlers.
+  enrollments: [
+    { id: 9101, classId: 1, className: 'Saturday Beginners', danceStyleId: 1, danceStyleName: 'Bharatanatyam',
+      feeTierId: null, feeTierLabel: null, status: 'ACTIVE', startDate: '2026-01-15', resolvedFeeAmount: null,
+      endDate: null, endReason: null, endReasonDetails: null, rowVersion: 0 }
+  ] as Array<{
+    id: number; classId: number; className: string; danceStyleId: number; danceStyleName: string;
+    feeTierId: number | null; feeTierLabel: string | null; status: string; startDate: string; resolvedFeeAmount: number | null;
+    endDate: string | null; endReason: string | null; endReasonDetails: string | null; rowVersion: number;
+  }>
 };
 
 export type PortalAccessFixtureScenario = 'needsSetup' | 'pendingInvitation' | 'pendingSetup' | 'active' | 'revoked';
